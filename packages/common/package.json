@@ -1,0 +1,16 @@
+{
+  "name": "@propcheck/common",
+  "version": "0.1.0",
+  "description": "Shared types, errors, and utilities for propcheck",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc --build",
+    "clean": "tsc --build --clean",
+    "test": "node --test dist/**/*.test.js"
+  },
+  "dependencies": {
+    "zod": "3.24.4"
+  },
+  "license": "MIT"
+}

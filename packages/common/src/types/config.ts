@@ -1,0 +1,48 @@
+/**
+ * Configuration types for propcheck.
+ */
+
+import type { SupportedLanguage } from "./analysis";
+
+/** Top-level propcheck configuration. */
+export interface PropcheckConfig {
+  /** Anthropic API key (BYOK). Loaded from env or config file. */
+  readonly apiKey: string | null;
+
+  /** LLM model to use for property inference. */
+  readonly model: string;
+
+  /** Maximum properties to infer per function. */
+  readonly maxPropertiesPerFunction: number;
+
+  /** Minimum quality score (0-15) to keep a property. */
+  readonly minScore: number;
+
+  /** Default run mode. */
+  readonly defaultMode: "quick" | "default" | "thorough";
+
+  /** Per-property timeout in milliseconds. */
+  readonly timeout: number;
+
+  /** Languages to analyze. */
+  readonly languages: readonly SupportedLanguage[];
+
+  /** Path to .propcheck/ directory relative to project root. */
+  readonly storeDir: string;
+
+  /** Use mock LLM client for offline testing. */
+  readonly mock: boolean;
+}
+
+/** Default configuration values. */
+export const DEFAULT_CONFIG: PropcheckConfig = {
+  apiKey: null,
+  model: "claude-sonnet-4-20250514",
+  maxPropertiesPerFunction: 5,
+  minScore: 10,
+  defaultMode: "default",
+  timeout: 30_000,
+  languages: ["typescript", "javascript"],
+  storeDir: ".propcheck",
+  mock: false,
+};

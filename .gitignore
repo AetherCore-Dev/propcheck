@@ -1,0 +1,7 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.propcheck/config.json
+.env
+.env.local
+*.log
