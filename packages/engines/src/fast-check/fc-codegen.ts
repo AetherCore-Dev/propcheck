@@ -111,7 +111,12 @@ export function generateFastCheckTest(
     // Add predicate
     lines.push(`      (${arbNames.join(", ")}) => {`);
     lines.push(`        const result = target.${funcName}(${arbNames.join(", ")});`);
-    lines.push(`        return ${prop.assertion};`);
+    // Replace bare function calls with target.funcName in assertion
+    const assertion = prop.assertion.replace(
+      new RegExp(`\\b${funcName}\\(`, "g"),
+      `target.${funcName}(`,
+    );
+    lines.push(`        return ${assertion};`);
     lines.push(`      }`);
     lines.push(`    ),`);
     lines.push(`    { numRuns${config.seed !== undefined ? `, seed: ${config.seed}` : ""} }`);

@@ -1,0 +1,41 @@
+{
+  "name": "propcheck",
+  "version": "0.1.0",
+  "description": "AI-powered property-based testing — find bugs your tests miss",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "propcheck": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "clean": "tsc --build --clean",
+    "dev": "tsc --build --watch"
+  },
+  "keywords": [
+    "property-based-testing",
+    "pbt",
+    "fuzzing",
+    "ai",
+    "testing",
+    "llm",
+    "fast-check",
+    "hypothesis"
+  ],
+  "dependencies": {
+    "@propcheck/common": "*",
+    "@propcheck/config": "*",
+    "@propcheck/parser": "*",
+    "@propcheck/store": "*",
+    "@propcheck/llm": "*",
+    "@propcheck/engines": "*",
+    "@propcheck/reporter": "*",
+    "commander": "13.1.0"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "license": "MIT"
+}

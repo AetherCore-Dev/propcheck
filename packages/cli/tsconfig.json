@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src"
+  },
+  "include": ["src"],
+  "references": [
+    { "path": "../common" },
+    { "path": "../config" },
+    { "path": "../parser" },
+    { "path": "../store" },
+    { "path": "../llm" },
+    { "path": "../engines" },
+    { "path": "../reporter" }
+  ]
+}

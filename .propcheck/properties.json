@@ -1,0 +1,159 @@
+{
+  "version": 1,
+  "modules": {
+    "test-fixtures/typescript/cart.ts": {
+      "module": "test-fixtures/typescript/cart.ts",
+      "filePath": "test-fixtures/typescript/cart.ts",
+      "properties": [
+        {
+          "id": "prop_001",
+          "targetFunction": "applyDiscount",
+          "description": "Result is non-negative",
+          "category": "boundary",
+          "assertion": "applyDiscount(price, discount) >= 0",
+          "generators": {
+            "price": {
+              "type": "float",
+              "constraints": {
+                "min": 0,
+                "max": 10000
+              }
+            },
+            "discount": {
+              "type": "float",
+              "constraints": {
+                "min": 0,
+                "max": 100
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "price": 100,
+                "discount": 10
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "price": 0,
+                "discount": 0
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "price": 0.01,
+                "discount": 99.99
+              }
+            }
+          ],
+          "score": 13,
+          "confidence": 0.9,
+          "evidence": "prices should never be negative after discount",
+          "sourceHash": "d9d64f51d3671cac08413a39170fa67551231f36afc7af24d20828c9193485a8",
+          "inferredAt": "2026-03-26T11:24:12.391Z",
+          "modelId": "mock-model"
+        },
+        {
+          "id": "prop_002",
+          "targetFunction": "applyDiscount",
+          "description": "Result does not exceed original price",
+          "category": "monotonic",
+          "assertion": "applyDiscount(price, discount) <= price",
+          "generators": {
+            "price": {
+              "type": "float",
+              "constraints": {
+                "min": 0,
+                "max": 10000
+              }
+            },
+            "discount": {
+              "type": "float",
+              "constraints": {
+                "min": 0,
+                "max": 100
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "price": 100,
+                "discount": 20
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "price": 100,
+                "discount": 0
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "price": 100,
+                "discount": 100
+              }
+            }
+          ],
+          "score": 13,
+          "confidence": 0.92,
+          "evidence": "discount should reduce or maintain price, never increase",
+          "sourceHash": "d9d64f51d3671cac08413a39170fa67551231f36afc7af24d20828c9193485a8",
+          "inferredAt": "2026-03-26T11:24:12.392Z",
+          "modelId": "mock-model"
+        },
+        {
+          "id": "prop_003",
+          "targetFunction": "applyDiscount",
+          "description": "Zero discount returns original price",
+          "category": "boundary",
+          "assertion": "applyDiscount(price, 0) === price",
+          "generators": {
+            "price": {
+              "type": "float",
+              "constraints": {
+                "min": 0,
+                "max": 10000
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "price": 49.99
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "price": 0
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "price": 99999.99
+              }
+            }
+          ],
+          "score": 13,
+          "confidence": 0.98,
+          "evidence": "zero discount should not change the price",
+          "sourceHash": "d9d64f51d3671cac08413a39170fa67551231f36afc7af24d20828c9193485a8",
+          "inferredAt": "2026-03-26T11:24:12.392Z",
+          "modelId": "mock-model"
+        }
+      ],
+      "sourceHash": "d9d64f51d3671cac08413a39170fa67551231f36afc7af24d20828c9193485a8",
+      "inferredAt": "2026-03-26T11:24:12.392Z"
+    }
+  }
+}
