@@ -406,6 +406,108 @@
       ],
       "sourceHash": "23c6f6b6a46643df9474221da9b84951824faebf94d0f336f4b839abeafe1dc5",
       "inferredAt": "2026-03-26T15:32:36.115Z"
+    },
+    "test-fixtures/python/calculator.py": {
+      "module": "test-fixtures/python/calculator.py",
+      "filePath": "test-fixtures/python/calculator.py",
+      "properties": [
+        {
+          "id": "prop_001",
+          "targetFunction": "add",
+          "description": "Addition is commutative",
+          "category": "equivalence",
+          "assertion": "add(a, b) === add(b, a)",
+          "generators": {
+            "a": {
+              "type": "integer",
+              "constraints": {
+                "min": -1000,
+                "max": 1000
+              }
+            },
+            "b": {
+              "type": "integer",
+              "constraints": {
+                "min": -1000,
+                "max": 1000
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "a": 3,
+                "b": 5
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "a": 0,
+                "b": 0
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "a": 9007199254740991,
+                "b": 1
+              }
+            }
+          ],
+          "score": 13,
+          "confidence": 0.95,
+          "evidence": "add(a, b) takes two numbers and returns their sum",
+          "sourceHash": "0c71969442c51055aae1c85372046a030fa68d61af39d9325d3cfbed6fd0511f",
+          "inferredAt": "2026-03-26T15:37:18.540Z",
+          "modelId": "mock-model"
+        },
+        {
+          "id": "prop_002",
+          "targetFunction": "add",
+          "description": "Zero is identity element",
+          "category": "boundary",
+          "assertion": "add(a, 0) === a",
+          "generators": {
+            "a": {
+              "type": "integer",
+              "constraints": {
+                "min": -1000,
+                "max": 1000
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "a": 42
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "a": 0
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "a": -999999
+              }
+            }
+          ],
+          "score": 13,
+          "confidence": 0.99,
+          "evidence": "adding zero should not change the value",
+          "sourceHash": "0c71969442c51055aae1c85372046a030fa68d61af39d9325d3cfbed6fd0511f",
+          "inferredAt": "2026-03-26T15:37:18.541Z",
+          "modelId": "mock-model"
+        }
+      ],
+      "sourceHash": "0c71969442c51055aae1c85372046a030fa68d61af39d9325d3cfbed6fd0511f",
+      "inferredAt": "2026-03-26T15:37:18.541Z"
     }
   }
 }

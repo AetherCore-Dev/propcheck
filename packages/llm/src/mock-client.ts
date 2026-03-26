@@ -9,44 +9,6 @@ import type { LlmClient, ApiResponse, LlmToolSchema, LlmCallOptions } from "./cl
 
 /** Built-in mock responses keyed by function name patterns. */
 const MOCK_RESPONSES: Record<string, unknown> = {
-  // Math functions
-  add: {
-    properties: [
-      {
-        targetFunction: "add",
-        description: "Addition is commutative",
-        category: "equivalence",
-        assertion: "add(a, b) === add(b, a)",
-        generators: {
-          a: { type: "integer", constraints: { min: -1000, max: 1000 } },
-          b: { type: "integer", constraints: { min: -1000, max: 1000 } },
-        },
-        seedInputs: [
-          { label: "normal", value: { a: 3, b: 5 } },
-          { label: "boundary", value: { a: 0, b: 0 } },
-          { label: "extreme", value: { a: Number.MAX_SAFE_INTEGER, b: 1 } },
-        ],
-        evidence: "add(a, b) takes two numbers and returns their sum",
-        confidence: 0.95,
-      },
-      {
-        targetFunction: "add",
-        description: "Zero is identity element",
-        category: "boundary",
-        assertion: "add(a, 0) === a",
-        generators: {
-          a: { type: "integer", constraints: { min: -1000, max: 1000 } },
-        },
-        seedInputs: [
-          { label: "normal", value: { a: 42 } },
-          { label: "boundary", value: { a: 0 } },
-          { label: "extreme", value: { a: -999999 } },
-        ],
-        evidence: "adding zero should not change the value",
-        confidence: 0.99,
-      },
-    ],
-  },
 
   // Cart/discount functions
   applyDiscount: {
@@ -250,6 +212,43 @@ const MOCK_RESPONSES: Record<string, unknown> = {
     ],
   },
   // Python math/calculator functions
+  add: {
+    properties: [
+      {
+        targetFunction: "add",
+        description: "Addition is commutative",
+        category: "equivalence",
+        assertion: "add(a, b) === add(b, a)",
+        generators: {
+          a: { type: "integer", constraints: { min: -1000, max: 1000 } },
+          b: { type: "integer", constraints: { min: -1000, max: 1000 } },
+        },
+        seedInputs: [
+          { label: "normal", value: { a: 3, b: 5 } },
+          { label: "boundary", value: { a: 0, b: 0 } },
+          { label: "extreme", value: { a: Number.MAX_SAFE_INTEGER, b: 1 } },
+        ],
+        evidence: "add(a, b) takes two numbers and returns their sum",
+        confidence: 0.95,
+      },
+      {
+        targetFunction: "add",
+        description: "Zero is identity element",
+        category: "boundary",
+        assertion: "add(a, 0) === a",
+        generators: {
+          a: { type: "integer", constraints: { min: -1000, max: 1000 } },
+        },
+        seedInputs: [
+          { label: "normal", value: { a: 42 } },
+          { label: "boundary", value: { a: 0 } },
+          { label: "extreme", value: { a: -999999 } },
+        ],
+        evidence: "adding zero should not change the value",
+        confidence: 0.99,
+      },
+    ],
+  },
   divide: {
     properties: [
       {
