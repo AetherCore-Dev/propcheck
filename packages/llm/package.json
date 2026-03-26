@@ -1,0 +1,18 @@
+{
+  "name": "@propcheck/llm",
+  "version": "0.1.0",
+  "description": "LLM integration for propcheck — Claude API property inference",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc --build",
+    "clean": "tsc --build --clean",
+    "test": "node --test dist/**/*.test.js"
+  },
+  "dependencies": {
+    "@propcheck/common": "*",
+    "@anthropic-ai/sdk": "0.52.0",
+    "zod": "3.24.4"
+  },
+  "license": "MIT"
+}

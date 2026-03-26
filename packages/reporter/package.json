@@ -1,0 +1,17 @@
+{
+  "name": "@propcheck/reporter",
+  "version": "0.1.0",
+  "description": "Terminal output for propcheck — colored reports and counterexamples",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc --build",
+    "clean": "tsc --build --clean",
+    "test": "node --test dist/**/*.test.js"
+  },
+  "dependencies": {
+    "@propcheck/common": "*",
+    "chalk": "4.1.2"
+  },
+  "license": "MIT"
+}

@@ -1,0 +1,170 @@
+/**
+ * Inference prompt builder — constructs the LLM prompt from AnalysisContext.
+ */
+
+import type { AnalysisContext, FunctionSignature } from "@propcheck/common";
+import type { LlmToolSchema } from "../client";
+
+const SYSTEM_PROMPT = `You are propcheck, an expert AI that discovers testable properties (invariants) of code.
+
+Given a function's signature, types, and documentation, you infer properties that should ALWAYS hold true for ANY valid input.
+
+Property categories:
+- roundtrip: encode then decode returns original (decode(encode(x)) === x)
+- idempotent: applying twice is same as once (f(f(x)) === f(x))
+- conservation: a quantity is preserved (sum before === sum after)
+- monotonic: output preserves ordering (if a <= b then f(a) <= f(b))
+- equivalence: two implementations agree (f(x) === g(x))
+- type-preservation: output type matches expectation
+- cross-function: relationship between two functions
+- boundary: edge case behavior (result >= 0, handles empty input)
+- metamorphic: transformed input relates to transformed output
+
+Rules:
+1. Every property MUST be testable with random inputs
+2. Every property MUST cite evidence from the code or docs
+3. Prefer specific properties over generic ones
+4. Include seed inputs: one normal case, one boundary, one extreme
+5. Generators must cover the function's parameter types
+6. Assertions must reference the target function's return value
+7. Do NOT generate tautologies (always-true) or trivial type checks`;
+
+function formatFunction(fn: FunctionSignature): string {
+  const params = fn.parameters
+    .map((p) => {
+      let s = p.name;
+      if (p.type) s += `: ${p.type}`;
+      if (p.isOptional) s += "?";
+      if (p.defaultValue) s += ` = ${p.defaultValue}`;
+      if (p.isRest) s = `...${s}`;
+      return s;
+    })
+    .join(", ");
+
+  const ret = fn.returnType ? `: ${fn.returnType}` : "";
+  const prefix = fn.isAsync ? "async " : "";
+  return `${prefix}function ${fn.qualifiedName}(${params})${ret}`;
+}
+
+export function buildInferPrompt(context: AnalysisContext): string {
+  const lines: string[] = [];
+
+  lines.push(`File: ${context.filePath}`);
+  lines.push(`Language: ${context.language}`);
+  lines.push("");
+
+  // Functions
+  lines.push("## Functions to analyze:");
+  for (const fn of context.functions) {
+    lines.push(`\n### ${fn.qualifiedName}`);
+    lines.push(`Signature: ${formatFunction(fn)}`);
+    if (fn.docstring) {
+      lines.push(`Documentation: ${fn.docstring}`);
+    }
+    lines.push(`Visibility: ${fn.visibility}`);
+  }
+
+  // Types
+  if (context.types.length > 0) {
+    lines.push("\n## Type definitions:");
+    for (const t of context.types) {
+      lines.push(`${t.kind} ${t.name} {`);
+      for (const prop of t.properties) {
+        const opt = prop.isOptional ? "?" : "";
+        const ro = prop.isReadonly ? "readonly " : "";
+        lines.push(`  ${ro}${prop.name}${opt}: ${prop.type}`);
+      }
+      lines.push("}");
+    }
+  }
+
+  // Doc signals
+  const docSignals = context.signals.doc;
+  if (docSignals.length > 0) {
+    lines.push("\n## Documentation signals:");
+    for (const doc of docSignals) {
+      if (doc.examples.length > 0) {
+        lines.push(`Examples for ${doc.functionName}:`);
+        for (const ex of doc.examples) {
+          lines.push(`  ${ex}`);
+        }
+      }
+      if (doc.throws.length > 0) {
+        lines.push(`Throws: ${doc.throws.join(", ")}`);
+      }
+    }
+  }
+
+  lines.push("\n## Instructions:");
+  lines.push("Infer 3-5 testable properties per function.");
+  lines.push("Use the infer_properties tool to return structured results.");
+
+  return lines.join("\n");
+}
+
+export function getSystemPrompt(): string {
+  return SYSTEM_PROMPT;
+}
+
+export function getInferTool(): LlmToolSchema {
+  return {
+    name: "infer_properties",
+    description: "Return inferred properties for the analyzed functions",
+    input_schema: {
+      type: "object",
+      properties: {
+        properties: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              targetFunction: { type: "string", description: "Qualified function name" },
+              description: { type: "string", description: "Human-readable description" },
+              category: {
+                type: "string",
+                enum: [
+                  "roundtrip", "idempotent", "conservation", "monotonic",
+                  "equivalence", "type-preservation", "cross-function",
+                  "boundary", "metamorphic",
+                ],
+              },
+              assertion: { type: "string", description: "Testable code expression" },
+              generators: {
+                type: "object",
+                description: "Map of parameter name to generator spec",
+                additionalProperties: {
+                  type: "object",
+                  properties: {
+                    type: { type: "string" },
+                    constraints: { type: "object" },
+                  },
+                  required: ["type"],
+                },
+              },
+              seedInputs: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    label: { type: "string", enum: ["normal", "boundary", "extreme"] },
+                    value: {},
+                  },
+                  required: ["label", "value"],
+                },
+                minItems: 1,
+                maxItems: 3,
+              },
+              evidence: { type: "string", description: "Code/doc evidence for this property" },
+              confidence: { type: "number", minimum: 0, maximum: 1 },
+            },
+            required: [
+              "targetFunction", "description", "category", "assertion",
+              "generators", "seedInputs", "evidence", "confidence",
+            ],
+          },
+        },
+      },
+      required: ["properties"],
+    },
+  };
+}

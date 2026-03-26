@@ -1,0 +1,16 @@
+{
+  "name": "@propcheck/store",
+  "version": "0.1.0",
+  "description": "Property persistence layer for propcheck (.propcheck/ directory)",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc --build",
+    "clean": "tsc --build --clean",
+    "test": "node --test dist/**/*.test.js"
+  },
+  "dependencies": {
+    "@propcheck/common": "*"
+  },
+  "license": "MIT"
+}
