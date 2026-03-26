@@ -1,0 +1,36 @@
+name: "propcheck"
+description: "Run AI-powered property-based testing on every PR"
+author: "propcheck"
+
+inputs:
+  target:
+    description: "Target file or directory to test"
+    required: false
+    default: "."
+  mode:
+    description: "Run mode: quick, default, thorough"
+    required: false
+    default: "default"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: "20"
+
+    - name: Install propcheck
+      shell: bash
+      run: npm install -g propcheck fast-check
+
+    - name: Run propcheck
+      shell: bash
+      run: |
+        if [ "${{ inputs.mode }}" = "quick" ]; then
+          propcheck run --quick ${{ inputs.target }}
+        elif [ "${{ inputs.mode }}" = "thorough" ]; then
+          propcheck run --thorough ${{ inputs.target }}
+        else
+          propcheck run ${{ inputs.target }}
+        fi

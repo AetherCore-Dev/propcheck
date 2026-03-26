@@ -13,6 +13,7 @@ import { Command } from "commander";
 import { initCommand } from "./commands/init";
 import { inferCommand } from "./commands/infer";
 import { runCommand } from "./commands/run";
+import { badgeCommand } from "./commands/badge";
 
 const program = new Command();
 
@@ -43,5 +44,10 @@ program
   .option("--seed <n>", "Random seed for reproducibility")
   .option("--json", "Output results as JSON")
   .action(runCommand);
+
+program
+  .command("badge")
+  .description("Output markdown badge snippet for your README")
+  .action(badgeCommand);
 
 program.parse();
