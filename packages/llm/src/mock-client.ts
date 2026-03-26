@@ -157,6 +157,44 @@ const MOCK_RESPONSES: Record<string, unknown> = {
       },
     ],
   },
+  // Python math/calculator functions
+  divide: {
+    properties: [
+      {
+        targetFunction: "divide",
+        description: "Division by 1 returns the original number",
+        category: "boundary",
+        assertion: "divide(a, 1) == a",
+        generators: {
+          a: { type: "float", constraints: { min: -10000, max: 10000 } },
+        },
+        seedInputs: [
+          { label: "normal", value: { a: 42 } },
+          { label: "boundary", value: { a: 0 } },
+          { label: "extreme", value: { a: -999.99 } },
+        ],
+        evidence: "dividing by 1 should return the original value",
+        confidence: 0.98,
+      },
+      {
+        targetFunction: "divide",
+        description: "Multiplication and division are inverse operations",
+        category: "roundtrip",
+        assertion: "abs(divide(a * b, b) - a) < 1e-9",
+        generators: {
+          a: { type: "float", constraints: { min: -1000, max: 1000 } },
+          b: { type: "float", constraints: { min: 0.001, max: 1000 } },
+        },
+        seedInputs: [
+          { label: "normal", value: { a: 10, b: 2 } },
+          { label: "boundary", value: { a: 0, b: 1 } },
+          { label: "extreme", value: { a: 999, b: 0.001 } },
+        ],
+        evidence: "a * b / b should equal a for non-zero b",
+        confidence: 0.85,
+      },
+    ],
+  },
 };
 
 /** Create a mock LLM client that returns canned responses. */

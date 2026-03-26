@@ -16,7 +16,7 @@ import {
   getProperties,
   getAllProperties,
 } from "@propcheck/store";
-import { generateFastCheckTest, runFastCheckTest } from "@propcheck/engines";
+import { generateFastCheckTest, runFastCheckTest, generateHypothesisTest, runHypothesisTest } from "@propcheck/engines";
 import { reportRunSummary, reportAsJson } from "@propcheck/reporter";
 import {
   hashContent,
@@ -89,22 +89,23 @@ export async function runCommand(
       console.error(`\n  Warning: Cannot read ${ps.filePath} — file may have been moved.\n`);
     }
 
-    // Generate test file
+    // Generate test file — select engine based on file extension
     const testsDir = path.join(storeDir, "tests");
     await fs.mkdir(testsDir, { recursive: true });
 
-    const { content, fileName } = generateFastCheckTest(
-      ps.properties,
-      filePath,
-      testsDir,
-      runConfig,
-    );
+    const isPython = ps.filePath.endsWith(".py");
 
-    const testFilePath = path.join(testsDir, fileName);
-    await fs.writeFile(testFilePath, content, "utf8");
+    const generated = isPython
+      ? generateHypothesisTest(ps.properties, filePath, testsDir, runConfig)
+      : generateFastCheckTest(ps.properties, filePath, testsDir, runConfig);
+
+    const testFilePath = path.join(testsDir, generated.fileName);
+    await fs.writeFile(testFilePath, generated.content, "utf8");
 
     // Run tests
-    const result = await runFastCheckTest(testFilePath, ps.properties, runConfig);
+    const result = isPython
+      ? await runHypothesisTest(testFilePath, ps.properties, runConfig)
+      : await runFastCheckTest(testFilePath, ps.properties, runConfig);
 
     // Report
     if (options.json) {

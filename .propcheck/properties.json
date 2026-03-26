@@ -1,29 +1,29 @@
 {
   "version": 1,
   "modules": {
-    "test-fixtures/typescript/cart.ts": {
-      "module": "test-fixtures/typescript/cart.ts",
-      "filePath": "test-fixtures/typescript/cart.ts",
+    "test-fixtures/python/calculator.py": {
+      "module": "test-fixtures/python/calculator.py",
+      "filePath": "test-fixtures/python/calculator.py",
       "properties": [
         {
           "id": "prop_001",
-          "targetFunction": "applyDiscount",
-          "description": "Result is non-negative",
-          "category": "boundary",
-          "assertion": "applyDiscount(price, discount) >= 0",
+          "targetFunction": "add",
+          "description": "Addition is commutative",
+          "category": "equivalence",
+          "assertion": "add(a, b) === add(b, a)",
           "generators": {
-            "price": {
-              "type": "float",
+            "a": {
+              "type": "integer",
               "constraints": {
-                "min": 0,
-                "max": 10000
+                "min": -1000,
+                "max": 1000
               }
             },
-            "discount": {
-              "type": "float",
+            "b": {
+              "type": "integer",
               "constraints": {
-                "min": -50,
-                "max": 200
+                "min": -1000,
+                "max": 1000
               }
             }
           },
@@ -31,96 +31,44 @@
             {
               "label": "normal",
               "value": {
-                "price": 100,
-                "discount": 10
+                "a": 3,
+                "b": 5
               }
             },
             {
               "label": "boundary",
               "value": {
-                "price": 0,
-                "discount": 0
+                "a": 0,
+                "b": 0
               }
             },
             {
               "label": "extreme",
               "value": {
-                "price": 0.01,
-                "discount": 99.99
+                "a": 9007199254740991,
+                "b": 1
               }
             }
           ],
           "score": 13,
-          "confidence": 0.9,
-          "evidence": "prices should never be negative after discount",
-          "sourceHash": "d9d64f51d3671cac08413a39170fa67551231f36afc7af24d20828c9193485a8",
-          "inferredAt": "2026-03-26T12:39:22.498Z",
+          "confidence": 0.95,
+          "evidence": "add(a, b) takes two numbers and returns their sum",
+          "sourceHash": "0c71969442c51055aae1c85372046a030fa68d61af39d9325d3cfbed6fd0511f",
+          "inferredAt": "2026-03-26T12:59:53.008Z",
           "modelId": "mock-model"
         },
         {
           "id": "prop_002",
-          "targetFunction": "applyDiscount",
-          "description": "Result does not exceed original price",
-          "category": "monotonic",
-          "assertion": "applyDiscount(price, discount) <= price",
-          "generators": {
-            "price": {
-              "type": "float",
-              "constraints": {
-                "min": 0,
-                "max": 10000
-              }
-            },
-            "discount": {
-              "type": "float",
-              "constraints": {
-                "min": -50,
-                "max": 200
-              }
-            }
-          },
-          "seedInputs": [
-            {
-              "label": "normal",
-              "value": {
-                "price": 100,
-                "discount": 20
-              }
-            },
-            {
-              "label": "boundary",
-              "value": {
-                "price": 100,
-                "discount": 0
-              }
-            },
-            {
-              "label": "extreme",
-              "value": {
-                "price": 100,
-                "discount": 150
-              }
-            }
-          ],
-          "score": 13,
-          "confidence": 0.92,
-          "evidence": "discount should reduce or maintain price, never increase",
-          "sourceHash": "d9d64f51d3671cac08413a39170fa67551231f36afc7af24d20828c9193485a8",
-          "inferredAt": "2026-03-26T12:39:22.499Z",
-          "modelId": "mock-model"
-        },
-        {
-          "id": "prop_003",
-          "targetFunction": "applyDiscount",
-          "description": "Zero discount returns original price",
+          "targetFunction": "add",
+          "description": "Zero is identity element",
           "category": "boundary",
-          "assertion": "applyDiscount(price, 0) === price",
+          "assertion": "add(a, 0) === a",
           "generators": {
-            "price": {
-              "type": "float",
+            "a": {
+              "type": "integer",
               "constraints": {
-                "min": 0,
-                "max": 10000
+                "min": -1000,
+                "max": 1000
               }
             }
           },
@@ -128,32 +76,32 @@
             {
               "label": "normal",
               "value": {
-                "price": 49.99
+                "a": 42
               }
             },
             {
               "label": "boundary",
               "value": {
-                "price": 0
+                "a": 0
               }
             },
             {
               "label": "extreme",
               "value": {
-                "price": 99999.99
+                "a": -999999
               }
             }
           ],
           "score": 13,
-          "confidence": 0.98,
-          "evidence": "zero discount should not change the price",
-          "sourceHash": "d9d64f51d3671cac08413a39170fa67551231f36afc7af24d20828c9193485a8",
-          "inferredAt": "2026-03-26T12:39:22.499Z",
+          "confidence": 0.99,
+          "evidence": "adding zero should not change the value",
+          "sourceHash": "0c71969442c51055aae1c85372046a030fa68d61af39d9325d3cfbed6fd0511f",
+          "inferredAt": "2026-03-26T12:59:53.009Z",
           "modelId": "mock-model"
         }
       ],
-      "sourceHash": "d9d64f51d3671cac08413a39170fa67551231f36afc7af24d20828c9193485a8",
-      "inferredAt": "2026-03-26T12:39:22.499Z"
+      "sourceHash": "0c71969442c51055aae1c85372046a030fa68d61af39d9325d3cfbed6fd0511f",
+      "inferredAt": "2026-03-26T12:59:53.009Z"
     }
   }
 }

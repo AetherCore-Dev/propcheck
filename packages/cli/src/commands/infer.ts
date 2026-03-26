@@ -12,7 +12,7 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { loadConfig, validateConfig } from "@propcheck/config";
-import { analyzeFile, detectLanguage } from "@propcheck/parser";
+import { analyzeFile, detectLanguage, analyzePythonFile } from "@propcheck/parser";
 import { inferProperties } from "@propcheck/llm";
 import { setProperties, initStore } from "@propcheck/store";
 import { reportInferResult } from "@propcheck/reporter";
@@ -63,14 +63,16 @@ export async function inferCommand(
 
   // Detect language
   const language = detectLanguage(targetPath);
-  if (!language || (language !== "typescript" && language !== "javascript")) {
-    console.error(`\n  Error: Unsupported file type. Supported: .ts, .tsx, .js, .jsx\n`);
+  if (!language || !["typescript", "javascript", "python"].includes(language)) {
+    console.error(`\n  Error: Unsupported file type. Supported: .ts, .tsx, .js, .jsx, .py\n`);
     process.exit(2);
   }
 
   // Read and parse
   const source = await fs.readFile(targetPath, "utf8");
-  const context: AnalysisContext = analyzeFile(targetPath, source, language);
+  const context: AnalysisContext = language === "python"
+    ? analyzePythonFile(targetPath, source)
+    : analyzeFile(targetPath, source, language);
 
   if (context.functions.length === 0) {
     console.log(`\n  No exported functions found in ${target}\n`);
