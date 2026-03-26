@@ -58,7 +58,7 @@ const MOCK_RESPONSES: Record<string, unknown> = {
         assertion: "applyDiscount(price, discount) >= 0",
         generators: {
           price: { type: "float", constraints: { min: 0, max: 10000 } },
-          discount: { type: "float", constraints: { min: 0, max: 100 } },
+          discount: { type: "float", constraints: { min: -50, max: 200 } },
         },
         seedInputs: [
           { label: "normal", value: { price: 100, discount: 10 } },
@@ -75,12 +75,12 @@ const MOCK_RESPONSES: Record<string, unknown> = {
         assertion: "applyDiscount(price, discount) <= price",
         generators: {
           price: { type: "float", constraints: { min: 0, max: 10000 } },
-          discount: { type: "float", constraints: { min: 0, max: 100 } },
+          discount: { type: "float", constraints: { min: -50, max: 200 } },
         },
         seedInputs: [
           { label: "normal", value: { price: 100, discount: 20 } },
           { label: "boundary", value: { price: 100, discount: 0 } },
-          { label: "extreme", value: { price: 100, discount: 100 } },
+          { label: "extreme", value: { price: 100, discount: 150 } },
         ],
         evidence: "discount should reduce or maintain price, never increase",
         confidence: 0.92,

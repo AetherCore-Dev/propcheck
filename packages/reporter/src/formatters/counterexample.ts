@@ -21,8 +21,19 @@ export function formatCounterexample(
 ): string {
   const lines: string[] = [];
 
+  // Format counterexample values as function call
+  let args: string;
+  if (Array.isArray(failure.counterexample)) {
+    args = failure.counterexample.map((v) => prettyValue(v)).join(", ");
+  } else if (failure.counterexample != null) {
+    args = prettyValue(failure.counterexample);
+  } else {
+    args = "...";
+  }
+
+  const funcName = property.targetFunction.split(".").pop() ?? property.targetFunction;
   lines.push(
-    chalk.red(`    Counterexample: ${property.targetFunction}(${prettyValue(failure.counterexample)})`),
+    chalk.red(`    Counterexample: ${funcName}(${args})`),
   );
 
   if (failure.shrinkSteps > 0) {
@@ -32,7 +43,9 @@ export function formatCounterexample(
   }
 
   if (failure.errorMessage) {
-    lines.push(chalk.dim(`    Error: ${failure.errorMessage}`));
+    // Extract just the first line of error message (skip the verbose fast-check output)
+    const firstLine = failure.errorMessage.split("\n")[0].trim();
+    lines.push(chalk.dim(`    Error: ${firstLine}`));
   }
 
   lines.push(
