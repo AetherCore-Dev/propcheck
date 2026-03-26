@@ -53,6 +53,13 @@ export function buildInferPrompt(context: AnalysisContext): string {
   lines.push(`Language: ${context.language}`);
   lines.push("");
 
+  // Include source code — essential for LLM to understand implementation
+  lines.push("## Source Code:");
+  lines.push("```" + context.language);
+  lines.push(context.sourceCode);
+  lines.push("```");
+  lines.push("");
+
   // Functions
   lines.push("## Functions to analyze:");
   for (const fn of context.functions) {
@@ -78,19 +85,29 @@ export function buildInferPrompt(context: AnalysisContext): string {
     }
   }
 
-  // Doc signals
+  // Doc signals — @param, @returns, @throws, @example
   const docSignals = context.signals.doc;
   if (docSignals.length > 0) {
     lines.push("\n## Documentation signals:");
     for (const doc of docSignals) {
+      const paramEntries = Object.entries(doc.paramDocs);
+      if (paramEntries.length > 0) {
+        lines.push(`Parameters for ${doc.functionName}:`);
+        for (const [name, desc] of paramEntries) {
+          lines.push(`  @param ${name} — ${desc}`);
+        }
+      }
+      if (doc.returnDoc) {
+        lines.push(`  @returns ${doc.returnDoc}`);
+      }
+      if (doc.throws.length > 0) {
+        lines.push(`  @throws ${doc.throws.join(", ")}`);
+      }
       if (doc.examples.length > 0) {
         lines.push(`Examples for ${doc.functionName}:`);
         for (const ex of doc.examples) {
           lines.push(`  ${ex}`);
         }
-      }
-      if (doc.throws.length > 0) {
-        lines.push(`Throws: ${doc.throws.join(", ")}`);
       }
     }
   }

@@ -126,7 +126,7 @@ describe("mock-client", () => {
     const client = createMockClient();
     const response = await client.call(
       "system",
-      "Analyze function applyDiscount(price, discount)",
+      "## Functions to analyze:\n\n### applyDiscount\nSignature: function applyDiscount(price: number, discount: number): number",
       [],
     );
 
@@ -139,7 +139,7 @@ describe("mock-client", () => {
     const client = createMockClient();
     const response = await client.call(
       "system",
-      "Analyze function unknownXyzFunction()",
+      "### unknownXyzFunction\nSignature: function unknownXyzFunction()",
       [],
     );
 

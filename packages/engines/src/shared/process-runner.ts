@@ -31,7 +31,7 @@ export function runProcess(
     const proc = spawn(command, args as string[], {
       cwd: options.cwd,
       env: { ...process.env, ...options.env },
-      shell: true,
+      shell: false,
       stdio: ["ignore", "pipe", "pipe"],
     });
 

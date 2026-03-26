@@ -105,6 +105,98 @@ const MOCK_RESPONSES: Record<string, unknown> = {
   },
 
   // Sort functions
+  sortNumbers: {
+    properties: [
+      {
+        targetFunction: "sortNumbers",
+        description: "Output length equals input length",
+        category: "conservation",
+        assertion: "sortNumbers(arr).length === arr.length",
+        generators: {
+          arr: { type: "array", constraints: { element: "float", maxLength: 100 } },
+        },
+        seedInputs: [
+          { label: "normal", value: { arr: [3, 1, 2] } },
+          { label: "boundary", value: { arr: [] } },
+          { label: "extreme", value: { arr: [1] } },
+        ],
+        evidence: "sorting should not add or remove elements",
+        confidence: 0.99,
+      },
+      {
+        targetFunction: "sortNumbers",
+        description: "Output is monotonically non-decreasing",
+        category: "monotonic",
+        assertion: "sortNumbers(arr).every((v, i, a) => i === 0 || a[i-1] <= v)",
+        generators: {
+          arr: { type: "array", constraints: { element: "float", maxLength: 100 } },
+        },
+        seedInputs: [
+          { label: "normal", value: { arr: [5, 2, 8, 1] } },
+          { label: "boundary", value: { arr: [1, 1, 1] } },
+          { label: "extreme", value: { arr: [100, 99, 98, 97] } },
+        ],
+        evidence: "sorted output should be in ascending order",
+        confidence: 0.99,
+      },
+      {
+        targetFunction: "sortNumbers",
+        description: "Sorting is idempotent",
+        category: "idempotent",
+        assertion: "JSON.stringify(sortNumbers(sortNumbers(arr))) === JSON.stringify(sortNumbers(arr))",
+        generators: {
+          arr: { type: "array", constraints: { element: "float", maxLength: 50 } },
+        },
+        seedInputs: [
+          { label: "normal", value: { arr: [3, 1, 2] } },
+          { label: "boundary", value: { arr: [] } },
+          { label: "extreme", value: { arr: [1, 2, 3] } },
+        ],
+        evidence: "sorting an already sorted array should give the same result",
+        confidence: 0.97,
+      },
+    ],
+  },
+
+  // String functions
+  reverseString: {
+    properties: [
+      {
+        targetFunction: "reverseString",
+        description: "Reversing twice returns original",
+        category: "roundtrip",
+        assertion: "reverseString(reverseString(str)) === str",
+        generators: {
+          str: { type: "string", constraints: { maxLength: 100 } },
+        },
+        seedInputs: [
+          { label: "normal", value: { str: "hello" } },
+          { label: "boundary", value: { str: "" } },
+          { label: "extreme", value: { str: "a" } },
+        ],
+        evidence: "reverse is its own inverse",
+        confidence: 0.99,
+      },
+      {
+        targetFunction: "reverseString",
+        description: "Length is preserved after reversing",
+        category: "conservation",
+        assertion: "reverseString(str).length === str.length",
+        generators: {
+          str: { type: "string", constraints: { maxLength: 100 } },
+        },
+        seedInputs: [
+          { label: "normal", value: { str: "test" } },
+          { label: "boundary", value: { str: "" } },
+          { label: "extreme", value: { str: "x".repeat(50) } },
+        ],
+        evidence: "reversing should not change the length",
+        confidence: 0.99,
+      },
+    ],
+  },
+
+  // Sort old mock (generic)
   sort: {
     properties: [
       {
@@ -206,19 +298,42 @@ export function createMockClient(): LlmClient {
       _tools: readonly LlmToolSchema[],
       _options?: LlmCallOptions,
     ): Promise<ApiResponse> {
-      // Find the best matching mock response by looking for function names in the prompt
-      let matchedResponse: unknown = null;
+      // Extract function names from prompt (look for "### functionName" headings)
+      const funcNameRegex = /^### (\w+)/gm;
+      const promptFuncNames: string[] = [];
+      let m: RegExpExecArray | null;
+      while ((m = funcNameRegex.exec(userPrompt)) !== null) {
+        promptFuncNames.push(m[1]);
+      }
 
-      for (const [funcName, response] of Object.entries(MOCK_RESPONSES)) {
-        if (userPrompt.includes(funcName)) {
-          matchedResponse = response;
-          console.log(`  [MOCK] Using canned response for "${funcName}"`);
+      // Find best match: try exact function name first, then prefix match
+      let matchedResponse: unknown = null;
+      let matchedKey = "";
+
+      for (const funcName of promptFuncNames) {
+        // Exact match
+        if (MOCK_RESPONSES[funcName]) {
+          matchedResponse = MOCK_RESPONSES[funcName];
+          matchedKey = funcName;
           break;
         }
       }
 
-      // Default: return a generic property
+      // Fallback: longest matching key that appears as a function name
       if (!matchedResponse) {
+        const sortedKeys = Object.keys(MOCK_RESPONSES).sort((a, b) => b.length - a.length);
+        for (const key of sortedKeys) {
+          if (promptFuncNames.some((fn) => fn === key || fn.toLowerCase().includes(key.toLowerCase()))) {
+            matchedResponse = MOCK_RESPONSES[key];
+            matchedKey = key;
+            break;
+          }
+        }
+      }
+
+      if (matchedResponse) {
+        console.log(`  [MOCK] Using canned response for "${matchedKey}"`);
+      } else {
         console.log("  [MOCK] No specific mock found, using generic response");
         matchedResponse = {
           properties: [

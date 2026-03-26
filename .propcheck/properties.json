@@ -1,29 +1,29 @@
 {
   "version": 1,
   "modules": {
-    "test-fixtures/python/calculator.py": {
-      "module": "test-fixtures/python/calculator.py",
-      "filePath": "test-fixtures/python/calculator.py",
+    "test-fixtures/typescript/cart-buggy.ts": {
+      "module": "test-fixtures/typescript/cart-buggy.ts",
+      "filePath": "test-fixtures/typescript/cart-buggy.ts",
       "properties": [
         {
           "id": "prop_001",
-          "targetFunction": "add",
-          "description": "Addition is commutative",
-          "category": "equivalence",
-          "assertion": "add(a, b) === add(b, a)",
+          "targetFunction": "applyDiscount",
+          "description": "Result is non-negative",
+          "category": "boundary",
+          "assertion": "applyDiscount(price, discount) >= 0",
           "generators": {
-            "a": {
-              "type": "integer",
+            "price": {
+              "type": "float",
               "constraints": {
-                "min": -1000,
-                "max": 1000
+                "min": 0,
+                "max": 10000
               }
             },
-            "b": {
-              "type": "integer",
+            "discount": {
+              "type": "float",
               "constraints": {
-                "min": -1000,
-                "max": 1000
+                "min": -50,
+                "max": 200
               }
             }
           },
@@ -31,44 +31,51 @@
             {
               "label": "normal",
               "value": {
-                "a": 3,
-                "b": 5
+                "price": 100,
+                "discount": 10
               }
             },
             {
               "label": "boundary",
               "value": {
-                "a": 0,
-                "b": 0
+                "price": 0,
+                "discount": 0
               }
             },
             {
               "label": "extreme",
               "value": {
-                "a": 9007199254740991,
-                "b": 1
+                "price": 0.01,
+                "discount": 99.99
               }
             }
           ],
           "score": 13,
-          "confidence": 0.95,
-          "evidence": "add(a, b) takes two numbers and returns their sum",
-          "sourceHash": "0c71969442c51055aae1c85372046a030fa68d61af39d9325d3cfbed6fd0511f",
-          "inferredAt": "2026-03-26T12:59:53.008Z",
+          "confidence": 0.9,
+          "evidence": "prices should never be negative after discount",
+          "sourceHash": "a3acc0cffa75cd5e3303ec3ce710607fd75e4bc236f1967c6b2bb81a20b6e958",
+          "inferredAt": "2026-03-26T14:20:34.736Z",
           "modelId": "mock-model"
         },
         {
           "id": "prop_002",
-          "targetFunction": "add",
-          "description": "Zero is identity element",
-          "category": "boundary",
-          "assertion": "add(a, 0) === a",
+          "targetFunction": "applyDiscount",
+          "description": "Result does not exceed original price",
+          "category": "monotonic",
+          "assertion": "applyDiscount(price, discount) <= price",
           "generators": {
-            "a": {
-              "type": "integer",
+            "price": {
+              "type": "float",
               "constraints": {
-                "min": -1000,
-                "max": 1000
+                "min": 0,
+                "max": 10000
+              }
+            },
+            "discount": {
+              "type": "float",
+              "constraints": {
+                "min": -50,
+                "max": 200
               }
             }
           },
@@ -76,32 +83,329 @@
             {
               "label": "normal",
               "value": {
-                "a": 42
+                "price": 100,
+                "discount": 20
               }
             },
             {
               "label": "boundary",
               "value": {
-                "a": 0
+                "price": 100,
+                "discount": 0
               }
             },
             {
               "label": "extreme",
               "value": {
-                "a": -999999
+                "price": 100,
+                "discount": 150
+              }
+            }
+          ],
+          "score": 13,
+          "confidence": 0.92,
+          "evidence": "discount should reduce or maintain price, never increase",
+          "sourceHash": "a3acc0cffa75cd5e3303ec3ce710607fd75e4bc236f1967c6b2bb81a20b6e958",
+          "inferredAt": "2026-03-26T14:20:34.737Z",
+          "modelId": "mock-model"
+        },
+        {
+          "id": "prop_003",
+          "targetFunction": "applyDiscount",
+          "description": "Zero discount returns original price",
+          "category": "boundary",
+          "assertion": "applyDiscount(price, 0) === price",
+          "generators": {
+            "price": {
+              "type": "float",
+              "constraints": {
+                "min": 0,
+                "max": 10000
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "price": 49.99
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "price": 0
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "price": 99999.99
+              }
+            }
+          ],
+          "score": 13,
+          "confidence": 0.98,
+          "evidence": "zero discount should not change the price",
+          "sourceHash": "a3acc0cffa75cd5e3303ec3ce710607fd75e4bc236f1967c6b2bb81a20b6e958",
+          "inferredAt": "2026-03-26T14:20:34.737Z",
+          "modelId": "mock-model"
+        }
+      ],
+      "sourceHash": "a3acc0cffa75cd5e3303ec3ce710607fd75e4bc236f1967c6b2bb81a20b6e958",
+      "inferredAt": "2026-03-26T14:20:34.737Z"
+    },
+    "test-fixtures/typescript/sort-utils.ts": {
+      "module": "test-fixtures/typescript/sort-utils.ts",
+      "filePath": "test-fixtures/typescript/sort-utils.ts",
+      "properties": [
+        {
+          "id": "prop_001",
+          "targetFunction": "sortNumbers",
+          "description": "Output length equals input length",
+          "category": "conservation",
+          "assertion": "sortNumbers(arr).length === arr.length",
+          "generators": {
+            "arr": {
+              "type": "array",
+              "constraints": {
+                "element": "float",
+                "maxLength": 100
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "arr": [
+                  3,
+                  1,
+                  2
+                ]
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "arr": []
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "arr": [
+                  1
+                ]
               }
             }
           ],
           "score": 13,
           "confidence": 0.99,
-          "evidence": "adding zero should not change the value",
-          "sourceHash": "0c71969442c51055aae1c85372046a030fa68d61af39d9325d3cfbed6fd0511f",
-          "inferredAt": "2026-03-26T12:59:53.009Z",
+          "evidence": "sorting should not add or remove elements",
+          "sourceHash": "2d5dcb502c0513bf85eaf5fa9f06dcaff798e6f9d9b29d93bdcc09071b2116a2",
+          "inferredAt": "2026-03-26T14:19:58.683Z",
+          "modelId": "mock-model"
+        },
+        {
+          "id": "prop_002",
+          "targetFunction": "sortNumbers",
+          "description": "Output is monotonically non-decreasing",
+          "category": "monotonic",
+          "assertion": "sortNumbers(arr).every((v, i, a) => i === 0 || a[i-1] <= v)",
+          "generators": {
+            "arr": {
+              "type": "array",
+              "constraints": {
+                "element": "float",
+                "maxLength": 100
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "arr": [
+                  5,
+                  2,
+                  8,
+                  1
+                ]
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "arr": [
+                  1,
+                  1,
+                  1
+                ]
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "arr": [
+                  100,
+                  99,
+                  98,
+                  97
+                ]
+              }
+            }
+          ],
+          "score": 13,
+          "confidence": 0.99,
+          "evidence": "sorted output should be in ascending order",
+          "sourceHash": "2d5dcb502c0513bf85eaf5fa9f06dcaff798e6f9d9b29d93bdcc09071b2116a2",
+          "inferredAt": "2026-03-26T14:19:58.684Z",
+          "modelId": "mock-model"
+        },
+        {
+          "id": "prop_003",
+          "targetFunction": "sortNumbers",
+          "description": "Sorting is idempotent",
+          "category": "idempotent",
+          "assertion": "JSON.stringify(sortNumbers(sortNumbers(arr))) === JSON.stringify(sortNumbers(arr))",
+          "generators": {
+            "arr": {
+              "type": "array",
+              "constraints": {
+                "element": "float",
+                "maxLength": 50
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "arr": [
+                  3,
+                  1,
+                  2
+                ]
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "arr": []
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "arr": [
+                  1,
+                  2,
+                  3
+                ]
+              }
+            }
+          ],
+          "score": 13,
+          "confidence": 0.97,
+          "evidence": "sorting an already sorted array should give the same result",
+          "sourceHash": "2d5dcb502c0513bf85eaf5fa9f06dcaff798e6f9d9b29d93bdcc09071b2116a2",
+          "inferredAt": "2026-03-26T14:19:58.684Z",
           "modelId": "mock-model"
         }
       ],
-      "sourceHash": "0c71969442c51055aae1c85372046a030fa68d61af39d9325d3cfbed6fd0511f",
-      "inferredAt": "2026-03-26T12:59:53.009Z"
+      "sourceHash": "2d5dcb502c0513bf85eaf5fa9f06dcaff798e6f9d9b29d93bdcc09071b2116a2",
+      "inferredAt": "2026-03-26T14:19:58.684Z"
+    },
+    "test-fixtures/typescript/string-utils.ts": {
+      "module": "test-fixtures/typescript/string-utils.ts",
+      "filePath": "test-fixtures/typescript/string-utils.ts",
+      "properties": [
+        {
+          "id": "prop_001",
+          "targetFunction": "reverseString",
+          "description": "Reversing twice returns original",
+          "category": "roundtrip",
+          "assertion": "reverseString(reverseString(str)) === str",
+          "generators": {
+            "str": {
+              "type": "string",
+              "constraints": {
+                "maxLength": 100
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "str": "hello"
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "str": ""
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "str": "a"
+              }
+            }
+          ],
+          "score": 13,
+          "confidence": 0.99,
+          "evidence": "reverse is its own inverse",
+          "sourceHash": "23c6f6b6a46643df9474221da9b84951824faebf94d0f336f4b839abeafe1dc5",
+          "inferredAt": "2026-03-26T15:32:36.114Z",
+          "modelId": "mock-model"
+        },
+        {
+          "id": "prop_002",
+          "targetFunction": "reverseString",
+          "description": "Length is preserved after reversing",
+          "category": "conservation",
+          "assertion": "reverseString(str).length === str.length",
+          "generators": {
+            "str": {
+              "type": "string",
+              "constraints": {
+                "maxLength": 100
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "str": "test"
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "str": ""
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "str": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              }
+            }
+          ],
+          "score": 13,
+          "confidence": 0.99,
+          "evidence": "reversing should not change the length",
+          "sourceHash": "23c6f6b6a46643df9474221da9b84951824faebf94d0f336f4b839abeafe1dc5",
+          "inferredAt": "2026-03-26T15:32:36.115Z",
+          "modelId": "mock-model"
+        }
+      ],
+      "sourceHash": "23c6f6b6a46643df9474221da9b84951824faebf94d0f336f4b839abeafe1dc5",
+      "inferredAt": "2026-03-26T15:32:36.115Z"
     }
   }
 }

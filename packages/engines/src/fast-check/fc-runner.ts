@@ -56,10 +56,16 @@ export async function runFastCheckTest(
 
   // Run from the directory containing the test file
   // Set NODE_PATH to help find fast-check if not in local node_modules
+  // Use --experimental-strip-types to support importing .ts source files directly
   const cwd = path.dirname(testFilePath);
+  const nodeArgs = [
+    "--experimental-strip-types",
+    "--no-warnings",
+    testFilePath,
+  ];
   const result = await runProcess(
     "node",
-    [testFilePath],
+    nodeArgs,
     {
       cwd,
       timeout: config.timeout * Math.max(properties.length, 1),

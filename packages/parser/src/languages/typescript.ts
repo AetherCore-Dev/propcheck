@@ -40,11 +40,69 @@ function getJsDoc(node: ts.Node, sourceFile: ts.SourceFile): string | null {
   return jsDocs.map((doc) => doc.getText(sourceFile)).join("\n");
 }
 
-function getJsDocComment(node: ts.Node): string | null {
+function getJsDocComment(node: ts.Node, sourceFile: ts.SourceFile): string | null {
   const jsDocs = (node as { jsDoc?: ts.JSDoc[] }).jsDoc;
   if (!jsDocs || jsDocs.length === 0) return null;
-  const doc = jsDocs[0];
-  return doc.comment ? String(doc.comment) : null;
+
+  // Use the last JSDoc (closest to the function declaration).
+  // TypeScript may attach a file-level JSDoc to the first declaration,
+  // so we also check if the JSDoc is immediately before the function.
+  const doc = jsDocs[jsDocs.length - 1];
+  if (!doc.comment) return null;
+
+  // Heuristic: if the JSDoc ends more than 2 lines before the function starts,
+  // it's likely a file-level comment, not a function comment.
+  const docEnd = sourceFile.getLineAndCharacterOfPosition(doc.getEnd());
+  const nodeStart = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile));
+  if (nodeStart.line - docEnd.line > 2) return null;
+
+  return String(doc.comment);
+}
+
+/** Extract structured JSDoc tags from a node. */
+function extractJsDocTags(node: ts.Node, sourceFile: ts.SourceFile): {
+  readonly paramDocs: Readonly<Record<string, string>>;
+  readonly returnDoc: string | null;
+  readonly throws: readonly string[];
+  readonly examples: readonly string[];
+} {
+  const paramDocs: Record<string, string> = {};
+  let returnDoc: string | null = null;
+  const throws: string[] = [];
+  const examples: string[] = [];
+
+  const jsDocs = (node as { jsDoc?: ts.JSDoc[] }).jsDoc;
+  if (!jsDocs || jsDocs.length === 0) {
+    return { paramDocs, returnDoc, throws, examples };
+  }
+
+  const doc = jsDocs[jsDocs.length - 1];
+
+  // Heuristic: skip file-level comments
+  const docEnd = sourceFile.getLineAndCharacterOfPosition(doc.getEnd());
+  const nodeStart = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile));
+  if (nodeStart.line - docEnd.line > 2) {
+    return { paramDocs, returnDoc, throws, examples };
+  }
+
+  if (doc.tags) {
+    for (const tag of doc.tags) {
+      const tagText = tag.comment ? String(tag.comment) : "";
+
+      if (ts.isJSDocParameterTag(tag) && tag.name) {
+        const paramName = tag.name.getText(sourceFile);
+        paramDocs[paramName] = tagText;
+      } else if (ts.isJSDocReturnTag(tag)) {
+        returnDoc = tagText;
+      } else if (tag.tagName.getText(sourceFile) === "throws" || tag.tagName.getText(sourceFile) === "exception") {
+        throws.push(tagText);
+      } else if (tag.tagName.getText(sourceFile) === "example") {
+        examples.push(tagText);
+      }
+    }
+  }
+
+  return { paramDocs, returnDoc, throws, examples };
 }
 
 function isExported(node: ts.Node): boolean {
@@ -117,6 +175,7 @@ function extractFunction(
     ts.isArrowFunction(node) && ts.isVariableDeclaration(node.parent)
       ? node.parent.parent?.parent ?? node
       : node,
+    sourceFile,
   );
 
   // Determine export status
@@ -262,13 +321,17 @@ export function analyzeFile(
 
   const sourceFile = ts.createSourceFile(filePath, source, ts.ScriptTarget.Latest, true, scriptKind);
 
-  // Extract functions
+  // Extract functions and their JSDoc tags
   const functions: FunctionSignature[] = [];
+  const funcJsDocTags = new Map<string, ReturnType<typeof extractJsDocTags>>();
 
   function visitFunctions(node: ts.Node, className?: string) {
     if (ts.isFunctionDeclaration(node) && node.name) {
       const fn = extractFunction(node, sourceFile, null, className);
-      if (fn) functions.push(fn);
+      if (fn) {
+        functions.push(fn);
+        funcJsDocTags.set(fn.qualifiedName, extractJsDocTags(node, sourceFile));
+      }
     }
 
     if (ts.isVariableStatement(node)) {
@@ -276,9 +339,11 @@ export function analyzeFile(
         if (decl.initializer && ts.isArrowFunction(decl.initializer)) {
           const fn = extractFunction(decl.initializer, sourceFile, null);
           if (fn) {
-            // Inherit export from variable statement
             const exported = isExported(node);
-            functions.push({ ...fn, visibility: exported ? "public" : "private" });
+            const fnWithVis = { ...fn, visibility: exported ? "public" as const : "private" as const };
+            functions.push(fnWithVis);
+            const tagNode = decl.initializer.parent?.parent?.parent ?? decl.initializer;
+            funcJsDocTags.set(fnWithVis.qualifiedName, extractJsDocTags(tagNode, sourceFile));
           }
         }
       }
@@ -289,7 +354,10 @@ export function analyzeFile(
       for (const member of node.members) {
         if (ts.isMethodDeclaration(member)) {
           const fn = extractFunction(member, sourceFile, null, cn);
-          if (fn) functions.push(fn);
+          if (fn) {
+            functions.push(fn);
+            funcJsDocTags.set(fn.qualifiedName, extractJsDocTags(member, sourceFile));
+          }
         }
       }
     }
@@ -314,14 +382,22 @@ export function analyzeFile(
 
   const docSignals: DocSignal[] = functions
     .filter((fn) => fn.docstring)
-    .map((fn) => ({
-      functionName: fn.qualifiedName,
-      description: fn.docstring ?? "",
-      paramDocs: {},
-      returnDoc: null,
-      throws: [],
-      examples: [],
-    }));
+    .map((fn) => {
+      const tags = funcJsDocTags.get(fn.qualifiedName) ?? {
+        paramDocs: {},
+        returnDoc: null,
+        throws: [],
+        examples: [],
+      };
+      return {
+        functionName: fn.qualifiedName,
+        description: fn.docstring ?? "",
+        paramDocs: tags.paramDocs,
+        returnDoc: tags.returnDoc,
+        throws: tags.throws,
+        examples: tags.examples,
+      };
+    });
 
   const astSignals: AstSignal[] = functions.map((fn) => ({
     kind: fn.isAsync ? "async_function" : "function",

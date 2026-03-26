@@ -70,7 +70,17 @@ export function generateFastCheckTest(
     path.relative(testDir, targetFile),
   ).replace(/\.(ts|tsx|js|jsx)$/, "");
 
-  const importPath = relativeImport.startsWith(".") ? relativeImport : `./${relativeImport}`;
+  // Keep the file extension for TypeScript files so Node.js --experimental-strip-types
+  // can resolve them. For JS files, strip the extension per Node.js convention.
+  let importPathStr: string;
+  if (targetFile.endsWith(".ts") || targetFile.endsWith(".tsx")) {
+    // Keep .ts extension — Node with --experimental-strip-types needs it
+    importPathStr = toForwardSlash(path.relative(testDir, targetFile));
+    if (!importPathStr.startsWith(".")) importPathStr = `./${importPathStr}`;
+  } else {
+    const noExt = relativeImport.startsWith(".") ? relativeImport : `./${relativeImport}`;
+    importPathStr = noExt;
+  }
 
   // Collect unique function names for imports
   const functionNames = [...new Set(properties.map((p) => p.targetFunction.split(".").pop()!))];
@@ -92,7 +102,7 @@ export function generateFastCheckTest(
   lines.push(`// Generated: ${new Date().toISOString()}`);
   lines.push(``);
   lines.push(`const fc = ${fcRequire};`);
-  lines.push(`const target = require("${importPath}");`);
+  lines.push(`const target = require("${importPathStr}");`);
   lines.push(``);
   lines.push(`const numRuns = ${config.iterations};`);
   lines.push(``);
