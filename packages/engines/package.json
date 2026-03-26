@@ -1,0 +1,16 @@
+{
+  "name": "@propcheck/engines",
+  "version": "0.1.0",
+  "description": "PBT execution engines for propcheck — fast-check, Hypothesis adapters",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc --build",
+    "clean": "tsc --build --clean",
+    "test": "node --test dist/__tests__/*.test.js"
+  },
+  "dependencies": {
+    "@propcheck/common": "*"
+  },
+  "license": "MIT"
+}

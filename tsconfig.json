@@ -6,6 +6,7 @@
     { "path": "packages/store" },
     { "path": "packages/parser" },
     { "path": "packages/llm" },
-    { "path": "packages/reporter" }
+    { "path": "packages/reporter" },
+    { "path": "packages/engines" }
   ]
 }
