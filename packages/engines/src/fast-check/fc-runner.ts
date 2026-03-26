@@ -54,12 +54,23 @@ export async function runFastCheckTest(
 ): Promise<ExecutionResult> {
   const startTime = Date.now();
 
+  // Run from the directory containing the test file
+  // Set NODE_PATH to help find fast-check if not in local node_modules
+  const cwd = path.dirname(testFilePath);
   const result = await runProcess(
     "node",
     [testFilePath],
     {
-      cwd: path.dirname(testFilePath),
-      timeout: config.timeout * properties.length,
+      cwd,
+      timeout: config.timeout * Math.max(properties.length, 1),
+      env: {
+        NODE_PATH: [
+          path.join(cwd, "node_modules"),
+          path.join(cwd, "..", "..", "node_modules"),
+          path.join(cwd, "..", "..", "..", "node_modules"),
+          process.env["NODE_PATH"] ?? "",
+        ].join(path.delimiter),
+      },
     },
   );
 

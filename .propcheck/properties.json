@@ -54,7 +54,7 @@
           "confidence": 0.9,
           "evidence": "prices should never be negative after discount",
           "sourceHash": "d9d64f51d3671cac08413a39170fa67551231f36afc7af24d20828c9193485a8",
-          "inferredAt": "2026-03-26T11:24:12.391Z",
+          "inferredAt": "2026-03-26T12:13:30.113Z",
           "modelId": "mock-model"
         },
         {
@@ -106,7 +106,7 @@
           "confidence": 0.92,
           "evidence": "discount should reduce or maintain price, never increase",
           "sourceHash": "d9d64f51d3671cac08413a39170fa67551231f36afc7af24d20828c9193485a8",
-          "inferredAt": "2026-03-26T11:24:12.392Z",
+          "inferredAt": "2026-03-26T12:13:30.114Z",
           "modelId": "mock-model"
         },
         {
@@ -148,12 +148,12 @@
           "confidence": 0.98,
           "evidence": "zero discount should not change the price",
           "sourceHash": "d9d64f51d3671cac08413a39170fa67551231f36afc7af24d20828c9193485a8",
-          "inferredAt": "2026-03-26T11:24:12.392Z",
+          "inferredAt": "2026-03-26T12:13:30.114Z",
           "modelId": "mock-model"
         }
       ],
       "sourceHash": "d9d64f51d3671cac08413a39170fa67551231f36afc7af24d20828c9193485a8",
-      "inferredAt": "2026-03-26T11:24:12.392Z"
+      "inferredAt": "2026-03-26T12:13:30.115Z"
     }
   }
 }

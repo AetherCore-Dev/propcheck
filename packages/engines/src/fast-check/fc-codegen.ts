@@ -75,6 +75,15 @@ export function generateFastCheckTest(
   // Collect unique function names for imports
   const functionNames = [...new Set(properties.map((p) => p.targetFunction.split(".").pop()!))];
 
+  // Try to resolve fast-check absolute path for reliable loading
+  let fcRequire = `require("fast-check")`;
+  try {
+    const fcPath = require.resolve("fast-check");
+    fcRequire = `require(${JSON.stringify(toForwardSlash(fcPath))})`;
+  } catch {
+    // Fall back to relative require — user must have fast-check installed
+  }
+
   const lines: string[] = [];
 
   // Header
@@ -82,7 +91,7 @@ export function generateFastCheckTest(
   lines.push(`// Target: ${toForwardSlash(targetFile)}`);
   lines.push(`// Generated: ${new Date().toISOString()}`);
   lines.push(``);
-  lines.push(`const fc = require("fast-check");`);
+  lines.push(`const fc = ${fcRequire};`);
   lines.push(`const target = require("${importPath}");`);
   lines.push(``);
   lines.push(`const numRuns = ${config.iterations};`);

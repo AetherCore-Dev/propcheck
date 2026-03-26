@@ -10,7 +10,11 @@
     "test": "node --test dist/__tests__/*.test.js"
   },
   "dependencies": {
-    "@propcheck/common": "*"
+    "@propcheck/common": "*",
+    "@propcheck/parser": "*",
+    "@propcheck/llm": "*",
+    "@propcheck/store": "*",
+    "@propcheck/reporter": "*"
   },
   "license": "MIT"
 }

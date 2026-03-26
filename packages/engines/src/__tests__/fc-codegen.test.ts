@@ -46,11 +46,11 @@ describe("fc-codegen", () => {
       defaultConfig,
     );
 
-    assert.ok(result.content.includes('require("fast-check")'));
+    assert.ok(result.content.includes("fast-check"), "Should reference fast-check");
     assert.ok(result.content.includes("fc.integer"));
     assert.ok(result.content.includes("min: -100"));
     assert.ok(result.content.includes("max: 100"));
-    assert.ok(result.content.includes("add(a, b) === add(b, a)"));
+    assert.ok(result.content.includes("target.add(a, b) === target.add(b, a)"));
     assert.ok(result.content.includes("numRuns"));
     assert.equal(result.fileName, "math.fc.js");
   });

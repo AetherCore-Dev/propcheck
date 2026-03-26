@@ -6,6 +6,10 @@
   },
   "include": ["src"],
   "references": [
-    { "path": "../common" }
+    { "path": "../common" },
+    { "path": "../parser" },
+    { "path": "../llm" },
+    { "path": "../store" },
+    { "path": "../reporter" }
   ]
 }
