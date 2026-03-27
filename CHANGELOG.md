@@ -4,15 +4,25 @@ All notable changes to propcheck are documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **tsup bundling**: single-file 144KB CLI bundle (73KB compressed npm package)
+- **`--changed` mode**: `propcheck run --changed` only tests properties for git-changed files
+- **Trial-run validation**: infer → quick 100x run → auto-filter false positives before persisting
+- npm-ready `package.json` with peer dependencies (fast-check, typescript)
+
+### Changed
+- CLI bin now points to bundled `dist-bundle/index.js` instead of tsc output
+- workspace @propcheck/* packages bundled inline; only chalk/commander/zod/@anthropic-ai/sdk remain external
+
 ### Known Issues (codegen layer)
 - Zero-parameter assertions (`calculateTotal([]) === 0`) fail — `fc.property` requires >= 1 arbitrary
 - Array literal assertions (`calculateTotal([price])`) generate invalid fast-check code
 - `fc.double()` generates negative values even when business logic expects non-negative — needs `min: 0` constraint propagation
 
-### Next: Trial-run validation pipeline
-- Infer → quick run (100x) → auto-filter false positives
-- 3-round self-repair for compile-failing properties
-- `--changed` mode (git diff → only test changed functions)
+### Next
+- `gh auth login` + `gh repo create propcheck --public` + `npm publish`
+- Real Anthropic API validation
+- Phase 2: self-repair (3-round), refinement loop, VS Code extension
 
 ## [0.1.0] - 2026-03-27
 
