@@ -14,7 +14,8 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { loadConfig, validateConfig } from "@propcheck/config";
 import { analyzeFile, detectLanguage, analyzePythonFile } from "@propcheck/parser";
-import { inferProperties } from "@propcheck/llm";
+import { inferProperties, createLlmClient, createMockClient, repairProperty, mockRepairProperty } from "@propcheck/llm";
+import type { LlmClient } from "@propcheck/llm";
 import { setProperties, initStore } from "@propcheck/store";
 import { generateFastCheckTest, runFastCheckTest } from "@propcheck/engines";
 import { reportInferResult } from "@propcheck/reporter";
@@ -30,17 +31,24 @@ interface InferOptions {
 }
 
 /**
- * Trial-run validation: quick-execute inferred properties to filter false positives.
+ * Trial-run validation with self-repair: quick-execute inferred properties,
+ * and attempt to fix compile/runtime errors up to 3 times.
  *
- * - 100/100 PASS → KEEP
- * - <100/100 PASS → DROP (likely false positive or flaky)
- * - Compile/runtime error → DROP (codegen issue)
+ * Flow per property:
+ *   100/100 PASS → KEEP
+ *   FAIL (counterexample found) → KEEP (found a bug!)
+ *   ERROR (compile/runtime) → REPAIR up to 3 rounds → KEEP if fixed, DROP if not
  */
+const MAX_REPAIR_ROUNDS = 3;
+
 async function trialRunValidation(
   properties: readonly PropertyDefinition[],
   targetPath: string,
   storeDir: string,
-): Promise<{ readonly validated: readonly PropertyDefinition[]; readonly dropped: readonly { prop: PropertyDefinition; reason: string }[] }> {
+  sourceCode: string,
+  llmClient: LlmClient | null,
+  isMock: boolean,
+): Promise<{ readonly validated: readonly PropertyDefinition[]; readonly dropped: readonly { prop: PropertyDefinition; reason: string }[]; readonly repaired: number }> {
   const testsDir = path.join(storeDir, "tests");
   await fs.mkdir(testsDir, { recursive: true });
 
@@ -51,42 +59,83 @@ async function trialRunValidation(
     verbose: false,
   };
 
-  // Generate and run test
-  const generated = generateFastCheckTest(properties, targetPath, testsDir, trialConfig);
-  const testFilePath = path.join(testsDir, generated.fileName);
-  await fs.writeFile(testFilePath, generated.content, "utf8");
-
-  const result = await runFastCheckTest(testFilePath, properties, trialConfig);
-
-  // Classify results
+  // Mutable working set — properties that may be repaired across rounds
+  let currentProperties = [...properties];
   const validated: PropertyDefinition[] = [];
   const dropped: { prop: PropertyDefinition; reason: string }[] = [];
+  let totalRepaired = 0;
 
-  const passedIds = new Set(result.passed.map((p) => p.propertyId));
-  const failedIds = new Set(result.failed.map((f) => f.propertyId));
-  const errorIds = new Set(result.errors.map((e) => e.propertyId));
+  for (let round = 0; round <= MAX_REPAIR_ROUNDS; round++) {
+    if (currentProperties.length === 0) break;
 
-  for (const prop of properties) {
-    if (passedIds.has(prop.id)) {
-      // 100/100 PASS → keep
-      validated.push(prop);
-    } else if (failedIds.has(prop.id)) {
-      // Failed → this found a real bug, keep it!
-      validated.push(prop);
-    } else if (errorIds.has(prop.id)) {
-      // Compile/runtime error → drop
-      const err = result.errors.find((e) => e.propertyId === prop.id);
-      dropped.push({ prop, reason: `codegen error: ${err?.errorMessage?.slice(0, 80) ?? "unknown"}` });
-    } else {
-      // No result → drop
-      dropped.push({ prop, reason: "no output from trial run" });
+    // Generate and run tests for current batch
+    const generated = generateFastCheckTest(currentProperties, targetPath, testsDir, trialConfig);
+    const testFilePath = path.join(testsDir, generated.fileName);
+    await fs.writeFile(testFilePath, generated.content, "utf8");
+
+    const result = await runFastCheckTest(testFilePath, currentProperties, trialConfig);
+
+    // Clean up trial test file
+    try { await fs.unlink(testFilePath); } catch { /* ignore */ }
+
+    // Classify results
+    const passedIds = new Set(result.passed.map((p) => p.propertyId));
+    const failedIds = new Set(result.failed.map((f) => f.propertyId));
+    const errorIds = new Set(result.errors.map((e) => e.propertyId));
+
+    const needsRepair: PropertyDefinition[] = [];
+
+    for (const prop of currentProperties) {
+      if (passedIds.has(prop.id)) {
+        validated.push(prop);
+      } else if (failedIds.has(prop.id)) {
+        // Found a real bug — keep it
+        validated.push(prop);
+      } else if (errorIds.has(prop.id)) {
+        const err = result.errors.find((e) => e.propertyId === prop.id);
+        const errorMsg = err?.errorMessage ?? "unknown error";
+
+        if (round < MAX_REPAIR_ROUNDS) {
+          // Attempt repair
+          needsRepair.push(prop);
+
+          // Get function signature for repair context
+          const funcSig = `${prop.targetFunction}(...)`;
+
+          let repaired: PropertyDefinition | null = null;
+
+          if (isMock) {
+            repaired = mockRepairProperty(prop, errorMsg);
+          } else if (llmClient) {
+            repaired = await repairProperty(llmClient, prop, errorMsg, sourceCode, funcSig);
+          }
+
+          if (repaired) {
+            // Replace the property with repaired version for next round
+            const idx = needsRepair.indexOf(prop);
+            needsRepair[idx] = repaired;
+            totalRepaired++;
+            console.log(`    ↻ Repairing: ${prop.targetFunction}: ${prop.description} (round ${round + 1})`);
+          } else {
+            // Repair failed — drop
+            dropped.push({ prop, reason: `codegen error (repair failed round ${round + 1}): ${errorMsg.slice(0, 60)}` });
+            needsRepair.splice(needsRepair.indexOf(prop), 1);
+          }
+        } else {
+          // Max rounds reached — drop
+          dropped.push({ prop, reason: `codegen error (max ${MAX_REPAIR_ROUNDS} repairs): ${errorMsg.slice(0, 60)}` });
+        }
+      } else {
+        // No result at all
+        dropped.push({ prop, reason: "no output from trial run" });
+      }
     }
+
+    // Next round only processes properties that needed repair
+    currentProperties = needsRepair;
   }
 
-  // Clean up trial test file
-  try { await fs.unlink(testFilePath); } catch { /* ignore */ }
-
-  return { validated, dropped };
+  return { validated, dropped, repaired: totalRepaired };
 }
 
 export async function inferCommand(
@@ -156,15 +205,30 @@ export async function inferCommand(
     return;
   }
 
-  // Trial-run validation (skip for Python until Hypothesis adapter is integrated)
+  // Trial-run validation with self-repair (skip for Python until Hypothesis adapter is integrated)
   let finalProperties = result.properties;
   if (!options.skipValidation && language !== "python") {
     console.log(`  Validating ${result.properties.length} properties (trial run, 100 iterations)...`);
-    const { validated, dropped } = await trialRunValidation(
+
+    // Create LLM client for self-repair (reuse same config)
+    const llmClient = config.mock
+      ? null
+      : config.apiKey
+        ? createLlmClient(config.apiKey, config.model)
+        : null;
+
+    const { validated, dropped, repaired } = await trialRunValidation(
       result.properties,
       targetPath,
       storeDir,
+      source,
+      llmClient,
+      config.mock,
     );
+
+    if (repaired > 0) {
+      console.log(`  Self-repaired ${repaired} properties.`);
+    }
 
     if (dropped.length > 0) {
       console.log(`  Dropped ${dropped.length} properties during validation:`);

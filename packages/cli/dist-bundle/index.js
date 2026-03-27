@@ -1348,11 +1348,11 @@ var require_client = __commonJS({
       return mod && mod.__esModule ? mod : { "default": mod };
     };
     Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.createLlmClient = createLlmClient;
+    exports2.createLlmClient = createLlmClient2;
     var sdk_1 = __importDefault(require("@anthropic-ai/sdk"));
     var common_1 = require_dist4();
     var RETRY_DELAYS = [1e3, 2e3, 4e3];
-    function createLlmClient(apiKey, model) {
+    function createLlmClient2(apiKey, model) {
       const client = new sdk_1.default({ apiKey });
       return {
         async call(systemPrompt, userPrompt, tools, options = {}) {
@@ -1408,7 +1408,7 @@ var require_mock_client = __commonJS({
   "../llm/dist/mock-client.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.createMockClient = createMockClient;
+    exports2.createMockClient = createMockClient2;
     var FUNCTION_PROPERTIES = {
       // ═══════════════════════════════════════
       // cart-buggy.ts
@@ -1959,7 +1959,7 @@ var require_mock_client = __commonJS({
         }
       ]
     };
-    function createMockClient() {
+    function createMockClient2() {
       return {
         async call(_systemPrompt, userPrompt, _tools, _options) {
           const funcNameRegex = /^### (\w+)/gm;
@@ -2363,12 +2363,216 @@ var require_scoring = __commonJS({
   }
 });
 
+// ../llm/dist/prompts/self-repair.js
+var require_self_repair = __commonJS({
+  "../llm/dist/prompts/self-repair.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.REPAIR_TOOL = exports2.REPAIR_SYSTEM_PROMPT = void 0;
+    exports2.repairProperty = repairProperty2;
+    exports2.buildRepairPrompt = buildRepairPrompt;
+    var REPAIR_SYSTEM_PROMPT = `You are propcheck's self-repair module. A property-based test was generated but failed to compile or run.
+
+Your job: fix the property definition so the generated test code works correctly.
+
+Common issues and fixes:
+1. Invalid assertion syntax \u2192 rewrite as valid JavaScript/TypeScript expression
+2. Missing function call \u2192 assertion must actually call the target function
+3. Wrong parameter names \u2192 match the function signature exactly
+4. Array literal in assertion \u2192 use generator instead (fc.property needs arbitraries, not literals)
+5. Zero parameters \u2192 ensure at least one generator for fc.property to work
+6. Type mismatch \u2192 generator type must match parameter type
+
+Rules:
+- Keep the same property intent/description
+- Only fix the technical issue, don't change what's being tested
+- The assertion must be a boolean expression using the function's parameters
+- Every generator key must match a parameter name used in the assertion`;
+    exports2.REPAIR_SYSTEM_PROMPT = REPAIR_SYSTEM_PROMPT;
+    var REPAIR_TOOL = {
+      name: "repair_property",
+      description: "Return the repaired property definition",
+      input_schema: {
+        type: "object",
+        properties: {
+          targetFunction: { type: "string", description: "Function being tested" },
+          description: { type: "string", description: "What the property tests" },
+          category: {
+            type: "string",
+            enum: [
+              "roundtrip",
+              "idempotent",
+              "conservation",
+              "monotonic",
+              "equivalence",
+              "type-preservation",
+              "cross-function",
+              "boundary",
+              "metamorphic"
+            ]
+          },
+          assertion: { type: "string", description: "Fixed boolean expression" },
+          generators: {
+            type: "object",
+            description: "Parameter name \u2192 { type, constraints? }",
+            additionalProperties: {
+              type: "object",
+              properties: {
+                type: { type: "string" },
+                constraints: { type: "object" }
+              },
+              required: ["type"]
+            }
+          },
+          confidence: { type: "number", description: "0-1 confidence in the fix" }
+        },
+        required: ["targetFunction", "description", "category", "assertion", "generators", "confidence"]
+      }
+    };
+    exports2.REPAIR_TOOL = REPAIR_TOOL;
+    function buildRepairPrompt(property, errorMessage, sourceCode, functionSignature) {
+      return `## Property that failed
+
+**Target function:** \`${property.targetFunction}\`
+**Function signature:** \`${functionSignature}\`
+**Description:** ${property.description}
+**Category:** ${property.category}
+**Assertion:** \`${property.assertion}\`
+**Generators:** ${JSON.stringify(property.generators, null, 2)}
+
+## Error encountered
+
+\`\`\`
+${errorMessage.slice(0, 500)}
+\`\`\`
+
+## Source code
+
+\`\`\`typescript
+${sourceCode.slice(0, 2e3)}
+\`\`\`
+
+## Task
+
+Fix the property definition so the generated test compiles and runs correctly.
+Return the repaired property via the repair_property tool.`;
+    }
+    async function repairProperty2(client, property, errorMessage, sourceCode, functionSignature) {
+      try {
+        const prompt = buildRepairPrompt(property, errorMessage, sourceCode, functionSignature);
+        const response = await client.call(REPAIR_SYSTEM_PROMPT, prompt, [REPAIR_TOOL]);
+        if (!response.content || typeof response.content !== "object") {
+          return null;
+        }
+        const content = response.content;
+        if (!content.assertion || !content.generators || !content.targetFunction) {
+          return null;
+        }
+        const repaired = {
+          ...property,
+          assertion: String(content.assertion),
+          generators: content.generators,
+          category: content.category ?? property.category,
+          description: String(content.description ?? property.description),
+          confidence: Math.min(property.confidence, typeof content.confidence === "number" ? content.confidence : 0.5)
+        };
+        return repaired;
+      } catch {
+        return null;
+      }
+    }
+  }
+});
+
+// ../llm/dist/mock-repair.js
+var require_mock_repair = __commonJS({
+  "../llm/dist/mock-repair.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.mockRepairProperty = mockRepairProperty2;
+    function mockRepairProperty2(property, errorMessage) {
+      const err = errorMessage.toLowerCase();
+      if (err.includes("property expects at least one arbitrary") || err.includes("fc.property")) {
+        const hasGenerators = Object.keys(property.generators).length > 0;
+        if (!hasGenerators) {
+          return {
+            ...property,
+            generators: { _unused: { type: "integer", constraints: { min: 0, max: 1 } } },
+            assertion: property.assertion.replace(/^/, "(() => { const _unused = arguments[0]; return ") + " })()",
+            confidence: property.confidence * 0.8
+          };
+        }
+      }
+      if (err.includes("unexpected token") && property.assertion.includes("[")) {
+        const fixed = property.assertion.replace(/\[(\w+)\]/g, "[$1]").replace(/\[(\d+(?:,\s*\d+)*)\]/g, (_, nums) => {
+          return `[${nums}]`;
+        });
+        if (fixed !== property.assertion) {
+          return {
+            ...property,
+            assertion: fixed,
+            confidence: property.confidence * 0.7
+          };
+        }
+      }
+      if (err.includes("cannot find name") || err.includes("is not defined")) {
+        const nameMatch = errorMessage.match(/(?:Cannot find name\s+['"](\w+)['"]|(\w+)\s+is not defined)/i);
+        const missingName = nameMatch?.[1] ?? nameMatch?.[2];
+        if (missingName && !property.generators[missingName]) {
+          return {
+            ...property,
+            generators: {
+              ...property.generators,
+              [missingName]: { type: "number" }
+            },
+            confidence: property.confidence * 0.7
+          };
+        }
+      }
+      if (err.includes("type") && (err.includes("not assignable") || err.includes("expected"))) {
+        const fixedGens = { ...property.generators };
+        let changed = false;
+        for (const [key, gen] of Object.entries(fixedGens)) {
+          if (gen.type === "integer") {
+            fixedGens[key] = { type: "float", constraints: gen.constraints };
+            changed = true;
+          }
+        }
+        if (changed) {
+          return {
+            ...property,
+            generators: fixedGens,
+            confidence: property.confidence * 0.8
+          };
+        }
+      }
+      if (err.includes("nan") || err.includes("not a number")) {
+        const fixedGens = { ...property.generators };
+        for (const [key, gen] of Object.entries(fixedGens)) {
+          if (gen.type === "float" || gen.type === "number") {
+            fixedGens[key] = {
+              ...gen,
+              constraints: { ...gen.constraints, noNaN: true, noDefaultInfinity: true }
+            };
+          }
+        }
+        return {
+          ...property,
+          generators: fixedGens,
+          confidence: property.confidence * 0.9
+        };
+      }
+      return null;
+    }
+  }
+});
+
 // ../llm/dist/index.js
 var require_dist5 = __commonJS({
   "../llm/dist/index.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.getInferTool = exports2.getSystemPrompt = exports2.buildInferPrompt = exports2.isRedundant = exports2.scoreAndFilter = exports2.scoreProperty = exports2.parseInferResponse = exports2.createMockClient = exports2.createLlmClient = void 0;
+    exports2.mockRepairProperty = exports2.repairProperty = exports2.getInferTool = exports2.getSystemPrompt = exports2.buildInferPrompt = exports2.isRedundant = exports2.scoreAndFilter = exports2.scoreProperty = exports2.parseInferResponse = exports2.createMockClient = exports2.createLlmClient = void 0;
     exports2.inferProperties = inferProperties2;
     var common_1 = require_dist4();
     var client_1 = require_client();
@@ -2450,6 +2654,14 @@ var require_dist5 = __commonJS({
     } });
     Object.defineProperty(exports2, "getInferTool", { enumerable: true, get: function() {
       return infer_properties_2.getInferTool;
+    } });
+    var self_repair_1 = require_self_repair();
+    Object.defineProperty(exports2, "repairProperty", { enumerable: true, get: function() {
+      return self_repair_1.repairProperty;
+    } });
+    var mock_repair_1 = require_mock_repair();
+    Object.defineProperty(exports2, "mockRepairProperty", { enumerable: true, get: function() {
+      return mock_repair_1.mockRepairProperty;
     } });
   }
 });
@@ -3509,7 +3721,8 @@ var import_store2 = __toESM(require_dist());
 var import_engines = __toESM(require_dist6());
 var import_reporter = __toESM(require_dist7());
 var import_common = __toESM(require_dist4());
-async function trialRunValidation(properties, targetPath, storeDir) {
+var MAX_REPAIR_ROUNDS = 3;
+async function trialRunValidation(properties, targetPath, storeDir, sourceCode, llmClient, isMock) {
   const testsDir = path2.join(storeDir, "tests");
   await fs.mkdir(testsDir, { recursive: true });
   const trialConfig = {
@@ -3518,32 +3731,60 @@ async function trialRunValidation(properties, targetPath, storeDir) {
     timeout: 15e3,
     verbose: false
   };
-  const generated = (0, import_engines.generateFastCheckTest)(properties, targetPath, testsDir, trialConfig);
-  const testFilePath = path2.join(testsDir, generated.fileName);
-  await fs.writeFile(testFilePath, generated.content, "utf8");
-  const result = await (0, import_engines.runFastCheckTest)(testFilePath, properties, trialConfig);
+  let currentProperties = [...properties];
   const validated = [];
   const dropped = [];
-  const passedIds = new Set(result.passed.map((p) => p.propertyId));
-  const failedIds = new Set(result.failed.map((f) => f.propertyId));
-  const errorIds = new Set(result.errors.map((e) => e.propertyId));
-  for (const prop of properties) {
-    if (passedIds.has(prop.id)) {
-      validated.push(prop);
-    } else if (failedIds.has(prop.id)) {
-      validated.push(prop);
-    } else if (errorIds.has(prop.id)) {
-      const err = result.errors.find((e) => e.propertyId === prop.id);
-      dropped.push({ prop, reason: `codegen error: ${err?.errorMessage?.slice(0, 80) ?? "unknown"}` });
-    } else {
-      dropped.push({ prop, reason: "no output from trial run" });
+  let totalRepaired = 0;
+  for (let round = 0; round <= MAX_REPAIR_ROUNDS; round++) {
+    if (currentProperties.length === 0) break;
+    const generated = (0, import_engines.generateFastCheckTest)(currentProperties, targetPath, testsDir, trialConfig);
+    const testFilePath = path2.join(testsDir, generated.fileName);
+    await fs.writeFile(testFilePath, generated.content, "utf8");
+    const result = await (0, import_engines.runFastCheckTest)(testFilePath, currentProperties, trialConfig);
+    try {
+      await fs.unlink(testFilePath);
+    } catch {
     }
+    const passedIds = new Set(result.passed.map((p) => p.propertyId));
+    const failedIds = new Set(result.failed.map((f) => f.propertyId));
+    const errorIds = new Set(result.errors.map((e) => e.propertyId));
+    const needsRepair = [];
+    for (const prop of currentProperties) {
+      if (passedIds.has(prop.id)) {
+        validated.push(prop);
+      } else if (failedIds.has(prop.id)) {
+        validated.push(prop);
+      } else if (errorIds.has(prop.id)) {
+        const err = result.errors.find((e) => e.propertyId === prop.id);
+        const errorMsg = err?.errorMessage ?? "unknown error";
+        if (round < MAX_REPAIR_ROUNDS) {
+          needsRepair.push(prop);
+          const funcSig = `${prop.targetFunction}(...)`;
+          let repaired = null;
+          if (isMock) {
+            repaired = (0, import_llm.mockRepairProperty)(prop, errorMsg);
+          } else if (llmClient) {
+            repaired = await (0, import_llm.repairProperty)(llmClient, prop, errorMsg, sourceCode, funcSig);
+          }
+          if (repaired) {
+            const idx = needsRepair.indexOf(prop);
+            needsRepair[idx] = repaired;
+            totalRepaired++;
+            console.log(`    \u21BB Repairing: ${prop.targetFunction}: ${prop.description} (round ${round + 1})`);
+          } else {
+            dropped.push({ prop, reason: `codegen error (repair failed round ${round + 1}): ${errorMsg.slice(0, 60)}` });
+            needsRepair.splice(needsRepair.indexOf(prop), 1);
+          }
+        } else {
+          dropped.push({ prop, reason: `codegen error (max ${MAX_REPAIR_ROUNDS} repairs): ${errorMsg.slice(0, 60)}` });
+        }
+      } else {
+        dropped.push({ prop, reason: "no output from trial run" });
+      }
+    }
+    currentProperties = needsRepair;
   }
-  try {
-    await fs.unlink(testFilePath);
-  } catch {
-  }
-  return { validated, dropped };
+  return { validated, dropped, repaired: totalRepaired };
 }
 async function inferCommand(target, options) {
   const projectRoot = process.cwd();
@@ -3600,11 +3841,18 @@ async function inferCommand(target, options) {
   let finalProperties = result.properties;
   if (!options.skipValidation && language !== "python") {
     console.log(`  Validating ${result.properties.length} properties (trial run, 100 iterations)...`);
-    const { validated, dropped } = await trialRunValidation(
+    const llmClient = config.mock ? null : config.apiKey ? (0, import_llm.createLlmClient)(config.apiKey, config.model) : null;
+    const { validated, dropped, repaired } = await trialRunValidation(
       result.properties,
       targetPath,
-      storeDir
+      storeDir,
+      source,
+      llmClient,
+      config.mock
     );
+    if (repaired > 0) {
+      console.log(`  Self-repaired ${repaired} properties.`);
+    }
     if (dropped.length > 0) {
       console.log(`  Dropped ${dropped.length} properties during validation:`);
       for (const { prop, reason } of dropped) {
