@@ -2,15 +2,17 @@
   "name": "propcheck",
   "version": "0.1.0",
   "description": "AI-powered property-based testing — find bugs your tests miss",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "dist-bundle/index.js",
+  "types": "dist-bundle/index.d.ts",
   "bin": {
-    "propcheck": "dist/index.js"
+    "propcheck": "dist-bundle/index.js"
   },
   "scripts": {
     "build": "tsc --build",
+    "bundle": "tsup",
     "clean": "tsc --build --clean",
-    "dev": "tsc --build --watch"
+    "dev": "tsc --build --watch",
+    "prepublishOnly": "npm run build && npm run bundle"
   },
   "keywords": [
     "property-based-testing",
@@ -20,22 +22,38 @@
     "testing",
     "llm",
     "fast-check",
-    "hypothesis"
+    "hypothesis",
+    "property-testing",
+    "invariant",
+    "claude"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/allenenli/propcheck"
+  },
+  "homepage": "https://github.com/allenenli/propcheck#readme",
   "dependencies": {
-    "@propcheck/common": "*",
-    "@propcheck/config": "*",
-    "@propcheck/parser": "*",
-    "@propcheck/store": "*",
-    "@propcheck/llm": "*",
-    "@propcheck/engines": "*",
-    "@propcheck/reporter": "*",
-    "commander": "13.1.0"
+    "@anthropic-ai/sdk": ">=0.50.0",
+    "chalk": "^4.1.2",
+    "commander": "^13.0.0",
+    "zod": "^3.24.0"
   },
   "files": [
-    "dist",
+    "dist-bundle",
     "README.md",
     "LICENSE"
   ],
+  "peerDependencies": {
+    "fast-check": ">=3.0.0",
+    "typescript": ">=5.0.0"
+  },
+  "peerDependenciesMeta": {
+    "fast-check": {
+      "optional": false
+    },
+    "typescript": {
+      "optional": true
+    }
+  },
   "license": "MIT"
 }
