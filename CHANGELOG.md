@@ -2,6 +2,18 @@
 
 All notable changes to propcheck are documented in this file.
 
+## [Unreleased]
+
+### Known Issues (codegen layer)
+- Zero-parameter assertions (`calculateTotal([]) === 0`) fail — `fc.property` requires >= 1 arbitrary
+- Array literal assertions (`calculateTotal([price])`) generate invalid fast-check code
+- `fc.double()` generates negative values even when business logic expects non-negative — needs `min: 0` constraint propagation
+
+### Next: Trial-run validation pipeline
+- Infer → quick run (100x) → auto-filter false positives
+- 3-round self-repair for compile-failing properties
+- `--changed` mode (git diff → only test changed functions)
+
 ## [0.1.0] - 2026-03-27
 
 ### Phase 1 MVP — Complete
