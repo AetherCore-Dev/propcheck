@@ -1,148 +1,104 @@
+<div align="center">
+
 # propcheck
 
-> AI-powered property-based testing -- find bugs your tests miss.
+**Your tests pass. Your coverage is 100%. Your code has bugs.**
 
-[![npm](https://img.shields.io/npm/v/propcheck)](https://www.npmjs.com/package/propcheck)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+propcheck finds them.
 
-propcheck uses LLM to **automatically discover** testable properties of your code, then runs thousands of random inputs through a deterministic PBT engine to find bugs.
+[![npm](https://img.shields.io/npm/v/propcheck?style=flat-square&color=cb3837)](https://www.npmjs.com/package/propcheck)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/AetherCore-Dev/propcheck?style=flat-square)](https://github.com/AetherCore-Dev/propcheck)
+[![propcheck](https://img.shields.io/badge/propcheck-verified-brightgreen?style=flat-square)](https://github.com/AetherCore-Dev/propcheck)
 
+</div>
+
+---
+
+<!-- Replace with actual VHS-recorded GIF: vhs < demo.tape -->
 ```
-$ propcheck infer src/cart.ts
+$ propcheck run src/price-utils.ts
 
-  Inferred 3 properties for src/cart.ts ($0.05, 1.2s)
-  * applyDiscount: result >= 0                [boundary]  score: 14/15
-  * applyDiscount: result <= price            [monotonic]  score: 13/15
-  * applyDiscount: identity at zero discount  [boundary]  score: 13/15
-
-$ propcheck run src/cart.ts
-
-  src/cart.ts
-  X applyDiscount: result >= 0              FAIL
+  src/price-utils.ts
+  ✗ applyDiscount: result should be non-negative         FAIL
     Counterexample: applyDiscount(5e-324, 150)
-    Shrunk to minimal case (90 shrink steps)
-  X applyDiscount: result <= price           FAIL
-    Counterexample: applyDiscount(1e-323, -25)
-    Shrunk to minimal case (91 shrink steps)
-  V applyDiscount: identity at zero discount PASS (1000/1000)
+    Shrunk to minimal case (32 shrink steps)
+    Seed: 0 (reproduce with --seed 0)
+  ✓ applyDiscount: zero discount returns original price   PASS (1000/1000)
+  ✓ applyDiscount: 100% discount returns zero             PASS (1000/1000)
+  ✓ splitBill: total equals sum of individual shares      PASS (1000/1000)
+  ✓ compoundInterest: result >= principal when rate >= 0  PASS (1000/1000)
 
-  Properties: 3 | Passed: 1 | Failed: 2 | Duration: 0.3s
+  Properties: 9 | Passed: 8 | Failed: 1 | Duration: 0.3s
 ```
 
-Your 100% test coverage just missed 2 bugs. propcheck found them in 0.3 seconds.
+> 12 unit tests. 100% coverage. All green. **propcheck still found a bug in 0.3 seconds.**
 
-## Quick Start
-
-```bash
-# Initialize propcheck in your project
-npx propcheck init
-
-# Infer properties (requires ANTHROPIC_API_KEY or --mock)
-export ANTHROPIC_API_KEY=sk-ant-...
-npx propcheck infer src/cart.ts
-
-# Run property tests (zero LLM cost -- uses persisted properties)
-npx propcheck run src/cart.ts
-```
+---
 
 ## How It Works
 
 ```
-1. INFER (one-time, ~$0.05/file)
-   Parser extracts function signatures + types + docs
-   LLM infers testable properties (invariants)
-   Properties saved to .propcheck/properties.json
-
-2. RUN (every commit, $0)
-   Load persisted properties
-   Generate fast-check/Hypothesis test code
-   Execute 1000 random inputs per property
-   Shrink failures to minimal counterexample
-
-3. REPORT
-   Colored terminal output (screenshot-worthy)
-   JSON output for CI (--json)
-   Exit code 1 on failure (blocks merge)
+1. INFER — LLM discovers properties of your code          ($0.05, one-time)
+2. RUN   — 1,000 random inputs per property, every commit  ($0, forever)
+3. FAIL  — Shrink to minimal counterexample                (0.3 seconds)
 ```
 
-## Supported Languages
+The LLM is a **one-time cost**. After inference, properties persist in `.propcheck/properties.json`. Every CI run is free — pure deterministic fuzzing via [fast-check](https://github.com/dubzzz/fast-check) and [Hypothesis](https://hypothesis.readthedocs.io/).
 
-| Language | Parser | Engine | Status |
-|----------|--------|--------|--------|
-| TypeScript/JavaScript | TypeScript Compiler API | fast-check | Ready |
-| Python | Regex-based | Hypothesis | Ready |
-| Rust | -- | proptest | Planned |
-| Go | -- | rapid | Planned |
+## Quick Start
+
+```bash
+npx propcheck init                           # Create .propcheck/ directory
+npx propcheck infer src/price-utils.ts       # LLM infers properties (needs ANTHROPIC_API_KEY)
+npx propcheck run src/price-utils.ts         # Run 1000 random inputs per property
+```
+
+No API key? Try the demo:
+```bash
+npx propcheck infer --mock src/price-utils.ts && npx propcheck run src/price-utils.ts
+```
+
+## What propcheck discovers
+
+| Category | Example | What it catches |
+|----------|---------|-----------------|
+| **boundary** | `result >= 0` | Negative prices, overflow |
+| **roundtrip** | `decode(encode(x)) === x` | Data loss in serialization |
+| **idempotent** | `sort(sort(x)) === sort(x)` | Unstable sorting |
+| **conservation** | `sum(transfer(a,b,n)) === sum(a)+sum(b)` | Money disappearing |
+| **monotonic** | `if a <= b then f(a) <= f(b)` | Ordering violations |
+| **metamorphic** | `f(2x) ~ 2*f(x)` | Scaling inconsistencies |
+
+## Features
+
+- **Multi-language** — TypeScript, JavaScript, Python (Rust/Go planned)
+- **Zero-config CI** — `propcheck run --changed` only tests git-modified files
+- **Mutation testing** — `propcheck quality` measures how strong your properties are
+- **Self-repair** — Auto-fixes generated test code that fails to compile (3 rounds)
+- **Refinement loop** — `--refine` strengthens weak properties via iterative LLM feedback
+- **PR Bot** — Auto-comments propcheck results on every Pull Request
 
 ## Run Modes
 
 ```bash
-propcheck run --quick          # 100 iterations (fast feedback)
-propcheck run                   # 1000 iterations (default)
-propcheck run --thorough        # 10000 iterations (pre-release)
-propcheck run --seed 12345      # Reproducible run
-propcheck run --json            # Machine-readable output
+propcheck run --quick              # 100 iterations — fast feedback while coding
+propcheck run                      # 1,000 iterations — default for CI
+propcheck run --thorough           # 10,000 iterations — pre-release deep check
+propcheck run --changed            # Only test files changed in git diff
+propcheck run --seed 42            # Reproducible runs
+propcheck run --json               # Machine-readable output for CI
+propcheck quality src/cart.ts      # Mutation testing — measure property strength
 ```
-
-## Offline Testing
-
-```bash
-# Use mock LLM for demos and CI without API key
-propcheck infer --mock src/cart.ts
-propcheck run src/cart.ts
-```
-
-## Property Categories
-
-propcheck discovers these types of properties:
-
-| Category | Example | Description |
-|----------|---------|-------------|
-| roundtrip | `decode(encode(x)) === x` | Encode/decode are inverse |
-| idempotent | `sort(sort(x)) === sort(x)` | Applying twice = once |
-| conservation | `sum(transfer(a,b,n)) === sum(a)+sum(b)` | Quantity preserved |
-| monotonic | `sorted[i] <= sorted[i+1]` | Output is ordered |
-| boundary | `result >= 0` | Edge case behavior |
-| equivalence | `f(x) === g(x)` | Two impls agree |
-| metamorphic | `f(transform(x)) ~ f(x)` | Transform relationship |
-
-## Configuration
-
-Create `.propcheckrc` in your project root:
-
-```json
-{
-  "model": "claude-sonnet-4-20250514",
-  "maxPropertiesPerFunction": 5,
-  "minScore": 10,
-  "defaultMode": "default",
-  "timeout": 30000,
-  "languages": ["typescript", "javascript"]
-}
-```
-
-## Badge
-
-Add to your README:
-
-```markdown
-[![propcheck](https://img.shields.io/badge/propcheck-verified-brightgreen)](https://github.com/user/propcheck)
-```
-
-Generate with: `npx propcheck badge`
 
 ## CI/CD — Auto-review every PR
 
-Add this to your repo as `.github/workflows/propcheck.yml`:
+Add `.github/workflows/propcheck.yml` to your repo:
 
 ```yaml
 name: propcheck
-on:
-  pull_request:
-    branches: [main]
-permissions:
-  contents: read
-  pull-requests: write
+on: [pull_request]
+permissions: { contents: read, pull-requests: write }
 jobs:
   propcheck:
     runs-on: ubuntu-latest
@@ -150,63 +106,110 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: "20" }
-      - run: npm ci
-      - run: npm install -g propcheck
-      - run: propcheck run --json > /tmp/results.json 2>&1 || true
+      - run: npm ci && npm install -g propcheck
       - run: propcheck run > /tmp/output.txt 2>&1 || true
       - uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
             const output = fs.readFileSync('/tmp/output.txt','utf8');
-            const body = '## 🔍 propcheck\n```\n' + output.trim().slice(0,3000) + '\n```\n> [propcheck](https://npmjs.com/package/propcheck)';
             await github.rest.issues.createComment({
               owner: context.repo.owner, repo: context.repo.repo,
-              issue_number: context.issue.number, body,
+              issue_number: context.issue.number,
+              body: '## propcheck\n```\n' + output.trim().slice(0,3000) + '\n```',
             });
 ```
 
-Every PR gets an automatic propcheck review comment — like CodeRabbit but for property testing.
+Every PR reviewer sees propcheck results. Every comment links back to propcheck. **Distribution built into the workflow.**
 
 ## Mutation Testing
 
-Measure how strong your properties are:
+How strong are your properties? Inject code mutations, see how many your properties catch:
 
-```bash
-propcheck quality src/cart.ts
+```
+$ propcheck quality src/cart.ts
 
   Mutation Testing: src/cart.ts
-  Generated 7 mutants from 7 operators
+  Generated 7 mutants (+ → -, > → >=, 0 → 1, ...)
   Testing against 9 properties...
 
-  Results:
-    Killed:         7 (100.0%)
-    Survived:       0 (0.0%)
-    Mutation score: 100.0%
+  Killed:         7 (100.0%)    ← Your properties caught all mutations
+  Survived:       0 (0.0%)
+  Mutation score: 100.0%
+
+  ✓ All mutants killed! Your properties are comprehensive.
 ```
+
+## Badge
+
+```markdown
+[![propcheck](https://img.shields.io/badge/propcheck-verified-brightgreen)](https://github.com/AetherCore-Dev/propcheck)
+```
+
+Generate: `npx propcheck badge`
 
 ## Architecture
 
 ```
-LLM (brain)              Deterministic Engine (hands)
-  infer properties   -->   .propcheck/properties.json
-                           fast-check / Hypothesis
-                           1000+ random inputs
-                           automatic shrinking
-                           minimal counterexample
+┌──────────────────────────────────────────────┐
+│            propcheck                          │
+│                                              │
+│   LLM (brain)         Engine (hands)         │
+│   ┌──────────┐        ┌──────────────┐       │
+│   │ Claude   │──────> │ fast-check   │       │
+│   │ infer    │  .propcheck/          │       │
+│   │ once     │  properties.json      │       │
+│   └──────────┘        │ Hypothesis   │       │
+│     $0.05              │ 1000+ inputs │       │
+│     one-time           │ shrinking    │       │
+│                        └──────────────┘       │
+│                          $0 forever           │
+└──────────────────────────────────────────────┘
 ```
 
-Key insight: LLM is a **one-time cost** for inference. Execution is **free forever**.
+## Supported Languages
+
+| Language | Parser | PBT Engine | Status |
+|----------|--------|------------|--------|
+| TypeScript / JavaScript | TS Compiler API | fast-check | **Ready** |
+| Python | Type hints + docstrings | Hypothesis | **Ready** |
+| Rust | — | proptest | Planned |
+| Go | — | rapid | Planned |
 
 ## Research Foundation
 
-Built on techniques from 5 top papers (NeurIPS/Stanford/Anthropic):
+Built on peer-reviewed techniques from 5 top papers:
 
-- **Agentic PBT** (Anthropic) -- 6-step cycle, 56-86% precision
-- **PGS** (BUAA) -- properties are easier to get right than code
-- **ClassInvGen** (Stanford/MSFT) -- co-generation boosts quality 77%->100%
-- **FUEL** (NJU) -- feedback loops find 14 CVEs
-- **Quokka** (Stanford/SRI) -- LLM invariants + formal verification
+| Paper | Institution | Key Contribution | propcheck Feature |
+|-------|-------------|-----------------|-------------------|
+| [Agentic PBT](https://arxiv.org/abs/2510.09907) | Anthropic / NeurIPS 2025 | 6-step cycle, 56-86% precision | Core inference pipeline |
+| [PGS](https://arxiv.org/abs/2506.18315) | BUAA | Properties > code accuracy | `propcheck fix` (coming) |
+| [ClassInvGen](https://arxiv.org/abs/2502.18917) | Stanford / Microsoft | Co-generation: 77%->100% | Seed input generation |
+| [FUEL](https://arxiv.org/abs/2506.17642) | Nanjing University | Feedback loops, 14 CVEs | `--refine` flag |
+| [Quokka](https://arxiv.org/abs/2509.21629) | Stanford / SRI | SMT formal verification | Future: `propcheck verify` |
+
+## Configuration
+
+```json
+// .propcheckrc
+{
+  "model": "claude-sonnet-4-20250514",
+  "maxPropertiesPerFunction": 5,
+  "minScore": 10,
+  "defaultMode": "default",
+  "timeout": 30000
+}
+```
+
+## Contributing
+
+PRs welcome. See [CHANGELOG.md](CHANGELOG.md) for what's been done.
+
+```bash
+git clone https://github.com/AetherCore-Dev/propcheck.git
+cd propcheck && npm install && npx tsc --build
+node packages/cli/dist/index.js --help
+```
 
 ## License
 
