@@ -1,8 +1,65 @@
 # propcheck — Next Features Backlog (Priority Ordered)
 
-> Generated: 2026-03-27
+> Generated: 2026-03-27 | Last Updated: 2026-03-27
 > Principle: 按 **重要性 × 传播效果 × 用户体验** 排序，不考虑开发工作量
 > 参考: 5 篇顶级论文 + 7 个成功 dev tool 的病毒传播模式 + 业内最新进展
+
+---
+
+## Tier S: 战略级定位升级 — 从检测工具到上线决策平台
+
+### TS-1. Spec/Plan 驱动属性推断（解决"代码错了属性也错"的核心问题）
+**优先级: ★★★★★ | 重要性: ★★★★★ | 差异化: ★★★★★**
+
+> 当前 propcheck 从代码推断属性 — 如果代码有 bug，推断出的属性也会"配合"错误代码。
+> Spec/Plan 代表用户意图，不被实现 bug 污染。这是解决 PGS 论文"自我欺骗循环"的关键。
+
+- `propcheck infer --spec requirements.md src/cart.ts`
+- 多源属性推断优先级:
+  1. **Spec/PRD/Plan** (最高权威 — 用户说了要什么)
+  2. **Type System + API Contract** (编译器保证)
+  3. **Documentation / JSDoc** (开发者写的契约)
+  4. **Code Implementation** (最低优先级 — 可能有 bug)
+  5. **Domain Common Sense** (兜底检查)
+- **冲突检测**: Spec 说 "非负" 但代码允许负数 → ⚠️ SPEC VIOLATION
+- AI Coding 流程天然产出 Spec: Cursor/Claude Code 的 plan → 直接作为属性来源
+- 参考: PGS 论文 "属性比代码更容易正确"
+
+### TS-2. 意图确认机制（解决"用户意图违反常规"的问题）
+**优先级: ★★★★★ | 重要性: ★★★★★ | 体验: ★★★★**
+
+> 用户故意要负价格（退款场景）但 LLM 推断 "result >= 0" → 假阳性。
+> 需要一个确认环节让人类做最终判断。
+
+- `propcheck infer --confirm src/cart.ts` 交互式确认模式
+- 每个属性展示来源 + 置信度 + 是否有冲突
+- 冲突时提问: "Spec says non-negative, but code allows negative. Is this intentional?"
+- 用户确认后标记 `human-verified` vs `llm-inferred`
+- 反常意图检测: 金融函数返回负数、密码用 === 比较、排序不稳定 → 自动警告
+
+### TS-3. Ship Confidence Score（从"找 bug"升级为"能不能上线"）
+**优先级: ★★★★★ | 传播: ★★★★★ | 差异化: ★★★★★**
+
+> 开发者真正要的不是"抓了几个 bug"，而是"这个代码能不能上线"。
+
+- `propcheck run --confidence src/`
+- 分 Tier 评估:
+  - **Tier 1 (开源/side project)**: 80% 覆盖率 + 基本属性 = Ship ✅
+  - **Tier 2 (SaaS/商业产品)**: 90% 覆盖率 + PBT 1000x + 变异 > 70% = Ship ✅
+  - **Tier 3 (金融/支付)**: 上述 + fuzzing 10000x + 跨函数验证 = Ship ✅
+  - **Tier 4 (医疗/航空)**: 上述 + 形式化验证 (SMT) = Ship ✅
+- 输出: "Ship Confidence: 87% — Ready for SaaS deployment"
+- 参考: DO-178C (航空), IEC 61508 (工业), ISO 26262 (汽车)
+
+### TS-4. "Ship Confidence" 权威文章（零代码成本，立刻可做）
+**优先级: ★★★★★ | 传播: ★★★★★ | 成本: 零**
+
+> 写一篇深度文章建立 propcheck 在"上线决策"领域的权威性。
+
+- 标题: "Ship Confidence: How Many Tests Do You Actually Need?"
+- 内容: Tier 框架 + 行业标准引用 + propcheck 如何覆盖每个 Tier
+- 发布: HN / Dev.to / Medium / Twitter thread
+- 效果: 定义品类 = 拥有品类
 
 ---
 
@@ -254,19 +311,20 @@
 
 ```
 本周 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  T0-1 PR Comment Bot          ← 传播引爆
-  T0-2 30秒 GIF Demo           ← 传播素材
-  T1-1 真实 API 测试            ← 核心验证
+  TS-4 "Ship Confidence" 文章    ← 零代码成本，立刻建立权威
+  T0-1 PR Comment Bot            ← 传播引爆 ✅ DONE
+  T0-2 30秒 GIF Demo             ← 传播素材
 
 下周 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  T0-3 Show HN Launch          ← 首批 1000 用户
-  T1-2 propcheck fix           ← 完整闭环
-  T1-3 跨函数属性              ← 深层价值
+  TS-1 Spec/Plan 驱动属性推断    ← 解决核心可靠性问题
+  T0-3 Show HN Launch            ← 首批 1000 用户
+  T1-1 真实 API 测试             ← 核心验证
 
 第 2-3 周 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  T1-4 Community Templates     ← 护城河启动
-  T2-1 符号执行混合            ← 精度跃升
-  T2-2 Coverage-Guided         ← 深层 bug
+  TS-2 意图确认机制              ← 消除假阳性
+  TS-3 Ship Confidence Score     ← 定位升级
+  T1-2 propcheck fix             ← 完整闭环
+  T1-3 跨函数属性                ← 深层价值
 
 第 4-6 周 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   T3-1 VS Code Extension       ← 产品完整
