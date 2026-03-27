@@ -44,6 +44,7 @@ program
   .option("--thorough", "Thorough mode: 10,000 iterations")
   .option("--seed <n>", "Random seed for reproducibility")
   .option("--json", "Output results as JSON")
+  .option("--changed", "Only run properties for git-changed files")
   .action(runCommand);
 
 program

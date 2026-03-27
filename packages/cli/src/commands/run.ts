@@ -22,6 +22,7 @@ import {
   hashContent,
   toForwardSlash,
   RUN_MODE_ITERATIONS,
+  getChangedFiles,
 } from "@propcheck/common";
 import type { RunConfig, PropertySet } from "@propcheck/common";
 
@@ -30,6 +31,7 @@ interface RunOptions {
   thorough?: boolean;
   seed?: string;
   json?: boolean;
+  changed?: boolean;
 }
 
 export async function runCommand(
@@ -53,7 +55,27 @@ export async function runCommand(
   // Load properties
   let propertySets: readonly PropertySet[];
 
-  if (target) {
+  if (options.changed) {
+    // --changed mode: only run properties for git-changed files
+    const changedFiles = getChangedFiles(projectRoot);
+    const changedPaths = new Set(changedFiles.map((f) => toForwardSlash(f.filePath)));
+
+    if (changedPaths.size === 0) {
+      console.log("\n  No changes detected (git diff is clean).\n");
+      process.exit(0);
+    }
+
+    const allSets = await getAllProperties(storeDir);
+    propertySets = allSets.filter((ps) => changedPaths.has(ps.filePath));
+
+    if (propertySets.length === 0) {
+      console.log(`\n  No properties found for changed files: ${[...changedPaths].join(", ")}`);
+      console.log("  Run: propcheck infer <file> first.\n");
+      process.exit(0);
+    }
+
+    console.log(`\n  Running properties for ${propertySets.length} changed file(s)...\n`);
+  } else if (target) {
     const targetPath = path.resolve(projectRoot, target);
     const moduleKey = toForwardSlash(path.relative(projectRoot, targetPath));
     const ps = await getProperties(storeDir, moduleKey);

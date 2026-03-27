@@ -56,3 +56,8 @@ export {
   relativeForward,
   importPath,
 } from "./utils/path";
+export {
+  getChangedFiles,
+  getChangedFunctions,
+} from "./utils/git";
+export type { ChangedFile } from "./utils/git";
