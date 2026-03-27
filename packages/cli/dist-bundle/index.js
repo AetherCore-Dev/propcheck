@@ -2567,12 +2567,162 @@ var require_mock_repair = __commonJS({
   }
 });
 
+// ../llm/dist/prompts/refinement.js
+var require_refinement = __commonJS({
+  "../llm/dist/prompts/refinement.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.classifyProperties = classifyProperties2;
+    exports2.buildFeedbackSummary = buildFeedbackSummary2;
+    exports2.buildRefinementPrompt = buildRefinementPrompt;
+    function classifyProperties2(properties, result) {
+      const passedIds = new Map(result.passed.map((p) => [p.propertyId, p]));
+      const failedIds = new Map(result.failed.map((f) => [f.propertyId, f]));
+      const errorIds = new Map(result.errors.map((e) => [e.propertyId, e]));
+      return properties.map((prop) => {
+        const passed = passedIds.get(prop.id);
+        if (passed) {
+          if (prop.score < 12 || prop.confidence < 0.7) {
+            return { kind: "weak", property: prop, reason: `low score (${prop.score}/15) or confidence (${prop.confidence})` };
+          }
+          return { kind: "strong", property: prop };
+        }
+        const failed = failedIds.get(prop.id);
+        if (failed) {
+          return { kind: "bug_found", property: prop, counterexample: failed.counterexample };
+        }
+        const error = errorIds.get(prop.id);
+        if (error) {
+          return { kind: "failed", property: prop, error: error.errorMessage };
+        }
+        return { kind: "failed", property: prop, error: "no result" };
+      });
+    }
+    function buildFeedbackSummary2(classifications, functionNames) {
+      const lines = [];
+      lines.push("## Round 1 Results\n");
+      const byFunction = /* @__PURE__ */ new Map();
+      for (const c of classifications) {
+        const fn = c.property.targetFunction;
+        const list = byFunction.get(fn) ?? [];
+        list.push(c);
+        byFunction.set(fn, list);
+      }
+      for (const [fn, cls] of byFunction) {
+        lines.push(`### ${fn}`);
+        for (const c of cls) {
+          switch (c.kind) {
+            case "strong":
+              lines.push(`  \u2713 STRONG: "${c.property.description}" \u2014 passed, high quality`);
+              break;
+            case "weak":
+              lines.push(`  \u26A0 WEAK: "${c.property.description}" \u2014 ${c.reason}`);
+              lines.push(`    \u2192 Please generate a STRONGER version that tests deeper behavior`);
+              break;
+            case "bug_found":
+              lines.push(`  \u{1F41B} BUG FOUND: "${c.property.description}" \u2014 counterexample: ${JSON.stringify(c.counterexample)}`);
+              lines.push(`    \u2192 Explore SIMILAR properties around this bug area`);
+              break;
+            case "failed":
+              lines.push(`  \u2717 FAILED: "${c.property.description}" \u2014 ${c.error}`);
+              break;
+          }
+        }
+        lines.push("");
+      }
+      const coveredFunctions = /* @__PURE__ */ new Set();
+      for (const c of classifications) {
+        if (c.kind === "strong" || c.kind === "bug_found") {
+          coveredFunctions.add(c.property.targetFunction);
+        }
+      }
+      const uncovered = functionNames.filter((fn) => !coveredFunctions.has(fn));
+      if (uncovered.length > 0) {
+        lines.push("## Coverage Gaps");
+        lines.push(`These functions have no strong properties yet: ${uncovered.join(", ")}`);
+        lines.push("\u2192 Try different property categories (roundtrip, conservation, metamorphic)");
+        lines.push("");
+      }
+      const strong = classifications.filter((c) => c.kind === "strong").length;
+      const weak = classifications.filter((c) => c.kind === "weak").length;
+      const bugs = classifications.filter((c) => c.kind === "bug_found").length;
+      const failed = classifications.filter((c) => c.kind === "failed").length;
+      lines.push("## Summary");
+      lines.push(`Strong: ${strong} | Weak: ${weak} | Bugs found: ${bugs} | Failed: ${failed}`);
+      lines.push("");
+      lines.push("## Instructions for Round 2");
+      lines.push("1. Keep all STRONG properties as-is (do not regenerate them)");
+      lines.push("2. For each WEAK property, generate a stronger replacement");
+      lines.push("3. For each BUG FOUND, generate 1-2 related properties exploring the same area");
+      lines.push("4. For coverage gaps, try completely different property categories");
+      lines.push("5. Do NOT duplicate existing strong properties");
+      return lines.join("\n");
+    }
+    function buildRefinementPrompt(originalPrompt, feedbackSummary) {
+      return `${originalPrompt}
+
+---
+
+${feedbackSummary}
+
+Generate ONLY new or improved properties. Do NOT repeat the strong properties from Round 1.`;
+    }
+  }
+});
+
+// ../llm/dist/mock-refinement.js
+var require_mock_refinement = __commonJS({
+  "../llm/dist/mock-refinement.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.mockRefineProperties = mockRefineProperties2;
+    function mockRefineProperties2(classifications) {
+      const improved = [];
+      let idCounter = 900;
+      for (const c of classifications) {
+        switch (c.kind) {
+          case "weak": {
+            const strengthened = {
+              ...c.property,
+              id: `prop_${idCounter++}`,
+              score: Math.min(c.property.score + 2, 15),
+              confidence: Math.min(c.property.confidence + 0.1, 1),
+              description: c.property.description + " (strengthened)"
+            };
+            improved.push(strengthened);
+            break;
+          }
+          case "bug_found": {
+            const related = {
+              ...c.property,
+              id: `prop_${idCounter++}`,
+              description: `${c.property.targetFunction}: boundary around discovered bug`,
+              category: "boundary",
+              confidence: 0.8,
+              score: 13
+            };
+            improved.push(related);
+            break;
+          }
+          case "failed": {
+            break;
+          }
+          case "strong": {
+            break;
+          }
+        }
+      }
+      return improved;
+    }
+  }
+});
+
 // ../llm/dist/index.js
 var require_dist5 = __commonJS({
   "../llm/dist/index.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.mockRepairProperty = exports2.repairProperty = exports2.getInferTool = exports2.getSystemPrompt = exports2.buildInferPrompt = exports2.isRedundant = exports2.scoreAndFilter = exports2.scoreProperty = exports2.parseInferResponse = exports2.createMockClient = exports2.createLlmClient = void 0;
+    exports2.mockRefineProperties = exports2.buildRefinementPrompt = exports2.buildFeedbackSummary = exports2.classifyProperties = exports2.mockRepairProperty = exports2.repairProperty = exports2.getInferTool = exports2.getSystemPrompt = exports2.buildInferPrompt = exports2.isRedundant = exports2.scoreAndFilter = exports2.scoreProperty = exports2.parseInferResponse = exports2.createMockClient = exports2.createLlmClient = void 0;
     exports2.inferProperties = inferProperties2;
     var common_1 = require_dist4();
     var client_1 = require_client();
@@ -2662,6 +2812,20 @@ var require_dist5 = __commonJS({
     var mock_repair_1 = require_mock_repair();
     Object.defineProperty(exports2, "mockRepairProperty", { enumerable: true, get: function() {
       return mock_repair_1.mockRepairProperty;
+    } });
+    var refinement_1 = require_refinement();
+    Object.defineProperty(exports2, "classifyProperties", { enumerable: true, get: function() {
+      return refinement_1.classifyProperties;
+    } });
+    Object.defineProperty(exports2, "buildFeedbackSummary", { enumerable: true, get: function() {
+      return refinement_1.buildFeedbackSummary;
+    } });
+    Object.defineProperty(exports2, "buildRefinementPrompt", { enumerable: true, get: function() {
+      return refinement_1.buildRefinementPrompt;
+    } });
+    var mock_refinement_1 = require_mock_refinement();
+    Object.defineProperty(exports2, "mockRefineProperties", { enumerable: true, get: function() {
+      return mock_refinement_1.mockRefineProperties;
     } });
   }
 });
@@ -3840,6 +4004,8 @@ async function inferCommand(target, options) {
   }
   let finalProperties = result.properties;
   if (!options.skipValidation && language !== "python") {
+    const testsDir = path2.join(storeDir, "tests");
+    await fs.mkdir(testsDir, { recursive: true });
     console.log(`  Validating ${result.properties.length} properties (trial run, 100 iterations)...`);
     const llmClient = config.mock ? null : config.apiKey ? (0, import_llm.createLlmClient)(config.apiKey, config.model) : null;
     const { validated, dropped, repaired } = await trialRunValidation(
@@ -3863,6 +4029,59 @@ async function inferCommand(target, options) {
     if (finalProperties.length === 0) {
       console.log("  No properties survived validation.\n");
       return;
+    }
+    if (options.refine && finalProperties.length > 0) {
+      console.log(`
+  Refinement Round 2: analyzing ${finalProperties.length} properties...`);
+      const fullConfig = { mode: "quick", iterations: 100, timeout: 15e3, verbose: false };
+      const execGenerated = (0, import_engines.generateFastCheckTest)(finalProperties, targetPath, testsDir, fullConfig);
+      const execTestPath = path2.join(testsDir, execGenerated.fileName);
+      await fs.writeFile(execTestPath, execGenerated.content, "utf8");
+      const execResult = await (0, import_engines.runFastCheckTest)(execTestPath, finalProperties, fullConfig);
+      try {
+        await fs.unlink(execTestPath);
+      } catch {
+      }
+      const classifications = (0, import_llm.classifyProperties)(finalProperties, execResult);
+      const functionNames = context.functions.map((f) => f.qualifiedName);
+      const feedback = (0, import_llm.buildFeedbackSummary)(classifications, functionNames);
+      const strong = classifications.filter((c) => c.kind === "strong");
+      const weak = classifications.filter((c) => c.kind === "weak");
+      const bugs = classifications.filter((c) => c.kind === "bug_found");
+      console.log(`    Strong: ${strong.length} | Weak: ${weak.length} | Bugs: ${bugs.length}`);
+      if (weak.length > 0 || bugs.length > 0) {
+        let improvedProperties;
+        if (config.mock) {
+          improvedProperties = (0, import_llm.mockRefineProperties)(classifications);
+        } else if (llmClient) {
+          const refineResult = await (0, import_llm.inferProperties)(config.apiKey, config.model, context, {
+            maxProperties: parseInt(options.maxProperties ?? "5", 10),
+            minScore: parseInt(options.minScore ?? "10", 10),
+            mock: false
+          });
+          improvedProperties = refineResult.properties;
+        } else {
+          improvedProperties = [];
+        }
+        if (improvedProperties.length > 0) {
+          console.log(`    Generated ${improvedProperties.length} improved properties`);
+          const { validated: improvedValidated } = await trialRunValidation(
+            improvedProperties,
+            targetPath,
+            storeDir,
+            source,
+            llmClient,
+            config.mock
+          );
+          const strongProps = classifications.filter((c) => c.kind === "strong" || c.kind === "bug_found").map((c) => c.property);
+          const existingAssertions = new Set(strongProps.map((p) => p.assertion));
+          const newUnique = improvedValidated.filter((p) => !existingAssertions.has(p.assertion));
+          finalProperties = [...strongProps, ...newUnique];
+          console.log(`    Final: ${finalProperties.length} properties after refinement`);
+        }
+      } else {
+        console.log(`    All properties are strong \u2014 no refinement needed`);
+      }
     }
   }
   const moduleKey = (0, import_common.toForwardSlash)(path2.relative(projectRoot, targetPath));
@@ -3998,7 +4217,7 @@ async function badgeCommand() {
 var program = new import_commander.Command();
 program.name("propcheck").description("AI-powered property-based testing \u2014 find bugs your tests miss").version("0.1.0");
 program.command("init").description("Initialize .propcheck/ directory in the current project").action(initCommand);
-program.command("infer <target>").description("Infer testable properties for target file(s) using LLM").option("--mock", "Use mock LLM client (no API key needed)").option("--model <model>", "LLM model to use", "claude-sonnet-4-20250514").option("--max-properties <n>", "Max properties per function", "5").option("--min-score <n>", "Minimum quality score (0-15)", "10").option("--skip-validation", "Skip trial-run validation of inferred properties").action(inferCommand);
+program.command("infer <target>").description("Infer testable properties for target file(s) using LLM").option("--mock", "Use mock LLM client (no API key needed)").option("--model <model>", "LLM model to use", "claude-sonnet-4-20250514").option("--max-properties <n>", "Max properties per function", "5").option("--min-score <n>", "Minimum quality score (0-15)", "10").option("--skip-validation", "Skip trial-run validation of inferred properties").option("--refine", "Enable refinement loop (Round 2): strengthen weak properties").action(inferCommand);
 program.command("run [target]").description("Run property tests against target file(s)").option("--quick", "Quick mode: 100 iterations").option("--thorough", "Thorough mode: 10,000 iterations").option("--seed <n>", "Random seed for reproducibility").option("--json", "Output results as JSON").option("--changed", "Only run properties for git-changed files").action(runCommand);
 program.command("badge").description("Output markdown badge snippet for your README").action(badgeCommand);
 program.parse();

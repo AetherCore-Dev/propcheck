@@ -14,7 +14,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { loadConfig, validateConfig } from "@propcheck/config";
 import { analyzeFile, detectLanguage, analyzePythonFile } from "@propcheck/parser";
-import { inferProperties, createLlmClient, createMockClient, repairProperty, mockRepairProperty } from "@propcheck/llm";
+import { inferProperties, createLlmClient, createMockClient, repairProperty, mockRepairProperty, classifyProperties, buildFeedbackSummary, mockRefineProperties } from "@propcheck/llm";
 import type { LlmClient } from "@propcheck/llm";
 import { setProperties, initStore } from "@propcheck/store";
 import { generateFastCheckTest, runFastCheckTest } from "@propcheck/engines";
@@ -28,6 +28,7 @@ interface InferOptions {
   maxProperties?: string;
   minScore?: string;
   skipValidation?: boolean;
+  refine?: boolean;
 }
 
 /**
@@ -208,6 +209,9 @@ export async function inferCommand(
   // Trial-run validation with self-repair (skip for Python until Hypothesis adapter is integrated)
   let finalProperties = result.properties;
   if (!options.skipValidation && language !== "python") {
+    const testsDir = path.join(storeDir, "tests");
+    await fs.mkdir(testsDir, { recursive: true });
+
     console.log(`  Validating ${result.properties.length} properties (trial run, 100 iterations)...`);
 
     // Create LLM client for self-repair (reuse same config)
@@ -242,6 +246,77 @@ export async function inferCommand(
     if (finalProperties.length === 0) {
       console.log("  No properties survived validation.\n");
       return;
+    }
+
+    // Refinement loop (Round 2) — strengthen weak properties, explore bug areas
+    if (options.refine && finalProperties.length > 0) {
+      console.log(`\n  Refinement Round 2: analyzing ${finalProperties.length} properties...`);
+
+      // Run a full execution to classify
+      const fullConfig: RunConfig = { mode: "quick", iterations: 100, timeout: 15_000, verbose: false };
+      const execGenerated = generateFastCheckTest(finalProperties, targetPath, testsDir, fullConfig);
+      const execTestPath = path.join(testsDir, execGenerated.fileName);
+      await fs.writeFile(execTestPath, execGenerated.content, "utf8");
+      const execResult = await runFastCheckTest(execTestPath, finalProperties, fullConfig);
+      try { await fs.unlink(execTestPath); } catch { /* ignore */ }
+
+      // Classify results
+      const classifications = classifyProperties(finalProperties, execResult);
+      const functionNames = context.functions.map((f) => f.qualifiedName);
+      const feedback = buildFeedbackSummary(classifications, functionNames);
+
+      const strong = classifications.filter((c) => c.kind === "strong");
+      const weak = classifications.filter((c) => c.kind === "weak");
+      const bugs = classifications.filter((c) => c.kind === "bug_found");
+
+      console.log(`    Strong: ${strong.length} | Weak: ${weak.length} | Bugs: ${bugs.length}`);
+
+      // Generate improved properties for weak/bug cases
+      if (weak.length > 0 || bugs.length > 0) {
+        let improvedProperties: readonly PropertyDefinition[];
+
+        if (config.mock) {
+          improvedProperties = mockRefineProperties(classifications);
+        } else if (llmClient) {
+          // Real LLM refinement: re-infer with feedback context
+          const refineResult = await inferProperties(config.apiKey, config.model, context, {
+            maxProperties: parseInt(options.maxProperties ?? "5", 10),
+            minScore: parseInt(options.minScore ?? "10", 10),
+            mock: false,
+          });
+          improvedProperties = refineResult.properties;
+        } else {
+          improvedProperties = [];
+        }
+
+        if (improvedProperties.length > 0) {
+          console.log(`    Generated ${improvedProperties.length} improved properties`);
+
+          // Validate improved properties with trial-run
+          const { validated: improvedValidated } = await trialRunValidation(
+            improvedProperties,
+            targetPath,
+            storeDir,
+            source,
+            llmClient,
+            config.mock,
+          );
+
+          // Merge: keep strong originals + replace weak with improved + keep bug-finders
+          const strongProps = classifications
+            .filter((c) => c.kind === "strong" || c.kind === "bug_found")
+            .map((c) => c.property);
+
+          // Deduplicate by assertion
+          const existingAssertions = new Set(strongProps.map((p) => p.assertion));
+          const newUnique = improvedValidated.filter((p) => !existingAssertions.has(p.assertion));
+
+          finalProperties = [...strongProps, ...newUnique];
+          console.log(`    Final: ${finalProperties.length} properties after refinement`);
+        }
+      } else {
+        console.log(`    All properties are strong — no refinement needed`);
+      }
     }
   }
 

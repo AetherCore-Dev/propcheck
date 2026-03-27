@@ -110,3 +110,6 @@ export { scoreProperty, scoreAndFilter, isRedundant } from "./scoring";
 export { buildInferPrompt, getSystemPrompt, getInferTool } from "./prompts/infer-properties";
 export { repairProperty } from "./prompts/self-repair";
 export { mockRepairProperty } from "./mock-repair";
+export { classifyProperties, buildFeedbackSummary, buildRefinementPrompt } from "./prompts/refinement";
+export type { PropertyClassification } from "./prompts/refinement";
+export { mockRefineProperties } from "./mock-refinement";

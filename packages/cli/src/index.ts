@@ -35,6 +35,7 @@ program
   .option("--max-properties <n>", "Max properties per function", "5")
   .option("--min-score <n>", "Minimum quality score (0-15)", "10")
   .option("--skip-validation", "Skip trial-run validation of inferred properties")
+  .option("--refine", "Enable refinement loop (Round 2): strengthen weak properties")
   .action(inferCommand);
 
 program
