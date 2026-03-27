@@ -8,7 +8,7 @@
         {
           "id": "prop_001",
           "targetFunction": "applyDiscount",
-          "description": "Result is non-negative",
+          "description": "Discounted price should be non-negative for valid inputs",
           "category": "boundary",
           "assertion": "applyDiscount(price, discount) >= 0",
           "generators": {
@@ -22,59 +22,7 @@
             "discount": {
               "type": "float",
               "constraints": {
-                "min": -50,
-                "max": 200
-              }
-            }
-          },
-          "seedInputs": [
-            {
-              "label": "normal",
-              "value": {
-                "price": 100,
-                "discount": 10
-              }
-            },
-            {
-              "label": "boundary",
-              "value": {
-                "price": 0,
-                "discount": 0
-              }
-            },
-            {
-              "label": "extreme",
-              "value": {
-                "price": 0.01,
-                "discount": 99.99
-              }
-            }
-          ],
-          "score": 13,
-          "confidence": 0.9,
-          "evidence": "prices should never be negative after discount",
-          "sourceHash": "a3acc0cffa75cd5e3303ec3ce710607fd75e4bc236f1967c6b2bb81a20b6e958",
-          "inferredAt": "2026-03-26T14:20:34.736Z",
-          "modelId": "mock-model"
-        },
-        {
-          "id": "prop_002",
-          "targetFunction": "applyDiscount",
-          "description": "Result does not exceed original price",
-          "category": "monotonic",
-          "assertion": "applyDiscount(price, discount) <= price",
-          "generators": {
-            "price": {
-              "type": "float",
-              "constraints": {
                 "min": 0,
-                "max": 10000
-              }
-            },
-            "discount": {
-              "type": "float",
-              "constraints": {
-                "min": -50,
                 "max": 200
               }
             }
@@ -90,6 +38,58 @@
             {
               "label": "boundary",
               "value": {
+                "price": 0,
+                "discount": 100
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "price": 0.01,
+                "discount": 150
+              }
+            }
+          ],
+          "score": 13,
+          "confidence": 0.92,
+          "evidence": "@param discount - Discount percentage (0-100); prices should not go negative",
+          "sourceHash": "a3acc0cffa75cd5e3303ec3ce710607fd75e4bc236f1967c6b2bb81a20b6e958",
+          "inferredAt": "2026-03-27T00:44:04.072Z",
+          "modelId": "claude-opus-4-20250514-mock"
+        },
+        {
+          "id": "prop_002",
+          "targetFunction": "applyDiscount",
+          "description": "Discount should not increase the price when discount is positive",
+          "category": "monotonic",
+          "assertion": "discount >= 0 ? applyDiscount(price, discount) <= price : true",
+          "generators": {
+            "price": {
+              "type": "float",
+              "constraints": {
+                "min": 0,
+                "max": 10000
+              }
+            },
+            "discount": {
+              "type": "float",
+              "constraints": {
+                "min": -50,
+                "max": 200
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "price": 100,
+                "discount": 25
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
                 "price": 100,
                 "discount": 0
               }
@@ -97,22 +97,22 @@
             {
               "label": "extreme",
               "value": {
-                "price": 100,
-                "discount": 150
+                "price": 1,
+                "discount": 200
               }
             }
           ],
           "score": 13,
-          "confidence": 0.92,
-          "evidence": "discount should reduce or maintain price, never increase",
+          "confidence": 0.88,
+          "evidence": "Discount reduces price; @param discount - Discount percentage (0-100)",
           "sourceHash": "a3acc0cffa75cd5e3303ec3ce710607fd75e4bc236f1967c6b2bb81a20b6e958",
-          "inferredAt": "2026-03-26T14:20:34.737Z",
-          "modelId": "mock-model"
+          "inferredAt": "2026-03-27T00:44:04.073Z",
+          "modelId": "claude-opus-4-20250514-mock"
         },
         {
           "id": "prop_003",
           "targetFunction": "applyDiscount",
-          "description": "Zero discount returns original price",
+          "description": "Zero discount returns original price unchanged",
           "category": "boundary",
           "assertion": "applyDiscount(price, 0) === price",
           "generators": {
@@ -146,14 +146,250 @@
           ],
           "score": 13,
           "confidence": 0.98,
-          "evidence": "zero discount should not change the price",
+          "evidence": "Zero discount means no change to price",
           "sourceHash": "a3acc0cffa75cd5e3303ec3ce710607fd75e4bc236f1967c6b2bb81a20b6e958",
-          "inferredAt": "2026-03-26T14:20:34.737Z",
-          "modelId": "mock-model"
+          "inferredAt": "2026-03-27T00:44:04.073Z",
+          "modelId": "claude-opus-4-20250514-mock"
+        },
+        {
+          "id": "prop_004",
+          "targetFunction": "applyDiscount",
+          "description": "100% discount results in zero price",
+          "category": "boundary",
+          "assertion": "applyDiscount(price, 100) === 0",
+          "generators": {
+            "price": {
+              "type": "float",
+              "constraints": {
+                "min": 0,
+                "max": 10000
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "price": 50
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "price": 0
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "price": 0.001
+              }
+            }
+          ],
+          "score": 13,
+          "confidence": 0.95,
+          "evidence": "100% discount = free; price * (1 - 100/100) = 0",
+          "sourceHash": "a3acc0cffa75cd5e3303ec3ce710607fd75e4bc236f1967c6b2bb81a20b6e958",
+          "inferredAt": "2026-03-27T00:44:04.073Z",
+          "modelId": "claude-opus-4-20250514-mock"
+        },
+        {
+          "id": "prop_005",
+          "targetFunction": "calculateTotal",
+          "description": "Total of empty array is zero",
+          "category": "boundary",
+          "assertion": "calculateTotal([]) === 0",
+          "generators": {},
+          "seedInputs": [
+            {
+              "label": "boundary",
+              "value": {}
+            }
+          ],
+          "score": 10,
+          "confidence": 0.95,
+          "evidence": "@param prices - Array of item prices; empty cart costs nothing",
+          "sourceHash": "a3acc0cffa75cd5e3303ec3ce710607fd75e4bc236f1967c6b2bb81a20b6e958",
+          "inferredAt": "2026-03-27T00:44:04.073Z",
+          "modelId": "claude-opus-4-20250514-mock"
+        },
+        {
+          "id": "prop_006",
+          "targetFunction": "calculateTotal",
+          "description": "Total of single-item array equals the item",
+          "category": "boundary",
+          "assertion": "calculateTotal([price]) === price",
+          "generators": {
+            "price": {
+              "type": "float",
+              "constraints": {
+                "min": 0,
+                "max": 10000
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "price": 42.99
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "price": 0
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "price": 99999
+              }
+            }
+          ],
+          "score": 13,
+          "confidence": 0.97,
+          "evidence": "Single item total = the item itself",
+          "sourceHash": "a3acc0cffa75cd5e3303ec3ce710607fd75e4bc236f1967c6b2bb81a20b6e958",
+          "inferredAt": "2026-03-27T00:44:04.073Z",
+          "modelId": "claude-opus-4-20250514-mock"
+        },
+        {
+          "id": "prop_007",
+          "targetFunction": "calculateTotal",
+          "description": "Total is non-negative when all prices are non-negative",
+          "category": "boundary",
+          "assertion": "calculateTotal(prices) >= 0",
+          "generators": {
+            "prices": {
+              "type": "array",
+              "constraints": {
+                "element": "float",
+                "maxLength": 20
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "prices": [
+                  10,
+                  20,
+                  30
+                ]
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "prices": []
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "prices": [
+                  0.01
+                ]
+              }
+            }
+          ],
+          "score": 13,
+          "confidence": 0.85,
+          "evidence": "@returns Total sum; sum of non-negative numbers is non-negative",
+          "sourceHash": "a3acc0cffa75cd5e3303ec3ce710607fd75e4bc236f1967c6b2bb81a20b6e958",
+          "inferredAt": "2026-03-27T00:44:04.073Z",
+          "modelId": "claude-opus-4-20250514-mock"
+        },
+        {
+          "id": "prop_008",
+          "targetFunction": "formatPrice",
+          "description": "Output always has exactly 2 decimal places",
+          "category": "type-preservation",
+          "assertion": "/^-?\\d+\\.\\d{2}$/.test(formatPrice(price))",
+          "generators": {
+            "price": {
+              "type": "float",
+              "constraints": {
+                "min": -10000,
+                "max": 10000
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "price": 42.5
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "price": 0
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "price": 1000000
+              }
+            }
+          ],
+          "score": 13,
+          "confidence": 0.93,
+          "evidence": "@returns Formatted string like \"99.99\"; toFixed(2) always gives 2 decimals",
+          "sourceHash": "a3acc0cffa75cd5e3303ec3ce710607fd75e4bc236f1967c6b2bb81a20b6e958",
+          "inferredAt": "2026-03-27T00:44:04.073Z",
+          "modelId": "claude-opus-4-20250514-mock"
+        },
+        {
+          "id": "prop_009",
+          "targetFunction": "formatPrice",
+          "description": "Parsing formatted price back gives approximately the original",
+          "category": "roundtrip",
+          "assertion": "Math.abs(parseFloat(formatPrice(price)) - price) < 0.01",
+          "generators": {
+            "price": {
+              "type": "float",
+              "constraints": {
+                "min": -10000,
+                "max": 10000
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "price": 42.99
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "price": 0
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "price": 0.30000000000000004
+              }
+            }
+          ],
+          "score": 13,
+          "confidence": 0.8,
+          "evidence": "Formatted price should round-trip within rounding tolerance",
+          "sourceHash": "a3acc0cffa75cd5e3303ec3ce710607fd75e4bc236f1967c6b2bb81a20b6e958",
+          "inferredAt": "2026-03-27T00:44:04.073Z",
+          "modelId": "claude-opus-4-20250514-mock"
         }
       ],
       "sourceHash": "a3acc0cffa75cd5e3303ec3ce710607fd75e4bc236f1967c6b2bb81a20b6e958",
-      "inferredAt": "2026-03-26T14:20:34.737Z"
+      "inferredAt": "2026-03-27T00:44:04.074Z"
     },
     "test-fixtures/typescript/sort-utils.ts": {
       "module": "test-fixtures/typescript/sort-utils.ts",
@@ -170,7 +406,7 @@
               "type": "array",
               "constraints": {
                 "element": "float",
-                "maxLength": 100
+                "maxLength": 50
               }
             }
           },
@@ -202,10 +438,10 @@
           ],
           "score": 13,
           "confidence": 0.99,
-          "evidence": "sorting should not add or remove elements",
+          "evidence": "Sorting should not add or remove elements",
           "sourceHash": "2d5dcb502c0513bf85eaf5fa9f06dcaff798e6f9d9b29d93bdcc09071b2116a2",
-          "inferredAt": "2026-03-26T14:19:58.683Z",
-          "modelId": "mock-model"
+          "inferredAt": "2026-03-27T00:44:30.425Z",
+          "modelId": "claude-opus-4-20250514-mock"
         },
         {
           "id": "prop_002",
@@ -218,7 +454,7 @@
               "type": "array",
               "constraints": {
                 "element": "float",
-                "maxLength": 100
+                "maxLength": 50
               }
             }
           },
@@ -249,19 +485,18 @@
               "value": {
                 "arr": [
                   100,
-                  99,
-                  98,
-                  97
+                  -100,
+                  0
                 ]
               }
             }
           ],
           "score": 13,
           "confidence": 0.99,
-          "evidence": "sorted output should be in ascending order",
+          "evidence": "@returns New sorted array; ascending order",
           "sourceHash": "2d5dcb502c0513bf85eaf5fa9f06dcaff798e6f9d9b29d93bdcc09071b2116a2",
-          "inferredAt": "2026-03-26T14:19:58.684Z",
-          "modelId": "mock-model"
+          "inferredAt": "2026-03-27T00:44:30.426Z",
+          "modelId": "claude-opus-4-20250514-mock"
         },
         {
           "id": "prop_003",
@@ -274,7 +509,7 @@
               "type": "array",
               "constraints": {
                 "element": "float",
-                "maxLength": 50
+                "maxLength": 30
               }
             }
           },
@@ -308,14 +543,343 @@
           ],
           "score": 13,
           "confidence": 0.97,
-          "evidence": "sorting an already sorted array should give the same result",
+          "evidence": "Sorting an already sorted array should be a no-op",
           "sourceHash": "2d5dcb502c0513bf85eaf5fa9f06dcaff798e6f9d9b29d93bdcc09071b2116a2",
-          "inferredAt": "2026-03-26T14:19:58.684Z",
-          "modelId": "mock-model"
+          "inferredAt": "2026-03-27T00:44:30.426Z",
+          "modelId": "claude-opus-4-20250514-mock"
+        },
+        {
+          "id": "prop_004",
+          "targetFunction": "sortNumbers",
+          "description": "Does not mutate the input array",
+          "category": "boundary",
+          "assertion": "(() => { const copy = [...arr]; sortNumbers(arr); return JSON.stringify(arr) === JSON.stringify(copy); })()",
+          "generators": {
+            "arr": {
+              "type": "array",
+              "constraints": {
+                "element": "integer",
+                "maxLength": 20
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "arr": [
+                  3,
+                  1,
+                  2
+                ]
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "arr": []
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "arr": [
+                  1
+                ]
+              }
+            }
+          ],
+          "score": 13,
+          "confidence": 0.95,
+          "evidence": "Uses [...arr].sort() — spread creates a copy",
+          "sourceHash": "2d5dcb502c0513bf85eaf5fa9f06dcaff798e6f9d9b29d93bdcc09071b2116a2",
+          "inferredAt": "2026-03-27T00:44:30.426Z",
+          "modelId": "claude-opus-4-20250514-mock"
+        },
+        {
+          "id": "prop_005",
+          "targetFunction": "unique",
+          "description": "Output has no duplicate elements",
+          "category": "boundary",
+          "assertion": "new Set(unique(arr)).size === unique(arr).length",
+          "generators": {
+            "arr": {
+              "type": "array",
+              "constraints": {
+                "element": "integer",
+                "maxLength": 50
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "arr": [
+                  1,
+                  2,
+                  2,
+                  3
+                ]
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "arr": []
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "arr": [
+                  1,
+                  1,
+                  1,
+                  1
+                ]
+              }
+            }
+          ],
+          "score": 13,
+          "confidence": 0.99,
+          "evidence": "Uses new Set() which removes duplicates",
+          "sourceHash": "2d5dcb502c0513bf85eaf5fa9f06dcaff798e6f9d9b29d93bdcc09071b2116a2",
+          "inferredAt": "2026-03-27T00:44:30.426Z",
+          "modelId": "claude-opus-4-20250514-mock"
+        },
+        {
+          "id": "prop_006",
+          "targetFunction": "unique",
+          "description": "Output length is at most input length",
+          "category": "conservation",
+          "assertion": "unique(arr).length <= arr.length",
+          "generators": {
+            "arr": {
+              "type": "array",
+              "constraints": {
+                "element": "integer",
+                "maxLength": 50
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "arr": [
+                  1,
+                  2,
+                  3
+                ]
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "arr": []
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "arr": [
+                  5,
+                  5,
+                  5
+                ]
+              }
+            }
+          ],
+          "score": 13,
+          "confidence": 0.98,
+          "evidence": "Removing duplicates can only reduce or maintain length",
+          "sourceHash": "2d5dcb502c0513bf85eaf5fa9f06dcaff798e6f9d9b29d93bdcc09071b2116a2",
+          "inferredAt": "2026-03-27T00:44:30.426Z",
+          "modelId": "claude-opus-4-20250514-mock"
+        },
+        {
+          "id": "prop_007",
+          "targetFunction": "unique",
+          "description": "Unique is idempotent",
+          "category": "idempotent",
+          "assertion": "JSON.stringify(unique(unique(arr))) === JSON.stringify(unique(arr))",
+          "generators": {
+            "arr": {
+              "type": "array",
+              "constraints": {
+                "element": "integer",
+                "maxLength": 30
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "arr": [
+                  1,
+                  2,
+                  2,
+                  3
+                ]
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "arr": []
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "arr": [
+                  1
+                ]
+              }
+            }
+          ],
+          "score": 13,
+          "confidence": 0.96,
+          "evidence": "Applying unique to already-unique array should be a no-op",
+          "sourceHash": "2d5dcb502c0513bf85eaf5fa9f06dcaff798e6f9d9b29d93bdcc09071b2116a2",
+          "inferredAt": "2026-03-27T00:44:30.426Z",
+          "modelId": "claude-opus-4-20250514-mock"
+        },
+        {
+          "id": "prop_008",
+          "targetFunction": "mergeSorted",
+          "description": "Output length equals sum of input lengths",
+          "category": "conservation",
+          "assertion": "mergeSorted(a, b).length === a.length + b.length",
+          "generators": {
+            "a": {
+              "type": "array",
+              "constraints": {
+                "element": "integer",
+                "maxLength": 30
+              }
+            },
+            "b": {
+              "type": "array",
+              "constraints": {
+                "element": "integer",
+                "maxLength": 30
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "a": [
+                  1,
+                  3,
+                  5
+                ],
+                "b": [
+                  2,
+                  4,
+                  6
+                ]
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "a": [],
+                "b": []
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "a": [
+                  1
+                ],
+                "b": []
+              }
+            }
+          ],
+          "score": 13,
+          "confidence": 0.99,
+          "evidence": "Merge should include all elements from both arrays",
+          "sourceHash": "2d5dcb502c0513bf85eaf5fa9f06dcaff798e6f9d9b29d93bdcc09071b2116a2",
+          "inferredAt": "2026-03-27T00:44:30.426Z",
+          "modelId": "claude-opus-4-20250514-mock"
+        },
+        {
+          "id": "prop_009",
+          "targetFunction": "mergeSorted",
+          "description": "Output is sorted when both inputs are sorted",
+          "category": "monotonic",
+          "assertion": "(() => { const sa = [...a].sort((x,y) => x-y); const sb = [...b].sort((x,y) => x-y); return mergeSorted(sa, sb).every((v, i, r) => i === 0 || r[i-1] <= v); })()",
+          "generators": {
+            "a": {
+              "type": "array",
+              "constraints": {
+                "element": "integer",
+                "maxLength": 20
+              }
+            },
+            "b": {
+              "type": "array",
+              "constraints": {
+                "element": "integer",
+                "maxLength": 20
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "a": [
+                  1,
+                  3,
+                  5
+                ],
+                "b": [
+                  2,
+                  4,
+                  6
+                ]
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "a": [],
+                "b": [
+                  1
+                ]
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "a": [
+                  1,
+                  1
+                ],
+                "b": [
+                  1,
+                  1
+                ]
+              }
+            }
+          ],
+          "score": 13,
+          "confidence": 0.95,
+          "evidence": "@param a - First sorted array; @param b - Second sorted array; result should be sorted",
+          "sourceHash": "2d5dcb502c0513bf85eaf5fa9f06dcaff798e6f9d9b29d93bdcc09071b2116a2",
+          "inferredAt": "2026-03-27T00:44:30.426Z",
+          "modelId": "claude-opus-4-20250514-mock"
         }
       ],
       "sourceHash": "2d5dcb502c0513bf85eaf5fa9f06dcaff798e6f9d9b29d93bdcc09071b2116a2",
-      "inferredAt": "2026-03-26T14:19:58.684Z"
+      "inferredAt": "2026-03-27T00:44:30.427Z"
     },
     "test-fixtures/typescript/string-utils.ts": {
       "module": "test-fixtures/typescript/string-utils.ts",
@@ -357,10 +921,10 @@
           ],
           "score": 13,
           "confidence": 0.99,
-          "evidence": "reverse is its own inverse",
+          "evidence": "Reverse is its own inverse: reverse(reverse(x)) === x",
           "sourceHash": "23c6f6b6a46643df9474221da9b84951824faebf94d0f336f4b839abeafe1dc5",
-          "inferredAt": "2026-03-26T15:32:36.114Z",
-          "modelId": "mock-model"
+          "inferredAt": "2026-03-27T00:44:48.544Z",
+          "modelId": "claude-opus-4-20250514-mock"
         },
         {
           "id": "prop_002",
@@ -392,20 +956,316 @@
             {
               "label": "extreme",
               "value": {
-                "str": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                "str": "x"
               }
             }
           ],
           "score": 13,
           "confidence": 0.99,
-          "evidence": "reversing should not change the length",
+          "evidence": "Reversing characters does not change count",
           "sourceHash": "23c6f6b6a46643df9474221da9b84951824faebf94d0f336f4b839abeafe1dc5",
-          "inferredAt": "2026-03-26T15:32:36.115Z",
-          "modelId": "mock-model"
+          "inferredAt": "2026-03-27T00:44:48.545Z",
+          "modelId": "claude-opus-4-20250514-mock"
+        },
+        {
+          "id": "prop_003",
+          "targetFunction": "reverseString",
+          "description": "First character becomes last character",
+          "category": "metamorphic",
+          "assertion": "str.length === 0 || reverseString(str)[str.length - 1] === str[0]",
+          "generators": {
+            "str": {
+              "type": "string",
+              "constraints": {
+                "maxLength": 50
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "str": "abc"
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "str": "x"
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "str": ""
+              }
+            }
+          ],
+          "score": 13,
+          "confidence": 0.93,
+          "evidence": "Reversing puts first element at the end",
+          "sourceHash": "23c6f6b6a46643df9474221da9b84951824faebf94d0f336f4b839abeafe1dc5",
+          "inferredAt": "2026-03-27T00:44:48.545Z",
+          "modelId": "claude-opus-4-20250514-mock"
+        },
+        {
+          "id": "prop_004",
+          "targetFunction": "truncate",
+          "description": "Output length never exceeds maxLen",
+          "category": "boundary",
+          "assertion": "truncate(str, maxLen).length <= maxLen",
+          "generators": {
+            "str": {
+              "type": "string",
+              "constraints": {
+                "maxLength": 200
+              }
+            },
+            "maxLen": {
+              "type": "integer",
+              "constraints": {
+                "min": 3,
+                "max": 200
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "str": "hello world",
+                "maxLen": 8
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "str": "hi",
+                "maxLen": 3
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "str": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "maxLen": 3
+              }
+            }
+          ],
+          "score": 13,
+          "confidence": 0.95,
+          "evidence": "@param maxLen - Maximum length; result should respect this limit",
+          "sourceHash": "23c6f6b6a46643df9474221da9b84951824faebf94d0f336f4b839abeafe1dc5",
+          "inferredAt": "2026-03-27T00:44:48.545Z",
+          "modelId": "claude-opus-4-20250514-mock"
+        },
+        {
+          "id": "prop_005",
+          "targetFunction": "truncate",
+          "description": "Short strings are returned unchanged",
+          "category": "boundary",
+          "assertion": "str.length <= maxLen ? truncate(str, maxLen) === str : true",
+          "generators": {
+            "str": {
+              "type": "string",
+              "constraints": {
+                "maxLength": 50
+              }
+            },
+            "maxLen": {
+              "type": "integer",
+              "constraints": {
+                "min": 3,
+                "max": 100
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "str": "hi",
+                "maxLen": 10
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "str": "abc",
+                "maxLen": 3
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "str": "",
+                "maxLen": 5
+              }
+            }
+          ],
+          "score": 13,
+          "confidence": 0.97,
+          "evidence": "if (str.length <= maxLen) return str — code returns unchanged",
+          "sourceHash": "23c6f6b6a46643df9474221da9b84951824faebf94d0f336f4b839abeafe1dc5",
+          "inferredAt": "2026-03-27T00:44:48.545Z",
+          "modelId": "claude-opus-4-20250514-mock"
+        },
+        {
+          "id": "prop_006",
+          "targetFunction": "truncate",
+          "description": "Truncated strings end with ellipsis",
+          "category": "type-preservation",
+          "assertion": "str.length > maxLen ? truncate(str, maxLen).endsWith('...') : true",
+          "generators": {
+            "str": {
+              "type": "string",
+              "constraints": {
+                "maxLength": 200
+              }
+            },
+            "maxLen": {
+              "type": "integer",
+              "constraints": {
+                "min": 3,
+                "max": 100
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "str": "hello world!",
+                "maxLen": 8
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "str": "abcdef",
+                "maxLen": 3
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "str": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "maxLen": 4
+              }
+            }
+          ],
+          "score": 13,
+          "confidence": 0.96,
+          "evidence": "return str.slice(0, maxLen - 3) + '...' — adds ellipsis",
+          "sourceHash": "23c6f6b6a46643df9474221da9b84951824faebf94d0f336f4b839abeafe1dc5",
+          "inferredAt": "2026-03-27T00:44:48.545Z",
+          "modelId": "claude-opus-4-20250514-mock"
+        },
+        {
+          "id": "prop_007",
+          "targetFunction": "isPalindrome",
+          "description": "Empty string is a palindrome",
+          "category": "boundary",
+          "assertion": "isPalindrome('') === true",
+          "generators": {},
+          "seedInputs": [
+            {
+              "label": "boundary",
+              "value": {}
+            }
+          ],
+          "score": 10,
+          "confidence": 0.95,
+          "evidence": "Empty string reversed equals itself",
+          "sourceHash": "23c6f6b6a46643df9474221da9b84951824faebf94d0f336f4b839abeafe1dc5",
+          "inferredAt": "2026-03-27T00:44:48.545Z",
+          "modelId": "claude-opus-4-20250514-mock"
+        },
+        {
+          "id": "prop_008",
+          "targetFunction": "isPalindrome",
+          "description": "Single characters are palindromes",
+          "category": "boundary",
+          "assertion": "isPalindrome(str) === true",
+          "generators": {
+            "str": {
+              "type": "string",
+              "constraints": {
+                "maxLength": 1
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "str": "a"
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "str": "Z"
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "str": "5"
+              }
+            }
+          ],
+          "score": 13,
+          "confidence": 0.95,
+          "evidence": "Any single character reads the same forwards and backwards",
+          "sourceHash": "23c6f6b6a46643df9474221da9b84951824faebf94d0f336f4b839abeafe1dc5",
+          "inferredAt": "2026-03-27T00:44:48.545Z",
+          "modelId": "claude-opus-4-20250514-mock"
+        },
+        {
+          "id": "prop_009",
+          "targetFunction": "isPalindrome",
+          "description": "Concatenating a string with its reverse is always a palindrome",
+          "category": "metamorphic",
+          "assertion": "isPalindrome(str + str.split('').reverse().join('')) === true",
+          "generators": {
+            "str": {
+              "type": "string",
+              "constraints": {
+                "maxLength": 20
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "str": "abc"
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "str": ""
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "str": "x"
+              }
+            }
+          ],
+          "score": 13,
+          "confidence": 0.88,
+          "evidence": "str + reverse(str) is always a palindrome by construction",
+          "sourceHash": "23c6f6b6a46643df9474221da9b84951824faebf94d0f336f4b839abeafe1dc5",
+          "inferredAt": "2026-03-27T00:44:48.545Z",
+          "modelId": "claude-opus-4-20250514-mock"
         }
       ],
       "sourceHash": "23c6f6b6a46643df9474221da9b84951824faebf94d0f336f4b839abeafe1dc5",
-      "inferredAt": "2026-03-26T15:32:36.115Z"
+      "inferredAt": "2026-03-27T00:44:48.545Z"
     },
     "test-fixtures/python/calculator.py": {
       "module": "test-fixtures/python/calculator.py",
@@ -421,15 +1281,15 @@
             "a": {
               "type": "integer",
               "constraints": {
-                "min": -1000,
-                "max": 1000
+                "min": -10000,
+                "max": 10000
               }
             },
             "b": {
               "type": "integer",
               "constraints": {
-                "min": -1000,
-                "max": 1000
+                "min": -10000,
+                "max": 10000
               }
             }
           },
@@ -451,30 +1311,30 @@
             {
               "label": "extreme",
               "value": {
-                "a": 9007199254740991,
-                "b": 1
+                "a": -9999,
+                "b": 9999
               }
             }
           ],
           "score": 13,
-          "confidence": 0.95,
-          "evidence": "add(a, b) takes two numbers and returns their sum",
+          "confidence": 0.99,
+          "evidence": "Addition: a + b == b + a for all integers",
           "sourceHash": "0c71969442c51055aae1c85372046a030fa68d61af39d9325d3cfbed6fd0511f",
-          "inferredAt": "2026-03-26T15:37:18.540Z",
-          "modelId": "mock-model"
+          "inferredAt": "2026-03-27T00:45:06.294Z",
+          "modelId": "claude-opus-4-20250514-mock"
         },
         {
           "id": "prop_002",
           "targetFunction": "add",
-          "description": "Zero is identity element",
+          "description": "Zero is identity element for addition",
           "category": "boundary",
           "assertion": "add(a, 0) === a",
           "generators": {
             "a": {
               "type": "integer",
               "constraints": {
-                "min": -1000,
-                "max": 1000
+                "min": -10000,
+                "max": 10000
               }
             }
           },
@@ -494,20 +1354,166 @@
             {
               "label": "extreme",
               "value": {
-                "a": -999999
+                "a": -1
               }
             }
           ],
           "score": 13,
           "confidence": 0.99,
-          "evidence": "adding zero should not change the value",
+          "evidence": "a + 0 = a; additive identity",
           "sourceHash": "0c71969442c51055aae1c85372046a030fa68d61af39d9325d3cfbed6fd0511f",
-          "inferredAt": "2026-03-26T15:37:18.541Z",
-          "modelId": "mock-model"
+          "inferredAt": "2026-03-27T00:45:06.295Z",
+          "modelId": "claude-opus-4-20250514-mock"
+        },
+        {
+          "id": "prop_003",
+          "targetFunction": "add",
+          "description": "Addition is associative",
+          "category": "equivalence",
+          "assertion": "add(add(a, b), c) === add(a, add(b, c))",
+          "generators": {
+            "a": {
+              "type": "integer",
+              "constraints": {
+                "min": -1000,
+                "max": 1000
+              }
+            },
+            "b": {
+              "type": "integer",
+              "constraints": {
+                "min": -1000,
+                "max": 1000
+              }
+            },
+            "c": {
+              "type": "integer",
+              "constraints": {
+                "min": -1000,
+                "max": 1000
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "a": 1,
+                "b": 2,
+                "c": 3
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "a": 0,
+                "b": 0,
+                "c": 0
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "a": -999,
+                "b": 500,
+                "c": 499
+              }
+            }
+          ],
+          "score": 13,
+          "confidence": 0.97,
+          "evidence": "(a + b) + c == a + (b + c); associativity of addition",
+          "sourceHash": "0c71969442c51055aae1c85372046a030fa68d61af39d9325d3cfbed6fd0511f",
+          "inferredAt": "2026-03-27T00:45:06.295Z",
+          "modelId": "claude-opus-4-20250514-mock"
+        },
+        {
+          "id": "prop_004",
+          "targetFunction": "divide",
+          "description": "Division by 1 returns the original number",
+          "category": "boundary",
+          "assertion": "divide(a, 1) === a",
+          "generators": {
+            "a": {
+              "type": "float",
+              "constraints": {
+                "min": -10000,
+                "max": 10000
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "a": 42
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "a": 0
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "a": -0.001
+              }
+            }
+          ],
+          "score": 13,
+          "confidence": 0.98,
+          "evidence": "a / 1 = a; division by unity identity",
+          "sourceHash": "0c71969442c51055aae1c85372046a030fa68d61af39d9325d3cfbed6fd0511f",
+          "inferredAt": "2026-03-27T00:45:06.295Z",
+          "modelId": "claude-opus-4-20250514-mock"
+        },
+        {
+          "id": "prop_005",
+          "targetFunction": "divide",
+          "description": "Division of zero always returns zero",
+          "category": "boundary",
+          "assertion": "divide(0, b) === 0",
+          "generators": {
+            "b": {
+              "type": "float",
+              "constraints": {
+                "min": 0.001,
+                "max": 10000
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "b": 5
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "b": 1
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "b": 0.001
+              }
+            }
+          ],
+          "score": 13,
+          "confidence": 0.97,
+          "evidence": "0 / b = 0 for any non-zero b",
+          "sourceHash": "0c71969442c51055aae1c85372046a030fa68d61af39d9325d3cfbed6fd0511f",
+          "inferredAt": "2026-03-27T00:45:06.295Z",
+          "modelId": "claude-opus-4-20250514-mock"
         }
       ],
       "sourceHash": "0c71969442c51055aae1c85372046a030fa68d61af39d9325d3cfbed6fd0511f",
-      "inferredAt": "2026-03-26T15:37:18.541Z"
+      "inferredAt": "2026-03-27T00:45:06.296Z"
     }
   }
 }
