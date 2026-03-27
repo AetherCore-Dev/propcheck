@@ -25,11 +25,10 @@ AI-powered Property-Based Testing CLI. LLM infers code properties → determinis
 - npm publish (tsup bundling not done)
 - gh auth + GitHub push
 - Real Anthropic API test (CodeBuddy key doesn't work directly)
-- Codegen: zero-parameter assertion support
-- Codegen: array literal in assertion (`[price]`)
-- Trial-run validation (infer → quick run → filter false positives)
-- Self-repair (3-round compile-error fix loop)
-- `--changed` mode (git diff → only test changed functions)
+- Self-repair (3-round compile-error fix loop — needs real LLM)
+- VS Code extension (Phase 2)
+- Community property templates (Phase 2)
+- Mutation testing `propcheck quality` (Phase 2)
 
 ## Key Architecture Decisions
 1. TypeScript Compiler API over tree-sitter WASM (simpler, better types)
@@ -56,5 +55,5 @@ for pkg in parser store llm engines; do
 done
 ```
 
-## Next Priority: Fix codegen bugs → Trial-run validation pipeline
+## Next Priority: npm publish → real user validation
 See research repo: `../ai-code-trust-research/plans/propcheck-blueprint.md`
