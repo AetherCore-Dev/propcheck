@@ -68,23 +68,23 @@ var require_property_store = __commonJS({
       };
     })();
     Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.getProperties = getProperties2;
+    exports2.getProperties = getProperties3;
     exports2.getAllProperties = getAllProperties3;
     exports2.setProperties = setProperties2;
     exports2.isStale = isStale;
     exports2.removeProperties = removeProperties;
-    var fs3 = __importStar(require("fs/promises"));
-    var path5 = __importStar(require("path"));
+    var fs4 = __importStar(require("fs/promises"));
+    var path6 = __importStar(require("path"));
     var crypto = __importStar(require("crypto"));
     var PROPERTIES_FILE = "properties.json";
     var FILE_VERSION = 1;
     function propertiesPath(storeDir) {
-      return path5.join(storeDir, PROPERTIES_FILE);
+      return path6.join(storeDir, PROPERTIES_FILE);
     }
     async function readPropertiesFile(storeDir) {
       const filePath = propertiesPath(storeDir);
       try {
-        const content = await fs3.readFile(filePath, "utf8");
+        const content = await fs4.readFile(filePath, "utf8");
         return JSON.parse(content);
       } catch {
         return { version: FILE_VERSION, modules: {} };
@@ -93,12 +93,12 @@ var require_property_store = __commonJS({
     async function writePropertiesFile(storeDir, data) {
       const filePath = propertiesPath(storeDir);
       const tmpName = `.tmp-${crypto.randomBytes(8).toString("hex")}.json`;
-      const tmpPath = path5.join(storeDir, tmpName);
+      const tmpPath = path6.join(storeDir, tmpName);
       const content = JSON.stringify(data, null, 2);
-      await fs3.writeFile(tmpPath, content, "utf8");
-      await fs3.rename(tmpPath, filePath);
+      await fs4.writeFile(tmpPath, content, "utf8");
+      await fs4.rename(tmpPath, filePath);
     }
-    async function getProperties2(storeDir, module3) {
+    async function getProperties3(storeDir, module3) {
       const file = await readPropertiesFile(storeDir);
       return file.modules[module3] ?? null;
     }
@@ -174,27 +174,27 @@ var require_test_file_store = __commonJS({
     exports2.writeTestFile = writeTestFile;
     exports2.readTestFile = readTestFile;
     exports2.listTestFiles = listTestFiles;
-    var fs3 = __importStar(require("fs/promises"));
-    var path5 = __importStar(require("path"));
+    var fs4 = __importStar(require("fs/promises"));
+    var path6 = __importStar(require("path"));
     var TESTS_DIR = "tests";
     function testsPath(storeDir) {
-      return path5.join(storeDir, TESTS_DIR);
+      return path6.join(storeDir, TESTS_DIR);
     }
     async function writeTestFile(storeDir, fileName, content) {
       const dir = testsPath(storeDir);
-      await fs3.mkdir(dir, { recursive: true });
-      const filePath = path5.join(dir, fileName);
-      await fs3.writeFile(filePath, content, "utf8");
+      await fs4.mkdir(dir, { recursive: true });
+      const filePath = path6.join(dir, fileName);
+      await fs4.writeFile(filePath, content, "utf8");
       return filePath;
     }
     async function readTestFile(storeDir, fileName) {
-      const filePath = path5.join(testsPath(storeDir), fileName);
-      return fs3.readFile(filePath, "utf8");
+      const filePath = path6.join(testsPath(storeDir), fileName);
+      return fs4.readFile(filePath, "utf8");
     }
     async function listTestFiles(storeDir) {
       const dir = testsPath(storeDir);
       try {
-        const entries = await fs3.readdir(dir);
+        const entries = await fs4.readdir(dir);
         return entries.filter((e) => e.endsWith(".ts") || e.endsWith(".js") || e.endsWith(".py"));
       } catch {
         return [];
@@ -247,17 +247,17 @@ var require_corpus_store = __commonJS({
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.getSeeds = getSeeds;
     exports2.addSeeds = addSeeds;
-    var fs3 = __importStar(require("fs/promises"));
-    var path5 = __importStar(require("path"));
+    var fs4 = __importStar(require("fs/promises"));
+    var path6 = __importStar(require("path"));
     var CORPUS_DIR = "corpus";
     function corpusPath(storeDir, functionName) {
       const safeName = functionName.replace(/[^a-zA-Z0-9._-]/g, "_");
-      return path5.join(storeDir, CORPUS_DIR, `${safeName}.json`);
+      return path6.join(storeDir, CORPUS_DIR, `${safeName}.json`);
     }
     async function getSeeds(storeDir, functionName) {
       const filePath = corpusPath(storeDir, functionName);
       try {
-        const content = await fs3.readFile(filePath, "utf8");
+        const content = await fs4.readFile(filePath, "utf8");
         return JSON.parse(content);
       } catch {
         return [];
@@ -268,9 +268,9 @@ var require_corpus_store = __commonJS({
       const existingKeys = new Set(existing.map((s) => JSON.stringify(s.value)));
       const newSeeds = seeds.filter((s) => !existingKeys.has(JSON.stringify(s.value)));
       const merged = [...existing, ...newSeeds];
-      const dir = path5.join(storeDir, CORPUS_DIR);
-      await fs3.mkdir(dir, { recursive: true });
-      await fs3.writeFile(corpusPath(storeDir, functionName), JSON.stringify(merged, null, 2), "utf8");
+      const dir = path6.join(storeDir, CORPUS_DIR);
+      await fs4.mkdir(dir, { recursive: true });
+      await fs4.writeFile(corpusPath(storeDir, functionName), JSON.stringify(merged, null, 2), "utf8");
     }
   }
 });
@@ -318,27 +318,27 @@ var require_init = __commonJS({
     })();
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.initStore = initStore3;
-    var fs3 = __importStar(require("fs/promises"));
-    var path5 = __importStar(require("path"));
+    var fs4 = __importStar(require("fs/promises"));
+    var path6 = __importStar(require("path"));
     var SUBDIRS = ["tests", "corpus", "reports"];
     async function initStore3(projectRoot, storeDir = ".propcheck") {
-      const storePath = path5.join(projectRoot, storeDir);
+      const storePath = path6.join(projectRoot, storeDir);
       try {
-        const stat = await fs3.stat(storePath);
+        const stat = await fs4.stat(storePath);
         if (stat.isDirectory()) {
           for (const sub of SUBDIRS) {
-            await fs3.mkdir(path5.join(storePath, sub), { recursive: true });
+            await fs4.mkdir(path6.join(storePath, sub), { recursive: true });
           }
           return { created: false, path: storePath };
         }
       } catch {
       }
-      await fs3.mkdir(storePath, { recursive: true });
+      await fs4.mkdir(storePath, { recursive: true });
       for (const sub of SUBDIRS) {
-        await fs3.mkdir(path5.join(storePath, sub), { recursive: true });
+        await fs4.mkdir(path6.join(storePath, sub), { recursive: true });
       }
-      const propertiesPath = path5.join(storePath, "properties.json");
-      await fs3.writeFile(propertiesPath, JSON.stringify({ version: 1, modules: {} }, null, 2), "utf8");
+      const propertiesPath = path6.join(storePath, "properties.json");
+      await fs4.writeFile(propertiesPath, JSON.stringify({ version: 1, modules: {} }, null, 2), "utf8");
       return { created: true, path: storePath };
     }
   }
@@ -452,16 +452,16 @@ var require_loader = __commonJS({
       };
     })();
     Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.loadConfig = loadConfig4;
+    exports2.loadConfig = loadConfig5;
     exports2.validateConfig = validateConfig2;
-    var fs3 = __importStar(require("fs"));
-    var path5 = __importStar(require("path"));
+    var fs4 = __importStar(require("fs"));
+    var path6 = __importStar(require("path"));
     var defaults_1 = require_defaults();
-    function loadConfig4(projectRoot, overrides = {}) {
+    function loadConfig5(projectRoot, overrides = {}) {
       let config = { ...defaults_1.DEFAULTS };
-      const rcPath = path5.join(projectRoot, ".propcheckrc");
-      if (fs3.existsSync(rcPath)) {
-        const rcContent = fs3.readFileSync(rcPath, "utf8");
+      const rcPath = path6.join(projectRoot, ".propcheckrc");
+      if (fs4.existsSync(rcPath)) {
+        const rcContent = fs4.readFileSync(rcPath, "utf8");
         const rcConfig = JSON.parse(rcContent);
         config = { ...config, ...rcConfig };
       }
@@ -1202,23 +1202,23 @@ var require_path = __commonJS({
       };
     })();
     Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.toForwardSlash = toForwardSlash3;
+    exports2.toForwardSlash = toForwardSlash4;
     exports2.resolveForward = resolveForward;
     exports2.relativeForward = relativeForward;
     exports2.importPath = importPath;
-    var path5 = __importStar(require("path"));
-    function toForwardSlash3(filePath) {
+    var path6 = __importStar(require("path"));
+    function toForwardSlash4(filePath) {
       return filePath.replace(/\\/g, "/");
     }
     function resolveForward(...segments) {
-      return toForwardSlash3(path5.resolve(...segments));
+      return toForwardSlash4(path6.resolve(...segments));
     }
     function relativeForward(from, to) {
-      const rel = path5.relative(from, to);
-      return toForwardSlash3(rel);
+      const rel = path6.relative(from, to);
+      return toForwardSlash4(rel);
     }
     function importPath(fromFile, toFile) {
-      const fromDir = path5.dirname(fromFile);
+      const fromDir = path6.dirname(fromFile);
       let rel = relativeForward(fromDir, toFile);
       rel = rel.replace(/\.(ts|tsx|js|jsx|mts|mjs)$/, "");
       if (!rel.startsWith(".")) {
@@ -1398,7 +1398,7 @@ var require_client = __commonJS({
       };
     }
     function sleep(ms) {
-      return new Promise((resolve3) => setTimeout(resolve3, ms));
+      return new Promise((resolve4) => setTimeout(resolve4, ms));
     }
   }
 });
@@ -2874,7 +2874,7 @@ var require_fc_codegen = __commonJS({
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.generateFastCheckTest = generateFastCheckTest3;
     var common_1 = require_dist4();
-    var path5 = __importStar(require("path"));
+    var path6 = __importStar(require("path"));
     function mapGenerator(spec) {
       const c = spec.constraints ?? {};
       switch (spec.type) {
@@ -2918,10 +2918,10 @@ var require_fc_codegen = __commonJS({
       }
     }
     function generateFastCheckTest3(properties, targetFile, testDir, config) {
-      const relativeImport = (0, common_1.toForwardSlash)(path5.relative(testDir, targetFile)).replace(/\.(ts|tsx|js|jsx)$/, "");
+      const relativeImport = (0, common_1.toForwardSlash)(path6.relative(testDir, targetFile)).replace(/\.(ts|tsx|js|jsx)$/, "");
       let importPathStr;
       if (targetFile.endsWith(".ts") || targetFile.endsWith(".tsx")) {
-        importPathStr = (0, common_1.toForwardSlash)(path5.relative(testDir, targetFile));
+        importPathStr = (0, common_1.toForwardSlash)(path6.relative(testDir, targetFile));
         if (!importPathStr.startsWith("."))
           importPathStr = `./${importPathStr}`;
       } else {
@@ -2992,7 +2992,7 @@ var require_fc_codegen = __commonJS({
         lines.push(`}`);
         lines.push(``);
       }
-      const baseName = path5.basename(targetFile, path5.extname(targetFile));
+      const baseName = path6.basename(targetFile, path6.extname(targetFile));
       const fileName = `${baseName}.fc.js`;
       return {
         content: lines.join("\n"),
@@ -3012,7 +3012,7 @@ var require_process_runner = __commonJS({
     var common_1 = require_dist4();
     function runProcess(command, args, options = {}) {
       const timeout = options.timeout ?? 6e4;
-      return new Promise((resolve3, reject) => {
+      return new Promise((resolve4, reject) => {
         const proc = (0, node_child_process_1.spawn)(command, args, {
           cwd: options.cwd,
           env: { ...process.env, ...options.env },
@@ -3044,7 +3044,7 @@ var require_process_runner = __commonJS({
             }));
             return;
           }
-          resolve3({ stdout, stderr, exitCode: code ?? 1 });
+          resolve4({ stdout, stderr, exitCode: code ?? 1 });
         });
         proc.on("error", (err) => {
           clearTimeout(timer);
@@ -3101,7 +3101,7 @@ var require_fc_runner = __commonJS({
     })();
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.runFastCheckTest = runFastCheckTest3;
-    var path5 = __importStar(require("path"));
+    var path6 = __importStar(require("path"));
     var process_runner_1 = require_process_runner();
     function parseJsonLines(stdout) {
       const results = [];
@@ -3121,7 +3121,7 @@ var require_fc_runner = __commonJS({
     }
     async function runFastCheckTest3(testFilePath, properties, config) {
       const startTime = Date.now();
-      const cwd = path5.dirname(testFilePath);
+      const cwd = path6.dirname(testFilePath);
       const nodeArgs = [
         "--experimental-strip-types",
         "--no-warnings",
@@ -3132,11 +3132,11 @@ var require_fc_runner = __commonJS({
         timeout: config.timeout * Math.max(properties.length, 1),
         env: {
           NODE_PATH: [
-            path5.join(cwd, "node_modules"),
-            path5.join(cwd, "..", "..", "node_modules"),
-            path5.join(cwd, "..", "..", "..", "node_modules"),
+            path6.join(cwd, "node_modules"),
+            path6.join(cwd, "..", "..", "node_modules"),
+            path6.join(cwd, "..", "..", "..", "node_modules"),
             process.env["NODE_PATH"] ?? ""
-          ].join(path5.delimiter)
+          ].join(path6.delimiter)
         }
       });
       const rawResults = parseJsonLines(result.stdout);
@@ -3232,8 +3232,8 @@ var require_fc_adapter = __commonJS({
     })();
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.createFastCheckAdapter = createFastCheckAdapter;
-    var path5 = __importStar(require("path"));
-    var fs3 = __importStar(require("fs/promises"));
+    var path6 = __importStar(require("path"));
+    var fs4 = __importStar(require("fs/promises"));
     var fc_codegen_1 = require_fc_codegen();
     var fc_runner_1 = require_fc_runner();
     var process_runner_1 = require_process_runner();
@@ -3242,12 +3242,12 @@ var require_fc_adapter = __commonJS({
         language: "typescript",
         name: "fast-check",
         async generateTestFile(properties, targetFile, config) {
-          const targetDir = path5.dirname(targetFile);
-          const storeDir = path5.join(targetDir, ".propcheck", "tests");
-          await fs3.mkdir(storeDir, { recursive: true });
+          const targetDir = path6.dirname(targetFile);
+          const storeDir = path6.join(targetDir, ".propcheck", "tests");
+          await fs4.mkdir(storeDir, { recursive: true });
           const { content, fileName } = (0, fc_codegen_1.generateFastCheckTest)(properties, targetFile, storeDir, config);
-          const filePath = path5.join(storeDir, fileName);
-          await fs3.writeFile(filePath, content, "utf8");
+          const filePath = path6.join(storeDir, fileName);
+          await fs4.writeFile(filePath, content, "utf8");
           return {
             filePath,
             engine: "fast-check",
@@ -3321,7 +3321,7 @@ var require_hyp_codegen = __commonJS({
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.generateHypothesisTest = generateHypothesisTest2;
     var common_1 = require_dist4();
-    var path5 = __importStar(require("path"));
+    var path6 = __importStar(require("path"));
     function mapStrategy(spec) {
       const c = spec.constraints ?? {};
       switch (spec.type) {
@@ -3367,9 +3367,9 @@ var require_hyp_codegen = __commonJS({
       }
     }
     function generateHypothesisTest2(properties, targetFile, testsDir, config) {
-      const targetDir = path5.dirname(targetFile);
-      const moduleName = path5.basename(targetFile, path5.extname(targetFile));
-      const relTargetDir = (0, common_1.toForwardSlash)(path5.relative(testsDir, targetDir));
+      const targetDir = path6.dirname(targetFile);
+      const moduleName = path6.basename(targetFile, path6.extname(targetFile));
+      const relTargetDir = (0, common_1.toForwardSlash)(path6.relative(testsDir, targetDir));
       const lines = [];
       lines.push(`# Auto-generated by propcheck \u2014 do not edit manually`);
       lines.push(`# Target: ${(0, common_1.toForwardSlash)(targetFile)}`);
@@ -3480,7 +3480,7 @@ var require_hyp_runner = __commonJS({
     })();
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.runHypothesisTest = runHypothesisTest2;
-    var path5 = __importStar(require("path"));
+    var path6 = __importStar(require("path"));
     var process_runner_1 = require_process_runner();
     function parseJsonLines(stdout) {
       const results = [];
@@ -3513,7 +3513,7 @@ var require_hyp_runner = __commonJS({
       const startTime = Date.now();
       const python = await findPython();
       const result = await (0, process_runner_1.runProcess)(python, [testFilePath], {
-        cwd: path5.dirname(testFilePath),
+        cwd: path6.dirname(testFilePath),
         timeout: config.timeout * Math.max(properties.length, 1)
       });
       const rawResults = parseJsonLines(result.stdout);
@@ -3565,12 +3565,218 @@ var require_hyp_runner = __commonJS({
   }
 });
 
+// ../engines/dist/mutation/operators.js
+var require_operators = __commonJS({
+  "../engines/dist/mutation/operators.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.generateMutants = generateMutants2;
+    var MUTATION_OPERATORS = [
+      // Arithmetic
+      { name: "ARITH_PLUS_TO_MINUS", description: "+ \u2192 -", pattern: /(?<=[^+=])\+(?!=)/g, replacement: "-" },
+      { name: "ARITH_MINUS_TO_PLUS", description: "- \u2192 +", pattern: /(?<=[^-=])-(?!=)/g, replacement: "+" },
+      { name: "ARITH_MUL_TO_DIV", description: "* \u2192 /", pattern: /\*(?!=)/g, replacement: "/" },
+      { name: "ARITH_DIV_TO_MUL", description: "/ \u2192 *", pattern: /\/(?!=)/g, replacement: "*" },
+      // Relational
+      { name: "REL_GT_TO_GTE", description: "> \u2192 >=", pattern: /(?<!=)>(?!=)/g, replacement: ">=" },
+      { name: "REL_LT_TO_LTE", description: "< \u2192 <=", pattern: /(?<!=)<(?!=)/g, replacement: "<=" },
+      { name: "REL_GTE_TO_GT", description: ">= \u2192 >", pattern: />=/g, replacement: ">" },
+      { name: "REL_LTE_TO_LT", description: "<= \u2192 <", pattern: /<=/g, replacement: "<" },
+      { name: "REL_EQ_TO_NEQ", description: "=== \u2192 !==", pattern: /===/g, replacement: "!==" },
+      { name: "REL_NEQ_TO_EQ", description: "!== \u2192 ===", pattern: /!==/g, replacement: "===" },
+      // Boundary (off-by-one)
+      { name: "BOUND_ZERO_TO_ONE", description: "0 \u2192 1", pattern: /(?<=[\s(,=])0(?=[\s),;])/g, replacement: "1" },
+      { name: "BOUND_ONE_TO_ZERO", description: "1 \u2192 0", pattern: /(?<=[\s(,=])1(?=[\s),;])/g, replacement: "0" },
+      { name: "BOUND_100_TO_99", description: "100 \u2192 99", pattern: /\b100\b/g, replacement: "99" },
+      // Logical
+      { name: "LOGIC_AND_TO_OR", description: "&& \u2192 ||", pattern: /&&/g, replacement: "||" },
+      { name: "LOGIC_OR_TO_AND", description: "|| \u2192 &&", pattern: /\|\|/g, replacement: "&&" },
+      { name: "LOGIC_TRUE_TO_FALSE", description: "true \u2192 false", pattern: /\btrue\b/g, replacement: "false" },
+      { name: "LOGIC_FALSE_TO_TRUE", description: "false \u2192 true", pattern: /\bfalse\b/g, replacement: "true" },
+      // Return value
+      { name: "RET_EMPTY_STRING", description: 'return "..." \u2192 return ""', pattern: /return\s+"[^"]*"/g, replacement: 'return ""' },
+      { name: "RET_ZERO", description: "return N \u2192 return 0", pattern: /return\s+\d+/g, replacement: "return 0" }
+    ];
+    function generateMutants2(source, filePath) {
+      const mutants = [];
+      const lines = source.split("\n");
+      let mutantId = 0;
+      for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
+        const line = lines[lineIdx];
+        const trimmed = line.trim();
+        if (trimmed.startsWith("//") || trimmed.startsWith("/*") || trimmed.startsWith("*") || trimmed.startsWith("import ") || trimmed.startsWith("export function") || trimmed.startsWith("export async function") || trimmed.startsWith("export type") || trimmed.startsWith("export interface") || trimmed === "" || trimmed === "}" || trimmed === "{" || trimmed.startsWith("/**")) {
+          continue;
+        }
+        for (const op of MUTATION_OPERATORS) {
+          const regex = new RegExp(op.pattern.source, op.pattern.flags);
+          let match;
+          while ((match = regex.exec(line)) !== null) {
+            const original = match[0];
+            const replacement = typeof op.replacement === "function" ? op.replacement(original) : op.replacement;
+            if (original === replacement)
+              continue;
+            const mutatedLine = line.slice(0, match.index) + replacement + line.slice(match.index + original.length);
+            const mutatedLines = [...lines];
+            mutatedLines[lineIdx] = mutatedLine;
+            const mutatedSource = mutatedLines.join("\n");
+            mutants.push({
+              id: `mut_${mutantId++}`,
+              operator: op.name,
+              description: `Line ${lineIdx + 1}: ${op.description} \u2014 "${original}" \u2192 "${replacement}"`,
+              line: lineIdx + 1,
+              original,
+              replacement,
+              mutatedSource
+            });
+          }
+        }
+      }
+      return mutants;
+    }
+  }
+});
+
+// ../engines/dist/mutation/runner.js
+var require_runner = __commonJS({
+  "../engines/dist/mutation/runner.js"(exports2) {
+    "use strict";
+    var __createBinding = exports2 && exports2.__createBinding || (Object.create ? (function(o, m, k, k2) {
+      if (k2 === void 0) k2 = k;
+      var desc = Object.getOwnPropertyDescriptor(m, k);
+      if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+        desc = { enumerable: true, get: function() {
+          return m[k];
+        } };
+      }
+      Object.defineProperty(o, k2, desc);
+    }) : (function(o, m, k, k2) {
+      if (k2 === void 0) k2 = k;
+      o[k2] = m[k];
+    }));
+    var __setModuleDefault = exports2 && exports2.__setModuleDefault || (Object.create ? (function(o, v) {
+      Object.defineProperty(o, "default", { enumerable: true, value: v });
+    }) : function(o, v) {
+      o["default"] = v;
+    });
+    var __importStar = exports2 && exports2.__importStar || /* @__PURE__ */ (function() {
+      var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function(o2) {
+          var ar = [];
+          for (var k in o2) if (Object.prototype.hasOwnProperty.call(o2, k)) ar[ar.length] = k;
+          return ar;
+        };
+        return ownKeys(o);
+      };
+      return function(mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) {
+          for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        }
+        __setModuleDefault(result, mod);
+        return result;
+      };
+    })();
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.runMutationTesting = runMutationTesting2;
+    var fs4 = __importStar(require("fs/promises"));
+    var path6 = __importStar(require("path"));
+    var fc_codegen_1 = require_fc_codegen();
+    var fc_runner_1 = require_fc_runner();
+    var operators_1 = require_operators();
+    async function runMutationTesting2(sourceFilePath2, source, properties, storeDir) {
+      const startTime = Date.now();
+      const mutants = (0, operators_1.generateMutants)(source, sourceFilePath2);
+      if (mutants.length === 0) {
+        return {
+          totalMutants: 0,
+          killed: 0,
+          survived: 0,
+          errors: 0,
+          mutationScore: 1,
+          results: [],
+          survivingMutants: [],
+          duration: Date.now() - startTime
+        };
+      }
+      const testsDir = path6.join(storeDir, "tests");
+      await fs4.mkdir(testsDir, { recursive: true });
+      const quickConfig = {
+        mode: "quick",
+        iterations: 50,
+        // Fewer iterations per mutant for speed
+        timeout: 1e4,
+        verbose: false
+      };
+      const results = [];
+      const survivingMutants = [];
+      for (const mutant of mutants) {
+        const ext = path6.extname(sourceFilePath2);
+        const mutantFileName = `_mutant_${mutant.id}${ext}`;
+        const mutantFilePath = path6.join(testsDir, mutantFileName);
+        try {
+          await fs4.writeFile(mutantFilePath, mutant.mutatedSource, "utf8");
+          const generated = (0, fc_codegen_1.generateFastCheckTest)(properties, mutantFilePath, testsDir, quickConfig);
+          const testFilePath = path6.join(testsDir, `_mut_test_${mutant.id}.js`);
+          await fs4.writeFile(testFilePath, generated.content, "utf8");
+          const result = await (0, fc_runner_1.runFastCheckTest)(testFilePath, properties, quickConfig);
+          if (result.failed.length > 0) {
+            results.push({
+              mutantId: mutant.id,
+              status: "killed",
+              killedBy: result.failed[0].propertyId
+            });
+          } else if (result.errors.length > 0 && result.passed.length === 0) {
+            results.push({
+              mutantId: mutant.id,
+              status: "killed"
+            });
+          } else {
+            results.push({
+              mutantId: mutant.id,
+              status: "survived"
+            });
+            survivingMutants.push(mutant);
+          }
+          try {
+            await fs4.unlink(testFilePath);
+          } catch {
+          }
+        } catch {
+          results.push({
+            mutantId: mutant.id,
+            status: "error"
+          });
+        } finally {
+          try {
+            await fs4.unlink(mutantFilePath);
+          } catch {
+          }
+        }
+      }
+      const killed = results.filter((r) => r.status === "killed").length;
+      const survived = results.filter((r) => r.status === "survived").length;
+      const errors = results.filter((r) => r.status === "error").length;
+      return {
+        totalMutants: mutants.length,
+        killed,
+        survived,
+        errors,
+        mutationScore: killed + survived > 0 ? killed / (killed + survived) : 1,
+        results,
+        survivingMutants,
+        duration: Date.now() - startTime
+      };
+    }
+  }
+});
+
 // ../engines/dist/index.js
 var require_dist6 = __commonJS({
   "../engines/dist/index.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.runProcess = exports2.runHypothesisTest = exports2.generateHypothesisTest = exports2.runFastCheckTest = exports2.generateFastCheckTest = exports2.createFastCheckAdapter = void 0;
+    exports2.runMutationTesting = exports2.generateMutants = exports2.runProcess = exports2.runHypothesisTest = exports2.generateHypothesisTest = exports2.runFastCheckTest = exports2.generateFastCheckTest = exports2.createFastCheckAdapter = void 0;
     var fc_adapter_1 = require_fc_adapter();
     Object.defineProperty(exports2, "createFastCheckAdapter", { enumerable: true, get: function() {
       return fc_adapter_1.createFastCheckAdapter;
@@ -3594,6 +3800,14 @@ var require_dist6 = __commonJS({
     var process_runner_1 = require_process_runner();
     Object.defineProperty(exports2, "runProcess", { enumerable: true, get: function() {
       return process_runner_1.runProcess;
+    } });
+    var operators_1 = require_operators();
+    Object.defineProperty(exports2, "generateMutants", { enumerable: true, get: function() {
+      return operators_1.generateMutants;
+    } });
+    var runner_1 = require_runner();
+    Object.defineProperty(exports2, "runMutationTesting", { enumerable: true, get: function() {
+      return runner_1.runMutationTesting;
     } });
   }
 });
@@ -4213,6 +4427,85 @@ async function badgeCommand() {
   console.log("");
 }
 
+// src/commands/quality.ts
+var fs3 = __toESM(require("fs/promises"));
+var path5 = __toESM(require("path"));
+var import_config4 = __toESM(require_dist2());
+var import_store5 = __toESM(require_dist());
+var import_engines3 = __toESM(require_dist6());
+var import_common3 = __toESM(require_dist4());
+var import_chalk = __toESM(require("chalk"));
+async function qualityCommand(target) {
+  const projectRoot = process.cwd();
+  const config = (0, import_config4.loadConfig)(projectRoot);
+  const storeDir = path5.join(projectRoot, config.storeDir);
+  const targetPath = path5.resolve(projectRoot, target);
+  try {
+    await fs3.access(targetPath);
+  } catch {
+    console.error(`
+  Error: File not found: ${target}
+`);
+    process.exit(2);
+  }
+  const moduleKey = (0, import_common3.toForwardSlash)(path5.relative(projectRoot, targetPath));
+  const ps = await (0, import_store5.getProperties)(storeDir, moduleKey);
+  if (!ps || ps.properties.length === 0) {
+    console.error(`
+  No properties found for ${target}`);
+    console.error("  Run: propcheck infer " + target + " first\n");
+    process.exit(2);
+  }
+  const source = await fs3.readFile(targetPath, "utf8");
+  const mutants = (0, import_engines3.generateMutants)(source, targetPath);
+  console.log(`
+  ${import_chalk.default.bold("Mutation Testing")}: ${target}`);
+  console.log(`  Generated ${import_chalk.default.cyan(String(mutants.length))} mutants from ${mutants.length > 0 ? new Set(mutants.map((m) => m.operator)).size : 0} operators`);
+  console.log(`  Testing against ${import_chalk.default.cyan(String(ps.properties.length))} properties...
+`);
+  if (mutants.length === 0) {
+    console.log("  No mutants generated (file may be too simple).\n");
+    return;
+  }
+  const report = await (0, import_engines3.runMutationTesting)(sourceFilePath(targetPath), source, ps.properties, storeDir);
+  printReport(report, target);
+  process.exit(report.mutationScore >= 0.8 ? 0 : 1);
+}
+function sourceFilePath(targetPath) {
+  return targetPath;
+}
+function printReport(report, target) {
+  const scoreColor = report.mutationScore >= 0.8 ? import_chalk.default.green : report.mutationScore >= 0.6 ? import_chalk.default.yellow : import_chalk.default.red;
+  const scorePercent = (report.mutationScore * 100).toFixed(1);
+  console.log(`  ${import_chalk.default.bold("Results")}:`);
+  console.log(`    Total mutants:  ${report.totalMutants}`);
+  console.log(`    ${import_chalk.default.green("Killed")}:         ${report.killed} (${(report.killed / report.totalMutants * 100).toFixed(1)}%)`);
+  console.log(`    ${import_chalk.default.red("Survived")}:       ${report.survived} (${(report.survived / report.totalMutants * 100).toFixed(1)}%)`);
+  if (report.errors > 0) {
+    console.log(`    ${import_chalk.default.yellow("Errors")}:         ${report.errors}`);
+  }
+  console.log(`    ${import_chalk.default.bold("Mutation score")}: ${scoreColor(scorePercent + "%")}`);
+  console.log(`    Duration:       ${(report.duration / 1e3).toFixed(1)}s`);
+  if (report.survivingMutants.length > 0) {
+    console.log(`
+  ${import_chalk.default.yellow("Surviving mutants")} (properties missed these):`);
+    for (const mutant of report.survivingMutants.slice(0, 10)) {
+      console.log(`    ${import_chalk.default.dim("\u2022")} ${mutant.description}`);
+    }
+    if (report.survivingMutants.length > 10) {
+      console.log(`    ${import_chalk.default.dim(`... and ${report.survivingMutants.length - 10} more`)}`);
+    }
+    console.log(`
+  ${import_chalk.default.yellow("\u2192")} These surviving mutants indicate areas where your properties could be stronger.`);
+    console.log(`  ${import_chalk.default.yellow("\u2192")} Consider adding properties that would catch these changes.
+`);
+  } else {
+    console.log(`
+  ${import_chalk.default.green("\u2713")} All mutants killed! Your properties are comprehensive.
+`);
+  }
+}
+
 // src/index.ts
 var program = new import_commander.Command();
 program.name("propcheck").description("AI-powered property-based testing \u2014 find bugs your tests miss").version("0.1.0");
@@ -4220,5 +4513,6 @@ program.command("init").description("Initialize .propcheck/ directory in the cur
 program.command("infer <target>").description("Infer testable properties for target file(s) using LLM").option("--mock", "Use mock LLM client (no API key needed)").option("--model <model>", "LLM model to use", "claude-sonnet-4-20250514").option("--max-properties <n>", "Max properties per function", "5").option("--min-score <n>", "Minimum quality score (0-15)", "10").option("--skip-validation", "Skip trial-run validation of inferred properties").option("--refine", "Enable refinement loop (Round 2): strengthen weak properties").action(inferCommand);
 program.command("run [target]").description("Run property tests against target file(s)").option("--quick", "Quick mode: 100 iterations").option("--thorough", "Thorough mode: 10,000 iterations").option("--seed <n>", "Random seed for reproducibility").option("--json", "Output results as JSON").option("--changed", "Only run properties for git-changed files").action(runCommand);
 program.command("badge").description("Output markdown badge snippet for your README").action(badgeCommand);
+program.command("quality <target>").description("Measure property effectiveness via mutation testing").action(qualityCommand);
 program.parse();
 //# sourceMappingURL=index.js.map

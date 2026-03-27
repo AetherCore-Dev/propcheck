@@ -14,6 +14,7 @@ import { initCommand } from "./commands/init";
 import { inferCommand } from "./commands/infer";
 import { runCommand } from "./commands/run";
 import { badgeCommand } from "./commands/badge";
+import { qualityCommand } from "./commands/quality";
 
 const program = new Command();
 
@@ -52,5 +53,10 @@ program
   .command("badge")
   .description("Output markdown badge snippet for your README")
   .action(badgeCommand);
+
+program
+  .command("quality <target>")
+  .description("Measure property effectiveness via mutation testing")
+  .action(qualityCommand);
 
 program.parse();
