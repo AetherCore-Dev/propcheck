@@ -124,7 +124,7 @@ const FUNCTION_PROPERTIES: Record<string, readonly unknown[]> = {
       targetFunction: "calculateTotal",
       description: "Total is non-negative when all prices are non-negative",
       category: "boundary",
-      assertion: "calculateTotal(prices) >= 0",
+      assertion: "prices.every(p => p >= 0) ? calculateTotal(prices) >= 0 : true",
       generators: {
         prices: { type: "array", constraints: { element: "float", maxLength: 20 } },
       },

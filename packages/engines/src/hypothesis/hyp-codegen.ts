@@ -129,16 +129,22 @@ export function generateHypothesisTest(
     lines.push(`# Evidence: ${prop.evidence}`);
     lines.push(`def test_${prop.id}():`);
     lines.push(`    try:`);
-    lines.push(`        @given(${givenArgs})`);
-    lines.push(`        @settings(max_examples=MAX_EXAMPLES)`);
-    lines.push(`        def inner(${paramNames}):`);
-    lines.push(`            assert ${assertion}`);
-    lines.push(`        inner()`);
-    lines.push(`        print(json.dumps({"propertyId": "${prop.id}", "status": "passed", "iterations": MAX_EXAMPLES}))`);
+
+    if (generators.length === 0) {
+      // Zero-parameter assertion — run as simple assert
+      lines.push(`        assert ${assertion}`);
+    } else {
+      lines.push(`        @given(${givenArgs})`);
+      lines.push(`        @settings(max_examples=MAX_EXAMPLES)`);
+      lines.push(`        def inner(${paramNames}):`);
+      lines.push(`            assert ${assertion}`);
+      lines.push(`        inner()`);
+    }
+
+    lines.push(`        print(json.dumps({"propertyId": "${prop.id}", "status": "passed", "iterations": ${generators.length === 0 ? 1 : "MAX_EXAMPLES"}}))`);
     lines.push(`    except AssertionError as e:`);
     lines.push(`        print(json.dumps({"propertyId": "${prop.id}", "status": "failed", "counterexample": str(e), "errorMessage": str(e), "shrinkSteps": 0}))`);
     lines.push(`    except Exception as e:`);
-    lines.push(`        # Parse Hypothesis falsifying example from error message`);
     lines.push(`        msg = str(e)`);
     lines.push(`        print(json.dumps({"propertyId": "${prop.id}", "status": "failed", "counterexample": msg[:200], "errorMessage": msg[:200], "shrinkSteps": 0}))`);
     lines.push(``);

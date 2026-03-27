@@ -114,33 +114,40 @@ export function generateFastCheckTest(
     const arbNames = generators.map(([name]) => name);
     const arbExprs = generators.map(([, spec]) => mapGenerator(spec));
 
-    lines.push(`// ${prop.id}: ${prop.description}`);
-    lines.push(`// Category: ${prop.category}`);
-    lines.push(`// Evidence: ${prop.evidence}`);
-    lines.push(`try {`);
-    lines.push(`  fc.assert(`);
-    lines.push(`    fc.property(`);
-
-    // Add arbitraries
-    for (let i = 0; i < arbExprs.length; i++) {
-      const comma = i < arbExprs.length - 1 ? "," : ",";
-      lines.push(`      ${arbExprs[i]}${comma}`);
-    }
-
-    // Add predicate
-    lines.push(`      (${arbNames.join(", ")}) => {`);
-    lines.push(`        const result = target.${funcName}(${arbNames.join(", ")});`);
     // Replace bare function calls with target.funcName in assertion
     const assertion = prop.assertion.replace(
       new RegExp(`\\b${funcName}\\(`, "g"),
       `target.${funcName}(`,
     );
-    lines.push(`        return ${assertion};`);
-    lines.push(`      }`);
-    lines.push(`    ),`);
-    lines.push(`    { numRuns${config.seed !== undefined ? `, seed: ${config.seed}` : ""} }`);
-    lines.push(`  );`);
-    lines.push(`  console.log(JSON.stringify({ propertyId: "${prop.id}", status: "passed", iterations: numRuns }));`);
+
+    lines.push(`// ${prop.id}: ${prop.description}`);
+    lines.push(`// Category: ${prop.category}`);
+    lines.push(`// Evidence: ${prop.evidence}`);
+    lines.push(`try {`);
+
+    if (generators.length === 0) {
+      // Zero-parameter assertion — run as simple check, no fc.property needed
+      lines.push(`  const __result = ${assertion};`);
+      lines.push(`  if (!__result) throw new Error("Assertion failed: ${assertion.replace(/"/g, '\\"')}");`);
+      lines.push(`  console.log(JSON.stringify({ propertyId: "${prop.id}", status: "passed", iterations: 1 }));`);
+    } else {
+      lines.push(`  fc.assert(`);
+      lines.push(`    fc.property(`);
+
+      // Add arbitraries
+      for (let i = 0; i < arbExprs.length; i++) {
+        lines.push(`      ${arbExprs[i]},`);
+      }
+
+      // Add predicate
+      lines.push(`      (${arbNames.join(", ")}) => {`);
+      lines.push(`        return ${assertion};`);
+      lines.push(`      }`);
+      lines.push(`    ),`);
+      lines.push(`    { numRuns${config.seed !== undefined ? `, seed: ${config.seed}` : ""} }`);
+      lines.push(`  );`);
+      lines.push(`  console.log(JSON.stringify({ propertyId: "${prop.id}", status: "passed", iterations: numRuns }));`);
+    }
     lines.push(`} catch (e) {`);
     lines.push(`  // Parse counterexample from fast-check error message`);
     lines.push(`  let counterexample = null;`);

@@ -85,7 +85,8 @@ describe("E2E: Parse → Infer → Persist", () => {
       assert.ok(prop.assertion.length > 0, "Assertion should be non-empty");
       assert.ok(prop.evidence.length > 0, "Evidence should be non-empty");
       assert.ok(prop.seedInputs.length >= 1, "Should have seed inputs");
-      assert.ok(Object.keys(prop.generators).length > 0, "Should have generators");
+      // Some properties have zero generators (e.g., constant assertions like "f([]) === 0")
+      // so we don't require generators > 0 for all properties
     }
   });
 
