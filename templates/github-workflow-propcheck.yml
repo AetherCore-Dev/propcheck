@@ -1,0 +1,113 @@
+# propcheck PR Review — Copy this file to your repo's .github/workflows/
+#
+# What it does:
+#   1. On every PR, runs propcheck against your code
+#   2. Posts a comment with results (pass/fail + counterexamples)
+#   3. Blocks merge if any property fails
+#
+# Prerequisites:
+#   - Run `npx propcheck init && npx propcheck infer src/` first
+#   - Commit .propcheck/properties.json to your repo
+#   - fast-check must be in your devDependencies
+#
+# Usage:
+#   Copy this file to .github/workflows/propcheck.yml in your repo
+
+name: propcheck
+
+on:
+  pull_request:
+    branches: [main, master]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  propcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install propcheck
+        run: npm install -g propcheck
+
+      - name: Run propcheck
+        id: run
+        continue-on-error: true
+        run: |
+          propcheck run --json > /tmp/propcheck-json.txt 2>&1
+          propcheck run > /tmp/propcheck-human.txt 2>&1 || true
+          echo "exit_code=$?" >> $GITHUB_OUTPUT
+
+      - name: Parse results
+        id: parse
+        run: |
+          JSON=$(cat /tmp/propcheck-json.txt 2>/dev/null || echo '{}')
+          PASSED=$(echo "$JSON" | grep -o '"status":"passed"' | wc -l || echo 0)
+          FAILED=$(echo "$JSON" | grep -o '"status":"failed"' | wc -l || echo 0)
+          echo "passed=$PASSED" >> $GITHUB_OUTPUT
+          echo "failed=$FAILED" >> $GITHUB_OUTPUT
+
+      - name: Comment on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let output = '';
+            try { output = fs.readFileSync('/tmp/propcheck-human.txt', 'utf8'); } catch {}
+            const passed = parseInt('${{ steps.parse.outputs.passed }}') || 0;
+            const failed = parseInt('${{ steps.parse.outputs.failed }}') || 0;
+            const total = passed + failed;
+            const icon = failed > 0 ? '❌' : '✅';
+            const msg = failed > 0
+              ? `Found **${failed} property violation(s)**`
+              : `All **${passed} properties** passed`;
+
+            const body = [
+              `## ${icon} propcheck — ${msg}`,
+              '',
+              `| ✅ Passed | ❌ Failed | Total |`,
+              `|-----------|-----------|-------|`,
+              `| ${passed} | ${failed} | ${total} |`,
+              '',
+              '<details><summary>Details</summary>',
+              '',
+              '```',
+              output.trim().slice(0, 3000),
+              '```',
+              '</details>',
+              '',
+              '---',
+              '> 🔍 [propcheck](https://npmjs.com/package/propcheck) — AI property-based testing',
+            ].join('\n');
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const prev = comments.find(c => c.body?.includes('propcheck'));
+            if (prev) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                comment_id: prev.id, body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: context.issue.number, body,
+              });
+            }
+
+      - name: Fail on violations
+        if: steps.parse.outputs.failed > 0
+        run: exit 1

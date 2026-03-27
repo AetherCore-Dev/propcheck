@@ -131,6 +131,60 @@ Add to your README:
 
 Generate with: `npx propcheck badge`
 
+## CI/CD — Auto-review every PR
+
+Add this to your repo as `.github/workflows/propcheck.yml`:
+
+```yaml
+name: propcheck
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+  pull-requests: write
+jobs:
+  propcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - run: npm ci
+      - run: npm install -g propcheck
+      - run: propcheck run --json > /tmp/results.json 2>&1 || true
+      - run: propcheck run > /tmp/output.txt 2>&1 || true
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const output = fs.readFileSync('/tmp/output.txt','utf8');
+            const body = '## 🔍 propcheck\n```\n' + output.trim().slice(0,3000) + '\n```\n> [propcheck](https://npmjs.com/package/propcheck)';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number, body,
+            });
+```
+
+Every PR gets an automatic propcheck review comment — like CodeRabbit but for property testing.
+
+## Mutation Testing
+
+Measure how strong your properties are:
+
+```bash
+propcheck quality src/cart.ts
+
+  Mutation Testing: src/cart.ts
+  Generated 7 mutants from 7 operators
+  Testing against 9 properties...
+
+  Results:
+    Killed:         7 (100.0%)
+    Survived:       0 (0.0%)
+    Mutation score: 100.0%
+```
+
 ## Architecture
 
 ```
