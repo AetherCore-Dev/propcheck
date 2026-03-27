@@ -34,6 +34,7 @@ program
   .option("--model <model>", "LLM model to use", "claude-sonnet-4-20250514")
   .option("--max-properties <n>", "Max properties per function", "5")
   .option("--min-score <n>", "Minimum quality score (0-15)", "10")
+  .option("--skip-validation", "Skip trial-run validation of inferred properties")
   .action(inferCommand);
 
 program

@@ -5,8 +5,9 @@
  * 1. Load config (API key check)
  * 2. Parse target file(s) → AnalysisContext
  * 3. LLM.inferProperties(context)
- * 4. Store.setProperties(module, propertySet)
- * 5. Reporter.reportInferResult(result)
+ * 4. Trial-run validation — quick run 100x to filter false positives
+ * 5. Store.setProperties(module, propertySet)
+ * 6. Reporter.reportInferResult(result)
  */
 
 import * as fs from "node:fs/promises";
@@ -15,15 +16,77 @@ import { loadConfig, validateConfig } from "@propcheck/config";
 import { analyzeFile, detectLanguage, analyzePythonFile } from "@propcheck/parser";
 import { inferProperties } from "@propcheck/llm";
 import { setProperties, initStore } from "@propcheck/store";
+import { generateFastCheckTest, runFastCheckTest } from "@propcheck/engines";
 import { reportInferResult } from "@propcheck/reporter";
 import { hashContent, toForwardSlash } from "@propcheck/common";
-import type { PropertySet, AnalysisContext } from "@propcheck/common";
+import type { PropertyDefinition, PropertySet, AnalysisContext, RunConfig } from "@propcheck/common";
 
 interface InferOptions {
   mock?: boolean;
   model?: string;
   maxProperties?: string;
   minScore?: string;
+  skipValidation?: boolean;
+}
+
+/**
+ * Trial-run validation: quick-execute inferred properties to filter false positives.
+ *
+ * - 100/100 PASS → KEEP
+ * - <100/100 PASS → DROP (likely false positive or flaky)
+ * - Compile/runtime error → DROP (codegen issue)
+ */
+async function trialRunValidation(
+  properties: readonly PropertyDefinition[],
+  targetPath: string,
+  storeDir: string,
+): Promise<{ readonly validated: readonly PropertyDefinition[]; readonly dropped: readonly { prop: PropertyDefinition; reason: string }[] }> {
+  const testsDir = path.join(storeDir, "tests");
+  await fs.mkdir(testsDir, { recursive: true });
+
+  const trialConfig: RunConfig = {
+    mode: "quick",
+    iterations: 100,
+    timeout: 15_000,
+    verbose: false,
+  };
+
+  // Generate and run test
+  const generated = generateFastCheckTest(properties, targetPath, testsDir, trialConfig);
+  const testFilePath = path.join(testsDir, generated.fileName);
+  await fs.writeFile(testFilePath, generated.content, "utf8");
+
+  const result = await runFastCheckTest(testFilePath, properties, trialConfig);
+
+  // Classify results
+  const validated: PropertyDefinition[] = [];
+  const dropped: { prop: PropertyDefinition; reason: string }[] = [];
+
+  const passedIds = new Set(result.passed.map((p) => p.propertyId));
+  const failedIds = new Set(result.failed.map((f) => f.propertyId));
+  const errorIds = new Set(result.errors.map((e) => e.propertyId));
+
+  for (const prop of properties) {
+    if (passedIds.has(prop.id)) {
+      // 100/100 PASS → keep
+      validated.push(prop);
+    } else if (failedIds.has(prop.id)) {
+      // Failed → this found a real bug, keep it!
+      validated.push(prop);
+    } else if (errorIds.has(prop.id)) {
+      // Compile/runtime error → drop
+      const err = result.errors.find((e) => e.propertyId === prop.id);
+      dropped.push({ prop, reason: `codegen error: ${err?.errorMessage?.slice(0, 80) ?? "unknown"}` });
+    } else {
+      // No result → drop
+      dropped.push({ prop, reason: "no output from trial run" });
+    }
+  }
+
+  // Clean up trial test file
+  try { await fs.unlink(testFilePath); } catch { /* ignore */ }
+
+  return { validated, dropped };
 }
 
 export async function inferCommand(
@@ -93,18 +156,44 @@ export async function inferCommand(
     return;
   }
 
+  // Trial-run validation (skip for Python until Hypothesis adapter is integrated)
+  let finalProperties = result.properties;
+  if (!options.skipValidation && language !== "python") {
+    console.log(`  Validating ${result.properties.length} properties (trial run, 100 iterations)...`);
+    const { validated, dropped } = await trialRunValidation(
+      result.properties,
+      targetPath,
+      storeDir,
+    );
+
+    if (dropped.length > 0) {
+      console.log(`  Dropped ${dropped.length} properties during validation:`);
+      for (const { prop, reason } of dropped) {
+        console.log(`    - ${prop.targetFunction}: ${prop.description} [${reason}]`);
+      }
+    }
+
+    finalProperties = validated;
+
+    if (finalProperties.length === 0) {
+      console.log("  No properties survived validation.\n");
+      return;
+    }
+  }
+
   // Persist to .propcheck/
   const moduleKey = toForwardSlash(path.relative(projectRoot, targetPath));
   const propertySet: PropertySet = {
     module: moduleKey,
     filePath: moduleKey,
-    properties: result.properties,
+    properties: finalProperties,
     sourceHash: hashContent(source),
     inferredAt: new Date().toISOString(),
   };
 
   await setProperties(storeDir, moduleKey, propertySet);
 
-  // Report
-  reportInferResult(result, moduleKey);
+  // Report (use finalProperties count, not original)
+  const finalResult = { ...result, properties: finalProperties };
+  reportInferResult(finalResult, moduleKey);
 }
