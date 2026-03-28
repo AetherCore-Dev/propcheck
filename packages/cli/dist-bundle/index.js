@@ -86,8 +86,11 @@ var require_property_store = __commonJS({
       try {
         const content = await fs4.readFile(filePath, "utf8");
         return JSON.parse(content);
-      } catch {
-        return { version: FILE_VERSION, modules: {} };
+      } catch (err) {
+        if (err instanceof Error && "code" in err && err.code === "ENOENT") {
+          return { version: FILE_VERSION, modules: {} };
+        }
+        throw new Error(`Failed to read properties file at ${filePath}: ${err instanceof Error ? err.message : String(err)}`);
       }
     }
     async function writePropertiesFile(storeDir, data) {
@@ -324,8 +327,8 @@ var require_init = __commonJS({
     async function initStore3(projectRoot, storeDir = ".propcheck") {
       const storePath = path6.join(projectRoot, storeDir);
       try {
-        const stat = await fs4.stat(storePath);
-        if (stat.isDirectory()) {
+        const stat2 = await fs4.stat(storePath);
+        if (stat2.isDirectory()) {
           for (const sub of SUBDIRS) {
             await fs4.mkdir(path6.join(storePath, sub), { recursive: true });
           }
@@ -456,14 +459,34 @@ var require_loader = __commonJS({
     exports2.validateConfig = validateConfig2;
     var fs4 = __importStar(require("fs"));
     var path6 = __importStar(require("path"));
+    var zod_1 = require("zod");
     var defaults_1 = require_defaults();
+    var PropcheckRcSchema = zod_1.z.object({
+      apiKey: zod_1.z.string().optional(),
+      model: zod_1.z.string().optional(),
+      maxPropertiesPerFunction: zod_1.z.number().int().min(1).max(20).optional(),
+      minScore: zod_1.z.number().int().min(0).max(15).optional(),
+      defaultMode: zod_1.z.enum(["quick", "default", "thorough"]).optional(),
+      timeout: zod_1.z.number().int().min(1e3).max(3e5).optional(),
+      storeDir: zod_1.z.string().regex(/^[a-zA-Z0-9._-]+(?:\/[a-zA-Z0-9._-]+)*$/, "storeDir must be a relative path without traversal").optional(),
+      mock: zod_1.z.boolean().optional()
+    }).strict();
     function loadConfig5(projectRoot, overrides = {}) {
       let config = { ...defaults_1.DEFAULTS };
       const rcPath = path6.join(projectRoot, ".propcheckrc");
       if (fs4.existsSync(rcPath)) {
-        const rcContent = fs4.readFileSync(rcPath, "utf8");
-        const rcConfig = JSON.parse(rcContent);
-        config = { ...config, ...rcConfig };
+        try {
+          const rcContent = fs4.readFileSync(rcPath, "utf8");
+          const rawJson = JSON.parse(rcContent);
+          const parsed = PropcheckRcSchema.safeParse(rawJson);
+          if (parsed.success) {
+            config = { ...config, ...parsed.data };
+          } else {
+            console.warn(`  Warning: .propcheckrc has invalid entries (using defaults): ${parsed.error.issues.map((i) => i.message).join(", ")}`);
+          }
+        } catch (err) {
+          console.warn(`  Warning: Failed to parse .propcheckrc (using defaults): ${err instanceof Error ? err.message : String(err)}`);
+        }
       }
       const envApiKey = process.env["ANTHROPIC_API_KEY"];
       const envMock = process.env["PROPCHECK_MOCK"];
@@ -872,7 +895,7 @@ var require_python = __commonJS({
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.analyzePythonFile = analyzePythonFile2;
-    var FUNC_REGEX = /^(\s*)(async\s+)?def\s+(\w+)\s*\(([^)]*)\)\s*(?:->\s*([^:]+))?\s*:/gm;
+    var FUNC_REGEX_SOURCE = /^(\s*)(async\s+)?def\s+(\w+)\s*\(([^)]*)\)\s*(?:->\s*([^:]+))?\s*:/;
     var PARAM_REGEX = /(\*{0,2})(\w+)\s*(?::\s*([^=,]+?))?\s*(?:=\s*([^,]+))?\s*$/;
     function parseParameter(raw) {
       const trimmed = raw.trim();
@@ -930,9 +953,9 @@ var require_python = __commonJS({
     function analyzePythonFile2(filePath, source) {
       const functions = [];
       const lines = source.split("\n");
+      const funcRegex = new RegExp(FUNC_REGEX_SOURCE.source, "gm");
       let match;
-      FUNC_REGEX.lastIndex = 0;
-      while ((match = FUNC_REGEX.exec(source)) !== null) {
+      while ((match = funcRegex.exec(source)) !== null) {
         const [fullMatch, indent, asyncKw, name, rawParams, returnType] = match;
         const isTopLevel = indent.length === 0;
         const isAsync = !!asyncKw;
@@ -1253,11 +1276,12 @@ var require_git = __commonJS({
       for (const filePath of files) {
         let fileDiff;
         try {
-          fileDiff = (0, node_child_process_1.execSync)(`git diff HEAD --unified=0 -- "${filePath}"`, {
-            cwd,
-            encoding: "utf8",
-            timeout: 1e4
-          });
+          const diffResult = (0, node_child_process_1.spawnSync)("git", ["diff", "HEAD", "--unified=0", "--", filePath], { cwd, encoding: "utf8", timeout: 1e4 });
+          if (diffResult.status !== 0) {
+            result.push({ filePath, changedLines: [] });
+            continue;
+          }
+          fileDiff = diffResult.stdout;
         } catch {
           result.push({ filePath, changedLines: [] });
           continue;
@@ -1283,12 +1307,80 @@ var require_git = __commonJS({
   }
 });
 
+// ../common/dist/utils/assertion-sanitizer.js
+var require_assertion_sanitizer = __commonJS({
+  "../common/dist/utils/assertion-sanitizer.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.validateAssertion = validateAssertion;
+    exports2.validateGeneratorKey = validateGeneratorKey;
+    var DANGEROUS_PATTERNS = [
+      /\brequire\s*\(/,
+      // Node.js require
+      /\bimport\s*\(/,
+      // Dynamic import
+      /\bprocess\b/,
+      // process object access
+      /\beval\s*\(/,
+      // eval()
+      /\bFunction\s*\(/,
+      // Function constructor
+      /\b__dirname\b/,
+      // Directory access
+      /\b__filename\b/,
+      // File access
+      /\bglobal\b/,
+      // Global object
+      /\bglobalThis\b/,
+      // GlobalThis
+      /\bchild_process\b/,
+      // Child process module
+      /\bexecSync\b/,
+      // Synchronous exec
+      /\bspawnSync\b/,
+      // Synchronous spawn
+      /`/,
+      // Template literals (can execute expressions)
+      /\bfs\b\s*\./,
+      // File system access
+      /\bnet\b\s*\./,
+      // Network access
+      /\bhttp\b\s*\./,
+      // HTTP access
+      /\bos\b\s*\./,
+      // OS module access
+      /\bnew\s+Function\b/,
+      // new Function()
+      /;\s*\w/
+      // Statement separator followed by identifier (multi-statement)
+    ];
+    var MAX_ASSERTION_LENGTH = 500;
+    function validateAssertion(assertion) {
+      if (!assertion || assertion.trim().length === 0) {
+        return { valid: false, reason: "Assertion is empty" };
+      }
+      if (assertion.length > MAX_ASSERTION_LENGTH) {
+        return { valid: false, reason: `Assertion too long (${assertion.length} chars, max ${MAX_ASSERTION_LENGTH})` };
+      }
+      for (const pattern of DANGEROUS_PATTERNS) {
+        if (pattern.test(assertion)) {
+          return { valid: false, reason: `Assertion contains disallowed pattern: ${pattern.source}` };
+        }
+      }
+      return { valid: true };
+    }
+    function validateGeneratorKey(key) {
+      return /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(key);
+    }
+  }
+});
+
 // ../common/dist/index.js
 var require_dist4 = __commonJS({
   "../common/dist/index.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.getChangedFunctions = exports2.getChangedFiles = exports2.importPath = exports2.relativeForward = exports2.resolveForward = exports2.toForwardSlash = exports2.hashContent = exports2.EngineError = exports2.LlmError = exports2.ParseError = exports2.PropcheckError = exports2.DEFAULT_CONFIG = exports2.RUN_MODE_ITERATIONS = void 0;
+    exports2.validateGeneratorKey = exports2.validateAssertion = exports2.getChangedFunctions = exports2.getChangedFiles = exports2.importPath = exports2.relativeForward = exports2.resolveForward = exports2.toForwardSlash = exports2.hashContent = exports2.EngineError = exports2.LlmError = exports2.ParseError = exports2.PropcheckError = exports2.DEFAULT_CONFIG = exports2.RUN_MODE_ITERATIONS = void 0;
     var execution_1 = require_execution();
     Object.defineProperty(exports2, "RUN_MODE_ITERATIONS", { enumerable: true, get: function() {
       return execution_1.RUN_MODE_ITERATIONS;
@@ -1336,6 +1428,13 @@ var require_dist4 = __commonJS({
     } });
     Object.defineProperty(exports2, "getChangedFunctions", { enumerable: true, get: function() {
       return git_1.getChangedFunctions;
+    } });
+    var assertion_sanitizer_1 = require_assertion_sanitizer();
+    Object.defineProperty(exports2, "validateAssertion", { enumerable: true, get: function() {
+      return assertion_sanitizer_1.validateAssertion;
+    } });
+    Object.defineProperty(exports2, "validateGeneratorKey", { enumerable: true, get: function() {
+      return assertion_sanitizer_1.validateGeneratorKey;
     } });
   }
 });
@@ -2208,6 +2307,7 @@ var require_response_parser = __commonJS({
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.parseInferResponse = parseInferResponse;
     var zod_1 = require("zod");
+    var common_1 = require_dist4();
     var VALID_CATEGORIES = [
       "roundtrip",
       "idempotent",
@@ -2263,6 +2363,14 @@ var require_response_parser = __commonJS({
           continue;
         }
         const raw = parsed.data;
+        const assertionCheck = (0, common_1.validateAssertion)(raw.assertion);
+        if (!assertionCheck.valid) {
+          continue;
+        }
+        const hasUnsafeKey = Object.keys(raw.generators).some((k) => !(0, common_1.validateGeneratorKey)(k));
+        if (hasUnsafeKey) {
+          continue;
+        }
         const category = VALID_CATEGORIES.includes(raw.category) ? raw.category : "boundary";
         const generators = {};
         for (const [key, val] of Object.entries(raw.generators)) {
@@ -2315,7 +2423,8 @@ var require_scoring = __commonJS({
     ];
     function scoreProperty(property) {
       let score = 0;
-      if (property.assertion.length > 0 && property.assertion.includes(property.targetFunction.split(".").pop() ?? "")) {
+      const funcName = property.targetFunction.split(".").pop() ?? "";
+      if (property.assertion.length > 0 && funcName.length > 0 && property.assertion.includes(funcName)) {
         score += 2;
       }
       const genCount = Object.keys(property.generators).length;
@@ -2371,6 +2480,8 @@ var require_self_repair = __commonJS({
     exports2.REPAIR_TOOL = exports2.REPAIR_SYSTEM_PROMPT = void 0;
     exports2.repairProperty = repairProperty2;
     exports2.buildRepairPrompt = buildRepairPrompt;
+    var common_1 = require_dist4();
+    var zod_1 = require("zod");
     var REPAIR_SYSTEM_PROMPT = `You are propcheck's self-repair module. A property-based test was generated but failed to compile or run.
 
 Your job: fix the property definition so the generated test code works correctly.
@@ -2468,10 +2579,28 @@ Return the repaired property via the repair_property tool.`;
         if (!content.assertion || !content.generators || !content.targetFunction) {
           return null;
         }
+        const assertionCheck = (0, common_1.validateAssertion)(String(content.assertion));
+        if (!assertionCheck.valid) {
+          return null;
+        }
+        if (content.generators && typeof content.generators === "object") {
+          const hasUnsafeKey = Object.keys(content.generators).some((k) => !(0, common_1.validateGeneratorKey)(k));
+          if (hasUnsafeKey) {
+            return null;
+          }
+        }
+        const RepairGeneratorSchema = zod_1.z.record(zod_1.z.string().regex(/^[a-zA-Z_$][a-zA-Z0-9_$]*$/), zod_1.z.object({
+          type: zod_1.z.string(),
+          constraints: zod_1.z.record(zod_1.z.unknown()).optional()
+        }));
+        const genParsed = RepairGeneratorSchema.safeParse(content.generators);
+        if (!genParsed.success) {
+          return null;
+        }
         const repaired = {
           ...property,
           assertion: String(content.assertion),
-          generators: content.generators,
+          generators: Object.freeze(genParsed.data),
           category: content.category ?? property.category,
           description: String(content.description ?? property.description),
           confidence: Math.min(property.confidence, typeof content.confidence === "number" ? content.confidence : 0.5)
@@ -3015,7 +3144,27 @@ var require_process_runner = __commonJS({
       return new Promise((resolve4, reject) => {
         const proc = (0, node_child_process_1.spawn)(command, args, {
           cwd: options.cwd,
-          env: { ...process.env, ...options.env },
+          env: {
+            // Only forward safe env vars — never leak API keys to generated test code
+            PATH: process.env["PATH"] ?? "",
+            HOME: process.env["HOME"] ?? process.env["USERPROFILE"] ?? "",
+            TEMP: process.env["TEMP"] ?? process.env["TMPDIR"] ?? "/tmp",
+            TMP: process.env["TMP"] ?? "",
+            LANG: process.env["LANG"] ?? "",
+            TERM: process.env["TERM"] ?? "",
+            SHELL: process.env["SHELL"] ?? "",
+            // Windows-specific
+            SYSTEMROOT: process.env["SYSTEMROOT"] ?? "",
+            APPDATA: process.env["APPDATA"] ?? "",
+            LOCALAPPDATA: process.env["LOCALAPPDATA"] ?? "",
+            PROGRAMFILES: process.env["PROGRAMFILES"] ?? "",
+            COMSPEC: process.env["COMSPEC"] ?? "",
+            // Python-specific
+            PYTHONPATH: process.env["PYTHONPATH"] ?? "",
+            VIRTUAL_ENV: process.env["VIRTUAL_ENV"] ?? "",
+            // Caller overrides (e.g. NODE_PATH)
+            ...options.env
+          },
           shell: false,
           stdio: ["ignore", "pipe", "pipe"]
         });
@@ -3054,6 +3203,78 @@ var require_process_runner = __commonJS({
           }));
         });
       });
+    }
+  }
+});
+
+// ../engines/dist/shared/result-parser.js
+var require_result_parser = __commonJS({
+  "../engines/dist/shared/result-parser.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.parseJsonLines = parseJsonLines;
+    exports2.mapResults = mapResults;
+    function parseJsonLines(stdout) {
+      const results = [];
+      for (const line of stdout.split("\n")) {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith("{"))
+          continue;
+        try {
+          const parsed = JSON.parse(trimmed);
+          if (parsed.propertyId && parsed.status) {
+            results.push(parsed);
+          }
+        } catch {
+        }
+      }
+      return results;
+    }
+    function mapResults(rawResults, properties, config, duration, stderrSnippet, errorPrefix) {
+      const passed = [];
+      const failed = [];
+      const errors = [];
+      const resultMap = new Map(rawResults.map((r) => [r.propertyId, r]));
+      for (const prop of properties) {
+        const raw = resultMap.get(prop.id);
+        if (!raw) {
+          errors.push({
+            propertyId: prop.id,
+            status: "error",
+            errorMessage: stderrSnippet ? `${errorPrefix}: ${stderrSnippet.slice(0, 200)}` : "Property produced no output",
+            duration: 0
+          });
+          continue;
+        }
+        if (raw.status === "passed") {
+          passed.push({
+            propertyId: prop.id,
+            status: "passed",
+            iterations: raw.iterations ?? config.iterations,
+            duration: 0,
+            seed: config.seed ?? 0
+          });
+        } else {
+          failed.push({
+            propertyId: prop.id,
+            status: "failed",
+            counterexample: raw.counterexample ?? null,
+            shrinkSteps: raw.shrinkSteps ?? 0,
+            originalInput: raw.counterexample,
+            errorMessage: raw.errorMessage ?? "Property violated",
+            seed: config.seed ?? 0,
+            duration: 0
+          });
+        }
+      }
+      return {
+        passed,
+        failed,
+        errors,
+        duration,
+        totalIterations: passed.reduce((sum, p) => sum + p.iterations, 0),
+        properties
+      };
     }
   }
 });
@@ -3103,22 +3324,7 @@ var require_fc_runner = __commonJS({
     exports2.runFastCheckTest = runFastCheckTest3;
     var path6 = __importStar(require("path"));
     var process_runner_1 = require_process_runner();
-    function parseJsonLines(stdout) {
-      const results = [];
-      for (const line of stdout.split("\n")) {
-        const trimmed = line.trim();
-        if (!trimmed.startsWith("{"))
-          continue;
-        try {
-          const parsed = JSON.parse(trimmed);
-          if (parsed.propertyId && parsed.status) {
-            results.push(parsed);
-          }
-        } catch {
-        }
-      }
-      return results;
-    }
+    var result_parser_1 = require_result_parser();
     async function runFastCheckTest3(testFilePath, properties, config) {
       const startTime = Date.now();
       const cwd = path6.dirname(testFilePath);
@@ -3139,140 +3345,8 @@ var require_fc_runner = __commonJS({
           ].join(path6.delimiter)
         }
       });
-      const rawResults = parseJsonLines(result.stdout);
-      const passed = [];
-      const failed = [];
-      const errors = [];
-      const resultMap = new Map(rawResults.map((r) => [r.propertyId, r]));
-      for (const prop of properties) {
-        const raw = resultMap.get(prop.id);
-        if (!raw) {
-          errors.push({
-            propertyId: prop.id,
-            status: "error",
-            errorMessage: result.stderr ? `Test execution error: ${result.stderr.slice(0, 200)}` : "Property produced no output",
-            duration: 0
-          });
-          continue;
-        }
-        if (raw.status === "passed") {
-          passed.push({
-            propertyId: prop.id,
-            status: "passed",
-            iterations: raw.iterations ?? config.iterations,
-            duration: 0,
-            seed: config.seed ?? 0
-          });
-        } else {
-          failed.push({
-            propertyId: prop.id,
-            status: "failed",
-            counterexample: raw.counterexample ?? null,
-            shrinkSteps: raw.shrinkSteps ?? 0,
-            originalInput: raw.counterexample,
-            errorMessage: raw.errorMessage ?? "Property violated",
-            seed: config.seed ?? 0,
-            duration: 0
-          });
-        }
-      }
-      const duration = Date.now() - startTime;
-      return {
-        passed,
-        failed,
-        errors,
-        duration,
-        totalIterations: passed.reduce((sum, p) => sum + p.iterations, 0),
-        properties
-      };
-    }
-  }
-});
-
-// ../engines/dist/fast-check/fc-adapter.js
-var require_fc_adapter = __commonJS({
-  "../engines/dist/fast-check/fc-adapter.js"(exports2) {
-    "use strict";
-    var __createBinding = exports2 && exports2.__createBinding || (Object.create ? (function(o, m, k, k2) {
-      if (k2 === void 0) k2 = k;
-      var desc = Object.getOwnPropertyDescriptor(m, k);
-      if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-        desc = { enumerable: true, get: function() {
-          return m[k];
-        } };
-      }
-      Object.defineProperty(o, k2, desc);
-    }) : (function(o, m, k, k2) {
-      if (k2 === void 0) k2 = k;
-      o[k2] = m[k];
-    }));
-    var __setModuleDefault = exports2 && exports2.__setModuleDefault || (Object.create ? (function(o, v) {
-      Object.defineProperty(o, "default", { enumerable: true, value: v });
-    }) : function(o, v) {
-      o["default"] = v;
-    });
-    var __importStar = exports2 && exports2.__importStar || /* @__PURE__ */ (function() {
-      var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function(o2) {
-          var ar = [];
-          for (var k in o2) if (Object.prototype.hasOwnProperty.call(o2, k)) ar[ar.length] = k;
-          return ar;
-        };
-        return ownKeys(o);
-      };
-      return function(mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) {
-          for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        }
-        __setModuleDefault(result, mod);
-        return result;
-      };
-    })();
-    Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.createFastCheckAdapter = createFastCheckAdapter;
-    var path6 = __importStar(require("path"));
-    var fs4 = __importStar(require("fs/promises"));
-    var fc_codegen_1 = require_fc_codegen();
-    var fc_runner_1 = require_fc_runner();
-    var process_runner_1 = require_process_runner();
-    function createFastCheckAdapter() {
-      return {
-        language: "typescript",
-        name: "fast-check",
-        async generateTestFile(properties, targetFile, config) {
-          const targetDir = path6.dirname(targetFile);
-          const storeDir = path6.join(targetDir, ".propcheck", "tests");
-          await fs4.mkdir(storeDir, { recursive: true });
-          const { content, fileName } = (0, fc_codegen_1.generateFastCheckTest)(properties, targetFile, storeDir, config);
-          const filePath = path6.join(storeDir, fileName);
-          await fs4.writeFile(filePath, content, "utf8");
-          return {
-            filePath,
-            engine: "fast-check",
-            language: "typescript",
-            propertyIds: properties.map((p) => p.id),
-            content
-          };
-        },
-        async execute(testFile, config) {
-          return (0, fc_runner_1.runFastCheckTest)(testFile.filePath, [], config);
-        },
-        async checkPrerequisites() {
-          const missing = [];
-          try {
-            await (0, process_runner_1.runProcess)("node", ["-e", 'require("fast-check")'], { timeout: 1e4 });
-          } catch {
-            missing.push("fast-check");
-          }
-          return {
-            satisfied: missing.length === 0,
-            missing,
-            instructions: missing.length > 0 ? `Install missing dependencies: npm install ${missing.join(" ")}` : "All prerequisites satisfied"
-          };
-        }
-      };
+      const rawResults = (0, result_parser_1.parseJsonLines)(result.stdout);
+      return (0, result_parser_1.mapResults)(rawResults, properties, config, Date.now() - startTime, result.stderr, "Test execution error");
     }
   }
 });
@@ -3482,22 +3556,7 @@ var require_hyp_runner = __commonJS({
     exports2.runHypothesisTest = runHypothesisTest2;
     var path6 = __importStar(require("path"));
     var process_runner_1 = require_process_runner();
-    function parseJsonLines(stdout) {
-      const results = [];
-      for (const line of stdout.split("\n")) {
-        const trimmed = line.trim();
-        if (!trimmed.startsWith("{"))
-          continue;
-        try {
-          const parsed = JSON.parse(trimmed);
-          if (parsed.propertyId && parsed.status) {
-            results.push(parsed);
-          }
-        } catch {
-        }
-      }
-      return results;
-    }
+    var result_parser_1 = require_result_parser();
     async function findPython() {
       for (const cmd of ["python", "python3"]) {
         try {
@@ -3516,51 +3575,8 @@ var require_hyp_runner = __commonJS({
         cwd: path6.dirname(testFilePath),
         timeout: config.timeout * Math.max(properties.length, 1)
       });
-      const rawResults = parseJsonLines(result.stdout);
-      const passed = [];
-      const failed = [];
-      const errors = [];
-      const resultMap = new Map(rawResults.map((r) => [r.propertyId, r]));
-      for (const prop of properties) {
-        const raw = resultMap.get(prop.id);
-        if (!raw) {
-          errors.push({
-            propertyId: prop.id,
-            status: "error",
-            errorMessage: result.stderr ? `Python error: ${result.stderr.slice(0, 300)}` : "Property produced no output",
-            duration: 0
-          });
-          continue;
-        }
-        if (raw.status === "passed") {
-          passed.push({
-            propertyId: prop.id,
-            status: "passed",
-            iterations: raw.iterations ?? config.iterations,
-            duration: 0,
-            seed: config.seed ?? 0
-          });
-        } else {
-          failed.push({
-            propertyId: prop.id,
-            status: "failed",
-            counterexample: raw.counterexample ?? null,
-            shrinkSteps: raw.shrinkSteps ?? 0,
-            originalInput: raw.counterexample,
-            errorMessage: raw.errorMessage ?? "Property violated",
-            seed: config.seed ?? 0,
-            duration: 0
-          });
-        }
-      }
-      return {
-        passed,
-        failed,
-        errors,
-        duration: Date.now() - startTime,
-        totalIterations: passed.reduce((sum, p) => sum + p.iterations, 0),
-        properties
-      };
+      const rawResults = (0, result_parser_1.parseJsonLines)(result.stdout);
+      return (0, result_parser_1.mapResults)(rawResults, properties, config, Date.now() - startTime, result.stderr, "Python error");
     }
   }
 });
@@ -3684,9 +3700,9 @@ var require_runner = __commonJS({
     var fc_codegen_1 = require_fc_codegen();
     var fc_runner_1 = require_fc_runner();
     var operators_1 = require_operators();
-    async function runMutationTesting2(sourceFilePath2, source, properties, storeDir) {
+    async function runMutationTesting2(sourceFilePath, source, properties, storeDir) {
       const startTime = Date.now();
-      const mutants = (0, operators_1.generateMutants)(source, sourceFilePath2);
+      const mutants = (0, operators_1.generateMutants)(source, sourceFilePath);
       if (mutants.length === 0) {
         return {
           totalMutants: 0,
@@ -3711,7 +3727,7 @@ var require_runner = __commonJS({
       const results = [];
       const survivingMutants = [];
       for (const mutant of mutants) {
-        const ext = path6.extname(sourceFilePath2);
+        const ext = path6.extname(sourceFilePath);
         const mutantFileName = `_mutant_${mutant.id}${ext}`;
         const mutantFilePath = path6.join(testsDir, mutantFileName);
         try {
@@ -3776,11 +3792,7 @@ var require_dist6 = __commonJS({
   "../engines/dist/index.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.runMutationTesting = exports2.generateMutants = exports2.runProcess = exports2.runHypothesisTest = exports2.generateHypothesisTest = exports2.runFastCheckTest = exports2.generateFastCheckTest = exports2.createFastCheckAdapter = void 0;
-    var fc_adapter_1 = require_fc_adapter();
-    Object.defineProperty(exports2, "createFastCheckAdapter", { enumerable: true, get: function() {
-      return fc_adapter_1.createFastCheckAdapter;
-    } });
+    exports2.runMutationTesting = exports2.generateMutants = exports2.mapResults = exports2.parseJsonLines = exports2.runProcess = exports2.runHypothesisTest = exports2.generateHypothesisTest = exports2.runFastCheckTest = exports2.generateFastCheckTest = void 0;
     var fc_codegen_1 = require_fc_codegen();
     Object.defineProperty(exports2, "generateFastCheckTest", { enumerable: true, get: function() {
       return fc_codegen_1.generateFastCheckTest;
@@ -3800,6 +3812,13 @@ var require_dist6 = __commonJS({
     var process_runner_1 = require_process_runner();
     Object.defineProperty(exports2, "runProcess", { enumerable: true, get: function() {
       return process_runner_1.runProcess;
+    } });
+    var result_parser_1 = require_result_parser();
+    Object.defineProperty(exports2, "parseJsonLines", { enumerable: true, get: function() {
+      return result_parser_1.parseJsonLines;
+    } });
+    Object.defineProperty(exports2, "mapResults", { enumerable: true, get: function() {
+      return result_parser_1.mapResults;
     } });
     var operators_1 = require_operators();
     Object.defineProperty(exports2, "generateMutants", { enumerable: true, get: function() {
@@ -4136,7 +4155,6 @@ async function trialRunValidation(properties, targetPath, storeDir, sourceCode, 
         const err = result.errors.find((e) => e.propertyId === prop.id);
         const errorMsg = err?.errorMessage ?? "unknown error";
         if (round < MAX_REPAIR_ROUNDS) {
-          needsRepair.push(prop);
           const funcSig = `${prop.targetFunction}(...)`;
           let repaired = null;
           if (isMock) {
@@ -4145,13 +4163,11 @@ async function trialRunValidation(properties, targetPath, storeDir, sourceCode, 
             repaired = await (0, import_llm.repairProperty)(llmClient, prop, errorMsg, sourceCode, funcSig);
           }
           if (repaired) {
-            const idx = needsRepair.indexOf(prop);
-            needsRepair[idx] = repaired;
+            needsRepair.push(repaired);
             totalRepaired++;
             console.log(`    \u21BB Repairing: ${prop.targetFunction}: ${prop.description} (round ${round + 1})`);
           } else {
             dropped.push({ prop, reason: `codegen error (repair failed round ${round + 1}): ${errorMsg.slice(0, 60)}` });
-            needsRepair.splice(needsRepair.indexOf(prop), 1);
           }
         } else {
           dropped.push({ prop, reason: `codegen error (max ${MAX_REPAIR_ROUNDS} repairs): ${errorMsg.slice(0, 60)}` });
@@ -4182,6 +4198,12 @@ async function inferCommand(target, options) {
   await (0, import_store2.initStore)(projectRoot, config.storeDir);
   const storeDir = path2.join(projectRoot, config.storeDir);
   const targetPath = path2.resolve(projectRoot, target);
+  if (!targetPath.startsWith(projectRoot + path2.sep) && targetPath !== projectRoot) {
+    console.error(`
+  Error: Target file must be within the project root.
+`);
+    process.exit(2);
+  }
   try {
     await fs.access(targetPath);
   } catch {
@@ -4197,6 +4219,14 @@ async function inferCommand(target, options) {
 `);
     process.exit(2);
   }
+  const MAX_SOURCE_BYTES = 5e5;
+  const stat2 = await fs.stat(targetPath);
+  if (stat2.size > MAX_SOURCE_BYTES) {
+    console.error(`
+  Error: File too large (${stat2.size} bytes). Max: ${MAX_SOURCE_BYTES} bytes.
+`);
+    process.exit(2);
+  }
   const source = await fs.readFile(targetPath, "utf8");
   const context = language === "python" ? (0, import_parser.analyzePythonFile)(targetPath, source) : (0, import_parser.analyzeFile)(targetPath, source, language);
   if (context.functions.length === 0) {
@@ -4208,8 +4238,14 @@ async function inferCommand(target, options) {
   console.log(`
   Analyzing ${context.functions.length} functions in ${target}...`);
   const result = await (0, import_llm.inferProperties)(config.apiKey, config.model, context, {
-    maxProperties: parseInt(options.maxProperties ?? "5", 10),
-    minScore: parseInt(options.minScore ?? "10", 10),
+    maxProperties: (() => {
+      const n = parseInt(options.maxProperties ?? "5", 10);
+      return Number.isNaN(n) ? 5 : n;
+    })(),
+    minScore: (() => {
+      const n = parseInt(options.minScore ?? "10", 10);
+      return Number.isNaN(n) ? 10 : n;
+    })(),
     mock: config.mock
   });
   if (result.properties.length === 0) {
@@ -4328,7 +4364,7 @@ async function runCommand(target, options) {
     mode,
     iterations: import_common2.RUN_MODE_ITERATIONS[mode],
     timeout: config.timeout,
-    seed: options.seed ? parseInt(options.seed, 10) : void 0,
+    seed: options.seed ? Number.isNaN(parseInt(options.seed, 10)) ? void 0 : parseInt(options.seed, 10) : void 0,
     verbose: false
   };
   let propertySets;
@@ -4467,12 +4503,9 @@ async function qualityCommand(target) {
     console.log("  No mutants generated (file may be too simple).\n");
     return;
   }
-  const report = await (0, import_engines3.runMutationTesting)(sourceFilePath(targetPath), source, ps.properties, storeDir);
+  const report = await (0, import_engines3.runMutationTesting)(targetPath, source, ps.properties, storeDir);
   printReport(report, target);
   process.exit(report.mutationScore >= 0.8 ? 0 : 1);
-}
-function sourceFilePath(targetPath) {
-  return targetPath;
 }
 function printReport(report, target) {
   const scoreColor = report.mutationScore >= 0.8 ? import_chalk.default.green : report.mutationScore >= 0.6 ? import_chalk.default.yellow : import_chalk.default.red;

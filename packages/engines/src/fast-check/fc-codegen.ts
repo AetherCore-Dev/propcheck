@@ -8,6 +8,11 @@ import type { PropertyDefinition, GeneratorSpec, RunConfig } from "@propcheck/co
 import { toForwardSlash } from "@propcheck/common";
 import * as path from "node:path";
 
+/** Strip newlines and limit length for safe embedding in code comments. */
+function toSafeComment(s: string): string {
+  return s.replace(/[\r\n\u2028\u2029]/g, " ").slice(0, 200);
+}
+
 /**
  * Map a GeneratorSpec to a fast-check Arbitrary expression.
  */
@@ -18,8 +23,8 @@ function mapGenerator(spec: GeneratorSpec): string {
     case "integer":
       if (c.min !== undefined || c.max !== undefined) {
         const parts: string[] = [];
-        if (c.min !== undefined) parts.push(`min: ${c.min}`);
-        if (c.max !== undefined) parts.push(`max: ${c.max}`);
+        if (c.min !== undefined) parts.push(`min: ${Number(c.min)}`);
+        if (c.max !== undefined) parts.push(`max: ${Number(c.max)}`);
         return `fc.integer({ ${parts.join(", ")} })`;
       }
       return "fc.integer()";
@@ -28,15 +33,15 @@ function mapGenerator(spec: GeneratorSpec): string {
     case "number":
       if (c.min !== undefined || c.max !== undefined) {
         const parts: string[] = [];
-        if (c.min !== undefined) parts.push(`min: ${c.min}`);
-        if (c.max !== undefined) parts.push(`max: ${c.max}`);
+        if (c.min !== undefined) parts.push(`min: ${Number(c.min)}`);
+        if (c.max !== undefined) parts.push(`max: ${Number(c.max)}`);
         return `fc.double({ ${parts.join(", ")}, noNaN: true })`;
       }
       return "fc.double({ noNaN: true })";
 
     case "string":
       if (c.maxLength !== undefined) {
-        return `fc.string({ maxLength: ${c.maxLength} })`;
+        return `fc.string({ maxLength: ${Number(c.maxLength)} })`;
       }
       return "fc.string()";
 
@@ -44,8 +49,8 @@ function mapGenerator(spec: GeneratorSpec): string {
       return "fc.boolean()";
 
     case "array": {
-      const element = c.element ? mapGenerator({ type: String(c.element) }) : "fc.anything()";
-      const maxLen = c.maxLength ? `, { maxLength: ${c.maxLength} }` : "";
+      const element = c.element ? mapGenerator({ type: String(c.element).replace(/[^a-zA-Z0-9_]/g, "") }) : "fc.anything()";
+      const maxLen = c.maxLength ? `, { maxLength: ${Number(c.maxLength)} }` : "";
       return `fc.array(${element}${maxLen})`;
     }
 
@@ -120,9 +125,9 @@ export function generateFastCheckTest(
       `target.${funcName}(`,
     );
 
-    lines.push(`// ${prop.id}: ${prop.description}`);
-    lines.push(`// Category: ${prop.category}`);
-    lines.push(`// Evidence: ${prop.evidence}`);
+    lines.push(`// ${prop.id}: ${toSafeComment(prop.description)}`);
+    lines.push(`// Category: ${toSafeComment(prop.category)}`);
+    lines.push(`// Evidence: ${toSafeComment(prop.evidence)}`);
     lines.push(`try {`);
 
     if (generators.length === 0) {

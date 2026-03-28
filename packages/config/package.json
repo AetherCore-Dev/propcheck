@@ -9,7 +9,8 @@
     "clean": "tsc --build --clean"
   },
   "dependencies": {
-    "@propcheck/common": "*"
+    "@propcheck/common": "*",
+    "zod": "3.24.4"
   },
   "license": "MIT"
 }

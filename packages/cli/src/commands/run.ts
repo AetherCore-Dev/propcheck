@@ -48,7 +48,7 @@ export async function runCommand(
     mode,
     iterations: RUN_MODE_ITERATIONS[mode],
     timeout: config.timeout,
-    seed: options.seed ? parseInt(options.seed, 10) : undefined,
+    seed: options.seed ? (Number.isNaN(parseInt(options.seed, 10)) ? undefined : parseInt(options.seed, 10)) : undefined,
     verbose: false,
   };
 

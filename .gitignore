@@ -2,6 +2,9 @@ node_modules/
 dist/
 *.tsbuildinfo
 .propcheck/config.json
+.propcheck/tests/
+.propcheck/corpus/
 .env
 .env.local
 *.log
+*.tgz

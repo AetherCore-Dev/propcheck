@@ -98,9 +98,6 @@ async function trialRunValidation(
 
         if (round < MAX_REPAIR_ROUNDS) {
           // Attempt repair
-          needsRepair.push(prop);
-
-          // Get function signature for repair context
           const funcSig = `${prop.targetFunction}(...)`;
 
           let repaired: PropertyDefinition | null = null;
@@ -112,15 +109,13 @@ async function trialRunValidation(
           }
 
           if (repaired) {
-            // Replace the property with repaired version for next round
-            const idx = needsRepair.indexOf(prop);
-            needsRepair[idx] = repaired;
+            // Use repaired version for next round
+            needsRepair.push(repaired);
             totalRepaired++;
             console.log(`    ↻ Repairing: ${prop.targetFunction}: ${prop.description} (round ${round + 1})`);
           } else {
             // Repair failed — drop
             dropped.push({ prop, reason: `codegen error (repair failed round ${round + 1}): ${errorMsg.slice(0, 60)}` });
-            needsRepair.splice(needsRepair.indexOf(prop), 1);
           }
         } else {
           // Max rounds reached — drop
@@ -164,8 +159,12 @@ export async function inferCommand(
   await initStore(projectRoot, config.storeDir);
   const storeDir = path.join(projectRoot, config.storeDir);
 
-  // Resolve target
+  // Resolve target with path traversal protection
   const targetPath = path.resolve(projectRoot, target);
+  if (!targetPath.startsWith(projectRoot + path.sep) && targetPath !== projectRoot) {
+    console.error(`\n  Error: Target file must be within the project root.\n`);
+    process.exit(2);
+  }
 
   try {
     await fs.access(targetPath);
@@ -178,6 +177,14 @@ export async function inferCommand(
   const language = detectLanguage(targetPath);
   if (!language || !["typescript", "javascript", "python"].includes(language)) {
     console.error(`\n  Error: Unsupported file type. Supported: .ts, .tsx, .js, .jsx, .py\n`);
+    process.exit(2);
+  }
+
+  // Guard against excessively large files (prevent unbounded API spend)
+  const MAX_SOURCE_BYTES = 500_000;
+  const stat = await fs.stat(targetPath);
+  if (stat.size > MAX_SOURCE_BYTES) {
+    console.error(`\n  Error: File too large (${stat.size} bytes). Max: ${MAX_SOURCE_BYTES} bytes.\n`);
     process.exit(2);
   }
 
@@ -194,10 +201,14 @@ export async function inferCommand(
 
   console.log(`\n  Analyzing ${context.functions.length} functions in ${target}...`);
 
+  // Parse options once with clamped bounds
+  const maxProperties = Math.min(Math.max(1, parseInt(options.maxProperties ?? "5", 10) || 5), 20);
+  const minScore = Math.min(Math.max(0, parseInt(options.minScore ?? "10", 10) || 10), 15);
+
   // Infer properties
   const result = await inferProperties(config.apiKey, config.model, context, {
-    maxProperties: parseInt(options.maxProperties ?? "5", 10),
-    minScore: parseInt(options.minScore ?? "10", 10),
+    maxProperties,
+    minScore,
     mock: config.mock,
   });
 
@@ -280,8 +291,8 @@ export async function inferCommand(
         } else if (llmClient) {
           // Real LLM refinement: re-infer with feedback context
           const refineResult = await inferProperties(config.apiKey, config.model, context, {
-            maxProperties: parseInt(options.maxProperties ?? "5", 10),
-            minScore: parseInt(options.minScore ?? "10", 10),
+            maxProperties,
+            minScore,
             mock: false,
           });
           improvedProperties = refineResult.properties;

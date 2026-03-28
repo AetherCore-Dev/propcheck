@@ -5,6 +5,9 @@
 import { spawn } from "node:child_process";
 import { EngineError } from "@propcheck/common";
 
+/** Maximum bytes to capture from stdout/stderr to prevent OOM. */
+const MAX_OUTPUT_BYTES = 10 * 1024 * 1024; // 10MB
+
 export interface ProcessResult {
   readonly stdout: string;
   readonly stderr: string;
@@ -30,7 +33,27 @@ export function runProcess(
   return new Promise((resolve, reject) => {
     const proc = spawn(command, args as string[], {
       cwd: options.cwd,
-      env: { ...process.env, ...options.env },
+      env: {
+        // Only forward safe env vars — never leak API keys to generated test code
+        PATH: process.env["PATH"] ?? "",
+        HOME: process.env["HOME"] ?? process.env["USERPROFILE"] ?? "",
+        TEMP: process.env["TEMP"] ?? process.env["TMPDIR"] ?? "/tmp",
+        TMP: process.env["TMP"] ?? "",
+        LANG: process.env["LANG"] ?? "",
+        TERM: process.env["TERM"] ?? "",
+        SHELL: process.env["SHELL"] ?? "",
+        // Windows-specific
+        SYSTEMROOT: process.env["SYSTEMROOT"] ?? "",
+        APPDATA: process.env["APPDATA"] ?? "",
+        LOCALAPPDATA: process.env["LOCALAPPDATA"] ?? "",
+        PROGRAMFILES: process.env["PROGRAMFILES"] ?? "",
+        COMSPEC: process.env["COMSPEC"] ?? "",
+        // Python-specific
+        PYTHONPATH: process.env["PYTHONPATH"] ?? "",
+        VIRTUAL_ENV: process.env["VIRTUAL_ENV"] ?? "",
+        // Caller overrides (e.g. NODE_PATH)
+        ...options.env,
+      },
       shell: false,
       stdio: ["ignore", "pipe", "pipe"],
     });
@@ -40,11 +63,15 @@ export function runProcess(
     let killed = false;
 
     proc.stdout.on("data", (data: Buffer) => {
-      stdout += data.toString();
+      if (stdout.length < MAX_OUTPUT_BYTES) {
+        stdout += data.toString();
+      }
     });
 
     proc.stderr.on("data", (data: Buffer) => {
-      stderr += data.toString();
+      if (stderr.length < MAX_OUTPUT_BYTES) {
+        stderr += data.toString();
+      }
     });
 
     const timer = setTimeout(() => {

@@ -48,7 +48,7 @@ AI-powered Property-Based Testing CLI. LLM infers code properties → determinis
 3. `--experimental-strip-types` to run generated tests against .ts source
 4. Mock client matches by `### funcName` prompt headings
 5. Properties persisted in `.propcheck/properties.json` (infer once, run free)
-6. Scoring: 15-point rubric with tautology/redundancy/triviality checks
+6. Scoring: 13-point rubric with tautology/redundancy/triviality checks
 7. tsup bundles all workspace packages; external: chalk, commander, zod, @anthropic-ai/sdk
 8. fast-check = peer dependency; typescript = optional peer dependency
 

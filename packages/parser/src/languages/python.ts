@@ -20,8 +20,8 @@ import type {
   DocSignal,
 } from "@propcheck/common";
 
-/** Regex for Python function definitions. */
-const FUNC_REGEX = /^(\s*)(async\s+)?def\s+(\w+)\s*\(([^)]*)\)\s*(?:->\s*([^:]+))?\s*:/gm;
+/** Pattern for Python function definitions (created fresh per call to avoid global lastIndex state). */
+const FUNC_REGEX_SOURCE = /^(\s*)(async\s+)?def\s+(\w+)\s*\(([^)]*)\)\s*(?:->\s*([^:]+))?\s*:/;
 
 /** Regex for Python type hints in parameters. */
 const PARAM_REGEX = /(\*{0,2})(\w+)\s*(?::\s*([^=,]+?))?\s*(?:=\s*([^,]+))?\s*$/;
@@ -107,10 +107,11 @@ export function analyzePythonFile(
   const functions: FunctionSignature[] = [];
   const lines = source.split("\n");
 
+  // Create fresh regex per call to avoid lastIndex global state issues
+  const funcRegex = new RegExp(FUNC_REGEX_SOURCE.source, "gm");
   let match: RegExpExecArray | null;
-  FUNC_REGEX.lastIndex = 0;
 
-  while ((match = FUNC_REGEX.exec(source)) !== null) {
+  while ((match = funcRegex.exec(source)) !== null) {
     const [fullMatch, indent, asyncKw, name, rawParams, returnType] = match;
     const isTopLevel = indent.length === 0;
     const isAsync = !!asyncKw;
@@ -162,7 +163,6 @@ export function analyzePythonFile(
   const imports: ImportInfo[] = [];
   const importRegex = /^(?:from\s+(\S+)\s+)?import\s+(.+)$/gm;
   let importMatch: RegExpExecArray | null;
-  importRegex.lastIndex = 0;
 
   while ((importMatch = importRegex.exec(source)) !== null) {
     const [, fromModule, specifiers] = importMatch;

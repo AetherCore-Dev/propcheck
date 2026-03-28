@@ -3,7 +3,6 @@
   "version": "0.1.0",
   "description": "AI-powered property-based testing — find bugs your tests miss",
   "main": "dist-bundle/index.js",
-  "types": "dist-bundle/index.d.ts",
   "bin": {
     "propcheck": "dist-bundle/index.js"
   },
@@ -29,11 +28,11 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/allenenli/propcheck"
+    "url": "https://github.com/AetherCore-Dev/propcheck"
   },
-  "homepage": "https://github.com/allenenli/propcheck#readme",
+  "homepage": "https://github.com/AetherCore-Dev/propcheck#readme",
   "dependencies": {
-    "@anthropic-ai/sdk": ">=0.50.0",
+    "@anthropic-ai/sdk": "^0.52.0",
     "chalk": "^4.1.2",
     "commander": "^13.0.0",
     "zod": "^3.24.0"
@@ -44,7 +43,7 @@
     "LICENSE"
   ],
   "peerDependencies": {
-    "fast-check": ">=3.0.0",
+    "fast-check": ">=4.0.0",
     "typescript": ">=5.0.0"
   },
   "peerDependenciesMeta": {

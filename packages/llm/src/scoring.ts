@@ -1,5 +1,5 @@
 /**
- * Property quality scoring — 15-point rubric.
+ * Property quality scoring — 13-point rubric.
  *
  * Filters out tautologies, redundant, and low-quality properties.
  */
@@ -14,7 +14,7 @@ const TAUTOLOGY_PATTERNS = [
 ];
 
 /**
- * Score a property from 0-15.
+ * Score a property from 0-13.
  *
  * Rubric:
  * - (2 pts) Assertion is non-empty and references target function
@@ -24,16 +24,16 @@ const TAUTOLOGY_PATTERNS = [
  * - (2 pts) NOT a tautology
  * - (2 pts) NOT trivial (not just a typeof check)
  * - (1 pt) Has 3 seed inputs
- * - (1 pt) Category is specific (not generic)
- * - (1 pt) Assertion looks syntactically valid
  */
 export function scoreProperty(property: PropertyDefinition): number {
   let score = 0;
 
   // (2 pts) Assertion references target function
+  const funcName = property.targetFunction.split(".").pop() ?? "";
   if (
     property.assertion.length > 0 &&
-    property.assertion.includes(property.targetFunction.split(".").pop() ?? "")
+    funcName.length > 0 &&
+    property.assertion.includes(funcName)
   ) {
     score += 2;
   }
@@ -74,8 +74,8 @@ export function scoreProperty(property: PropertyDefinition): number {
     score += 1;
   }
 
-  // Clamp to 15
-  return Math.min(score, 15);
+  // Clamp to 13
+  return Math.min(score, 13);
 }
 
 /**

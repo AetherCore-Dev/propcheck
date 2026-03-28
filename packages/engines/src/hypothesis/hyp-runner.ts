@@ -3,50 +3,24 @@
  */
 
 import * as path from "node:path";
-import type {
-  PropertyResult,
-  PropertyFailure,
-  PropertyError,
-  ExecutionResult,
-  PropertyDefinition,
-  RunConfig,
-} from "@propcheck/common";
+import type { PropertyDefinition, RunConfig, ExecutionResult } from "@propcheck/common";
 import { runProcess } from "../shared/process-runner";
-
-interface RawResult {
-  propertyId: string;
-  status: "passed" | "failed";
-  iterations?: number;
-  counterexample?: unknown;
-  errorMessage?: string;
-  shrinkSteps?: number;
-}
-
-function parseJsonLines(stdout: string): readonly RawResult[] {
-  const results: RawResult[] = [];
-  for (const line of stdout.split("\n")) {
-    const trimmed = line.trim();
-    if (!trimmed.startsWith("{")) continue;
-    try {
-      const parsed = JSON.parse(trimmed) as RawResult;
-      if (parsed.propertyId && parsed.status) {
-        results.push(parsed);
-      }
-    } catch {
-      // Skip non-JSON lines
-    }
-  }
-  return results;
-}
+import { parseJsonLines, mapResults } from "../shared/result-parser";
 
 /**
- * Detect available Python command.
+ * Detect available Python command (cached after first successful lookup).
  */
+let _cachedPythonCmd: string | null = null;
+
 async function findPython(): Promise<string> {
+  if (_cachedPythonCmd !== null) return _cachedPythonCmd;
   for (const cmd of ["python", "python3"]) {
     try {
       const result = await runProcess(cmd, ["--version"], { timeout: 5000 });
-      if (result.exitCode === 0) return cmd;
+      if (result.exitCode === 0) {
+        _cachedPythonCmd = cmd;
+        return cmd;
+      }
     } catch {
       // Try next
     }
@@ -75,54 +49,5 @@ export async function runHypothesisTest(
   );
 
   const rawResults = parseJsonLines(result.stdout);
-  const passed: PropertyResult[] = [];
-  const failed: PropertyFailure[] = [];
-  const errors: PropertyError[] = [];
-  const resultMap = new Map(rawResults.map((r) => [r.propertyId, r]));
-
-  for (const prop of properties) {
-    const raw = resultMap.get(prop.id);
-
-    if (!raw) {
-      errors.push({
-        propertyId: prop.id,
-        status: "error",
-        errorMessage: result.stderr
-          ? `Python error: ${result.stderr.slice(0, 300)}`
-          : "Property produced no output",
-        duration: 0,
-      });
-      continue;
-    }
-
-    if (raw.status === "passed") {
-      passed.push({
-        propertyId: prop.id,
-        status: "passed",
-        iterations: raw.iterations ?? config.iterations,
-        duration: 0,
-        seed: config.seed ?? 0,
-      });
-    } else {
-      failed.push({
-        propertyId: prop.id,
-        status: "failed",
-        counterexample: raw.counterexample ?? null,
-        shrinkSteps: raw.shrinkSteps ?? 0,
-        originalInput: raw.counterexample,
-        errorMessage: raw.errorMessage ?? "Property violated",
-        seed: config.seed ?? 0,
-        duration: 0,
-      });
-    }
-  }
-
-  return {
-    passed,
-    failed,
-    errors,
-    duration: Date.now() - startTime,
-    totalIterations: passed.reduce((sum, p) => sum + p.iterations, 0),
-    properties,
-  };
+  return mapResults(rawResults, properties, config, Date.now() - startTime, result.stderr, "Python error");
 }

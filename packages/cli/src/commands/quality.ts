@@ -64,17 +64,13 @@ export async function qualityCommand(
   }
 
   // Run mutation testing
-  const report = await runMutationTesting(sourceFilePath(targetPath), source, ps.properties, storeDir);
+  const report = await runMutationTesting(targetPath, source, ps.properties, storeDir);
 
   // Report results
   printReport(report, target);
 
   // Exit code: 0 if score >= 80%, 1 otherwise
   process.exit(report.mutationScore >= 0.8 ? 0 : 1);
-}
-
-function sourceFilePath(targetPath: string): string {
-  return targetPath;
 }
 
 function printReport(report: MutationReport, target: string): void {

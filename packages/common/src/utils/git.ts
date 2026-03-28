@@ -5,7 +5,7 @@
  * then maps those to function names via the parser.
  */
 
-import { execSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import type { FunctionSignature } from "../types/analysis";
 
 /** A file changed in git diff with its modified line ranges. */
@@ -21,12 +21,15 @@ export interface ChangedFile {
 export function getChangedFiles(cwd: string): readonly ChangedFile[] {
   let diffOutput: string;
   try {
-    // Get unified diff with line numbers
-    diffOutput = execSync("git diff HEAD --unified=0 --diff-filter=ACMR --name-only", {
-      cwd,
-      encoding: "utf8",
-      timeout: 10_000,
-    });
+    const diffResult = spawnSync(
+      "git",
+      ["diff", "HEAD", "--unified=0", "--diff-filter=ACMR", "--name-only"],
+      { cwd, encoding: "utf8", timeout: 10_000 },
+    );
+    if (diffResult.status !== 0) {
+      return [];
+    }
+    diffOutput = diffResult.stdout;
   } catch {
     // Not a git repo or git not available
     return [];
@@ -39,11 +42,16 @@ export function getChangedFiles(cwd: string): readonly ChangedFile[] {
     // Get detailed diff for this file to extract line ranges
     let fileDiff: string;
     try {
-      fileDiff = execSync(`git diff HEAD --unified=0 -- "${filePath}"`, {
-        cwd,
-        encoding: "utf8",
-        timeout: 10_000,
-      });
+      const diffResult = spawnSync(
+        "git",
+        ["diff", "HEAD", "--unified=0", "--", filePath],
+        { cwd, encoding: "utf8", timeout: 10_000 },
+      );
+      if (diffResult.status !== 0) {
+        result.push({ filePath, changedLines: [] });
+        continue;
+      }
+      fileDiff = diffResult.stdout;
     } catch {
       result.push({ filePath, changedLines: [] });
       continue;

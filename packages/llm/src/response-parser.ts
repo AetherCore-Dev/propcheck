@@ -4,7 +4,7 @@
 
 import { z } from "zod";
 import type { PropertyDefinition, PropertyCategory, GeneratorSpec, SeedInput } from "@propcheck/common";
-import { hashContent } from "@propcheck/common";
+import { hashContent, validateAssertion, validateGeneratorKey } from "@propcheck/common";
 
 const VALID_CATEGORIES: PropertyCategory[] = [
   "roundtrip", "idempotent", "conservation", "monotonic",
@@ -18,18 +18,23 @@ const SeedInputSchema = z.object({
 });
 
 const GeneratorSpecSchema = z.object({
-  type: z.string(),
-  constraints: z.record(z.unknown()).optional(),
+  type: z.string().max(50),
+  constraints: z.object({
+    min: z.number().finite().optional(),
+    max: z.number().finite().optional(),
+    maxLength: z.number().int().nonnegative().optional(),
+    element: z.string().max(50).regex(/^[a-zA-Z_][a-zA-Z0-9_]*$/).optional(),
+  }).passthrough().optional(),
 });
 
 const RawPropertySchema = z.object({
-  targetFunction: z.string(),
-  description: z.string(),
-  category: z.string(),
-  assertion: z.string(),
+  targetFunction: z.string().max(200),
+  description: z.string().max(500),
+  category: z.string().max(50),
+  assertion: z.string().max(500),
   generators: z.record(GeneratorSpecSchema),
-  seedInputs: z.array(SeedInputSchema).min(1),
-  evidence: z.string(),
+  seedInputs: z.array(SeedInputSchema).min(1).max(20),
+  evidence: z.string().max(500),
   confidence: z.number().min(0).max(1),
 });
 
@@ -82,6 +87,31 @@ function parsePropertyArray(
     }
 
     const raw = parsed.data;
+
+    // Validate assertion safety
+    const assertionCheck = validateAssertion(raw.assertion);
+    if (!assertionCheck.valid) {
+      console.warn(`[propcheck] Dropped unsafe property "${raw.targetFunction}": ${assertionCheck.reason}`);
+      continue;
+    }
+
+    // Validate generator keys are safe identifiers and count is bounded
+    const generatorKeys = Object.keys(raw.generators);
+    if (generatorKeys.length > 20) {
+      console.warn(`[propcheck] Dropped property "${raw.targetFunction}": too many generators (${generatorKeys.length})`);
+      continue;
+    }
+    const hasUnsafeKey = generatorKeys.some((k) => !validateGeneratorKey(k));
+    if (hasUnsafeKey) {
+      console.warn(`[propcheck] Dropped property "${raw.targetFunction}": unsafe generator key`);
+      continue;
+    }
+
+    // Validate targetFunction is a safe qualified identifier
+    if (!/^[a-zA-Z_$][a-zA-Z0-9_$.]*$/.test(raw.targetFunction)) {
+      continue; // Skip entries with unsafe target function names
+    }
+
     const category = VALID_CATEGORIES.includes(raw.category as PropertyCategory)
       ? (raw.category as PropertyCategory)
       : "boundary";

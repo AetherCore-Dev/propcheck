@@ -10,8 +10,21 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { z } from "zod";
 import type { PropcheckConfig } from "@propcheck/common";
 import { DEFAULTS } from "./defaults";
+
+/** Schema for validating .propcheckrc content. */
+const PropcheckRcSchema = z.object({
+  apiKey: z.string().optional(),
+  model: z.string().optional(),
+  maxPropertiesPerFunction: z.number().int().min(1).max(20).optional(),
+  minScore: z.number().int().min(0).max(13).optional(),
+  defaultMode: z.enum(["quick", "default", "thorough"]).optional(),
+  timeout: z.number().int().min(1000).max(300_000).optional(),
+  storeDir: z.string().regex(/^[a-zA-Z0-9._-]+(?:\/[a-zA-Z0-9._-]+)*$/, "storeDir must be a relative path without traversal").optional(),
+  mock: z.boolean().optional(),
+}).strict();
 
 /** CLI overrides that can be passed from commander. */
 export interface ConfigOverrides {
@@ -34,12 +47,21 @@ export function loadConfig(
   // Layer 1: Start with defaults
   let config: PropcheckConfig = { ...DEFAULTS };
 
-  // Layer 2: Load .propcheckrc if it exists
+  // Layer 2: Load .propcheckrc if it exists (validated with Zod)
   const rcPath = path.join(projectRoot, ".propcheckrc");
   if (fs.existsSync(rcPath)) {
-    const rcContent = fs.readFileSync(rcPath, "utf8");
-    const rcConfig = JSON.parse(rcContent) as Partial<PropcheckConfig>;
-    config = { ...config, ...rcConfig };
+    try {
+      const rcContent = fs.readFileSync(rcPath, "utf8");
+      const rawJson = JSON.parse(rcContent) as unknown;
+      const parsed = PropcheckRcSchema.safeParse(rawJson);
+      if (parsed.success) {
+        config = { ...config, ...parsed.data };
+      } else {
+        console.warn(`  Warning: .propcheckrc has invalid entries (using defaults): ${parsed.error.issues.map((i) => i.message).join(", ")}`);
+      }
+    } catch (err: unknown) {
+      console.warn(`  Warning: Failed to parse .propcheckrc (using defaults): ${err instanceof Error ? err.message : String(err)}`);
+    }
   }
 
   // Layer 3: Environment variables

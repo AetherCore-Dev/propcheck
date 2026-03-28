@@ -7,7 +7,9 @@
  */
 
 import type { PropertyDefinition } from "@propcheck/common";
+import { validateAssertion, validateGeneratorKey } from "@propcheck/common";
 import type { LlmClient, LlmToolSchema } from "../client";
+import { z } from "zod";
 
 const REPAIR_SYSTEM_PROMPT = `You are propcheck's self-repair module. A property-based test was generated but failed to compile or run.
 
@@ -124,11 +126,38 @@ export async function repairProperty(
       return null;
     }
 
+    // Validate repaired assertion is safe
+    const assertionCheck = validateAssertion(String(content.assertion));
+    if (!assertionCheck.valid) {
+      return null;
+    }
+
+    // Validate generator keys
+    if (content.generators && typeof content.generators === "object") {
+      const hasUnsafeKey = Object.keys(content.generators as Record<string, unknown>).some((k) => !validateGeneratorKey(k));
+      if (hasUnsafeKey) {
+        return null;
+      }
+    }
+
+    // Validate generators with Zod
+    const RepairGeneratorSchema = z.record(
+      z.string().regex(/^[a-zA-Z_$][a-zA-Z0-9_$]*$/),
+      z.object({
+        type: z.string(),
+        constraints: z.record(z.unknown()).optional(),
+      }),
+    );
+    const genParsed = RepairGeneratorSchema.safeParse(content.generators);
+    if (!genParsed.success) {
+      return null;
+    }
+
     // Build repaired property — immutable, create new object
     const repaired: PropertyDefinition = {
       ...property,
       assertion: String(content.assertion),
-      generators: content.generators as PropertyDefinition["generators"],
+      generators: Object.freeze(genParsed.data),
       category: (content.category as PropertyDefinition["category"]) ?? property.category,
       description: String(content.description ?? property.description),
       confidence: Math.min(

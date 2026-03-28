@@ -10,9 +10,27 @@ All notable changes to propcheck are documented in this file.
 - **Trial-run validation**: infer → quick 100x run → auto-filter false positives before persisting
 - npm-ready `package.json` with peer dependencies (fast-check, typescript)
 
+### Security
+- **Assertion sanitizer**: whitelist-validates LLM-generated assertions before embedding in test code (prevents code injection)
+- **Environment isolation**: subprocess runner only forwards safe env vars — API keys no longer leak to generated test processes
+- **Path traversal protection**: `propcheck infer` rejects targets outside project root
+- **File size guard**: rejects source files > 500KB to prevent unbounded API spend
+- **Input validation**: Zod schema validation for `.propcheckrc` config, generator specs, and LLM response fields with length limits
+- **Codegen hardening**: `Number()` coercion on generator constraints, safe comment sanitization, element type sanitization
+- **Self-repair validation**: Zod-validated repair results with assertion safety checks before applying
+
 ### Changed
 - CLI bin now points to bundled `dist-bundle/index.js` instead of tsc output
 - workspace @propcheck/* packages bundled inline; only chalk/commander/zod/@anthropic-ai/sdk remain external
+- Scoring rubric reduced from 15-point to 13-point (removed 2 low-signal criteria)
+- `git.ts`: `execSync` → `spawnSync` to avoid shell injection
+- Python parser: fresh regex per call to fix global `lastIndex` state leak
+- `property-store.ts`: distinguish ENOENT from corruption/permission errors
+- DRY refactor: extracted shared `result-parser.ts` from fc-runner and hyp-runner
+- Removed unused `createFastCheckAdapter` export
+- `run.ts`: NaN seed protection
+- `hyp-runner.ts`: cached Python command lookup
+- Process runner: 10MB stdout/stderr cap to prevent OOM
 
 ### Known Issues (codegen layer)
 - Zero-parameter assertions (`calculateTotal([]) === 0`) fail — `fc.property` requires >= 1 arbitrary
@@ -20,7 +38,7 @@ All notable changes to propcheck are documented in this file.
 - `fc.double()` generates negative values even when business logic expects non-negative — needs `min: 0` constraint propagation
 
 ### Next
-- `gh auth login` + `gh repo create propcheck --public` + `npm publish`
+- `npm publish`
 - Real Anthropic API validation
 - Phase 2: self-repair (3-round), refinement loop, VS Code extension
 

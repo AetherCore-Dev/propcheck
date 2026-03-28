@@ -8,6 +8,11 @@ import type { PropertyDefinition, GeneratorSpec, RunConfig } from "@propcheck/co
 import { toForwardSlash } from "@propcheck/common";
 import * as path from "node:path";
 
+/** Strip newlines and limit length for safe embedding in code comments. */
+function toSafeComment(s: string): string {
+  return s.replace(/[\r\n\u2028\u2029]/g, " ").slice(0, 200);
+}
+
 /**
  * Map a GeneratorSpec to a Hypothesis strategy expression.
  */
@@ -18,23 +23,23 @@ function mapStrategy(spec: GeneratorSpec): string {
     case "integer":
     case "int": {
       const parts: string[] = [];
-      if (c.min !== undefined) parts.push(`min_value=${c.min}`);
-      if (c.max !== undefined) parts.push(`max_value=${c.max}`);
+      if (c.min !== undefined) parts.push(`min_value=${Number(c.min)}`);
+      if (c.max !== undefined) parts.push(`max_value=${Number(c.max)}`);
       return parts.length > 0 ? `st.integers(${parts.join(", ")})` : "st.integers()";
     }
 
     case "float":
     case "number": {
       const parts: string[] = ["allow_nan=False", "allow_infinity=False"];
-      if (c.min !== undefined) parts.push(`min_value=${c.min}`);
-      if (c.max !== undefined) parts.push(`max_value=${c.max}`);
+      if (c.min !== undefined) parts.push(`min_value=${Number(c.min)}`);
+      if (c.max !== undefined) parts.push(`max_value=${Number(c.max)}`);
       return `st.floats(${parts.join(", ")})`;
     }
 
     case "string":
     case "str": {
       if (c.maxLength !== undefined) {
-        return `st.text(max_size=${c.maxLength})`;
+        return `st.text(max_size=${Number(c.maxLength)})`;
       }
       return "st.text()";
     }
@@ -45,8 +50,8 @@ function mapStrategy(spec: GeneratorSpec): string {
 
     case "array":
     case "list": {
-      const element = c.element ? mapStrategy({ type: String(c.element) }) : "st.integers()";
-      const maxLen = c.maxLength ? `, max_size=${c.maxLength}` : "";
+      const element = c.element ? mapStrategy({ type: String(c.element).replace(/[^a-zA-Z0-9_]/g, "") }) : "st.integers()";
+      const maxLen = c.maxLength ? `, max_size=${Number(c.maxLength)}` : "";
       return `st.lists(${element}${maxLen})`;
     }
 
@@ -124,9 +129,9 @@ export function generateHypothesisTest(
     assertion = assertion.replace(/\bundefined\b/g, "None");
     assertion = assertion.replace(/\.length\b/g, ".__len__()");  // arr.length → len(arr)
 
-    lines.push(`# ${prop.id}: ${prop.description}`);
-    lines.push(`# Category: ${prop.category}`);
-    lines.push(`# Evidence: ${prop.evidence}`);
+    lines.push(`# ${prop.id}: ${toSafeComment(prop.description)}`);
+    lines.push(`# Category: ${toSafeComment(prop.category)}`);
+    lines.push(`# Evidence: ${toSafeComment(prop.evidence)}`);
     lines.push(`def test_${prop.id}():`);
     lines.push(`    try:`);
 

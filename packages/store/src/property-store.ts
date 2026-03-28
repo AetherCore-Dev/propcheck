@@ -36,8 +36,13 @@ async function readPropertiesFile(storeDir: string): Promise<PropertiesFile> {
   try {
     const content = await fs.readFile(filePath, "utf8");
     return JSON.parse(content) as PropertiesFile;
-  } catch {
-    return { version: FILE_VERSION, modules: {} };
+  } catch (err: unknown) {
+    // Only return empty state for missing file; re-throw for corruption/permission errors
+    if (err instanceof Error && "code" in err && (err as NodeJS.ErrnoException).code === "ENOENT") {
+      return { version: FILE_VERSION, modules: {} };
+    }
+    // JSON parse errors or permission errors should surface
+    throw new Error(`Failed to read properties file at ${filePath}: ${err instanceof Error ? err.message : String(err)}`);
   }
 }
 
