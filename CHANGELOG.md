@@ -55,7 +55,7 @@ First working version. Full `init -> infer -> run -> report` pipeline.
 - **Parser**: Python regex-based extractor (functions, type hints, docstrings)
 - **LLM**: Claude API integration with BYOK (Anthropic SDK, tool_use structured output)
 - **LLM**: Mock client for offline testing (`--mock` flag or `PROPCHECK_MOCK=true`)
-- **LLM**: 15-point scoring rubric with tautology/redundancy/triviality detection
+- **LLM**: 13-point scoring rubric with tautology/redundancy/triviality detection
 - **LLM**: Co-generation prompt (properties + seed inputs simultaneously)
 - **Engines**: fast-check adapter (codegen + Node.js runner + counterexample parsing)
 - **Engines**: Hypothesis adapter (codegen + pytest runner)

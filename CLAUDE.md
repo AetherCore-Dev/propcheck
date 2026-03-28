@@ -9,21 +9,24 @@ AI-powered Property-Based Testing CLI. LLM infers code properties → determinis
 - LLM: Anthropic Claude API (BYOK) + mock client for offline
 - Engines: fast-check (TS/JS), Hypothesis (Python)
 - CLI: commander.js + chalk v4
-- Bundler: tsup (144KB single-file bundle, 73KB compressed)
+- Bundler: tsup (~180KB single-file bundle)
 - Test runner: Node.js `--experimental-strip-types` for direct .ts import
 
 ## Project Status (2026-03-27)
-**Phase 1 MVP: COMPLETE + npm-ready** — 52 files, 4,881 lines, 50 tests all passing.
+**Phase 1 MVP: COMPLETE + npm-ready** — 63 files, ~6,500 lines, 50 tests all passing.
 
 ### What's Done
 - Full CLI: `init`, `infer`, `run`, `badge` commands
 - Trial-run validation: infer → quick 100x run → filter false positives
 - `--changed` mode: git diff → only test changed files
 - `--quick` / `--thorough` / `--seed` / `--json` flags
-- tsup bundling: 144KB single-file, 73KB npm package
+- tsup bundling: ~180KB single-file bundle
 - Multi-language: TypeScript/JavaScript (fast-check) + Python (Hypothesis)
 - GitHub Action (composite action in .github/actions/propcheck/)
 - CI workflow (3 platforms × 3 Node versions)
+- Security hardening: assertion sanitizer, subprocess env isolation, path traversal protection, Zod config validation
+- Mutation testing: `propcheck quality` command scaffolded
+- GitHub repo: pushed to AetherCore-Dev/propcheck
 
 ### Validation Results (Opus-quality mock)
 - 12 functions tested across 4 fixtures (TS + Python)
@@ -33,14 +36,13 @@ AI-powered Property-Based Testing CLI. LLM infers code properties → determinis
 - Full E2E verified: infer --mock → trial-run → persist → run → report
 
 ### What's NOT Done (Phase 2)
-- gh auth + GitHub push (need user to authenticate)
 - npm publish (package ready, needs `npm publish` from cli/)
 - Real Anthropic API validation (mock covers quality, real API untested)
-- Self-repair (3-round compile-error fix loop — needs real LLM)
+- Self-repair (3-round compile-error fix loop — code scaffolded, needs real LLM validation)
 - Refinement loop (FUEL-style: infer → run → analyze → re-infer)
+- PR Comment Bot (auto-comment propcheck results on PRs)
 - VS Code extension
 - Community property templates
-- Mutation testing `propcheck quality`
 
 ## Key Architecture Decisions
 1. TypeScript Compiler API over tree-sitter WASM (simpler, better types)
@@ -81,9 +83,8 @@ cd packages/cli && npm publish
 ```
 
 ## Next Priority
-1. `gh auth login` + `gh repo create propcheck --public`
-2. `cd packages/cli && npm publish`
-3. Real Anthropic API test with ANTHROPIC_API_KEY
-4. Phase 2: refinement loop, self-repair, VS Code extension
+1. `cd packages/cli && npm publish`
+2. Real Anthropic API test with ANTHROPIC_API_KEY
+3. Phase 2: self-repair (real LLM validation), refinement loop, PR Bot, VS Code extension
 
 See research: `../ai-code-trust-research/plans/propcheck-blueprint.md`

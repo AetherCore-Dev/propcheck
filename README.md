@@ -94,9 +94,9 @@ npx propcheck infer --mock examples/price-utils.ts && npx propcheck run examples
 - **Multi-language** — TypeScript, JavaScript, Python (Rust/Go planned)
 - **Zero-config CI** — `propcheck run --changed` only tests git-modified files
 - **Mutation testing** — `propcheck quality` measures how strong your properties are
-- **Self-repair** — Auto-fixes generated test code that fails to compile (3 rounds)
-- **Refinement loop** — `--refine` strengthens weak properties via iterative LLM feedback
-- **PR Bot** — Auto-comments propcheck results on every Pull Request
+- **Self-repair** — Auto-fixes generated test code that fails to compile *(coming soon)*
+- **Refinement loop** — `--refine` strengthens weak properties via iterative LLM feedback *(coming soon)*
+- **PR Bot** — Auto-comments propcheck results on every Pull Request *(coming soon)*
 
 ## Run Modes
 

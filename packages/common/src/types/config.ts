@@ -15,7 +15,7 @@ export interface PropcheckConfig {
   /** Maximum properties to infer per function. */
   readonly maxPropertiesPerFunction: number;
 
-  /** Minimum quality score (0-15) to keep a property. */
+  /** Minimum quality score (0-13) to keep a property. */
   readonly minScore: number;
 
   /** Default run mode. */
