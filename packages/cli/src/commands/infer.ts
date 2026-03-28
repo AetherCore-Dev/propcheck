@@ -14,7 +14,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { loadConfig, validateConfig } from "@propcheck/config";
 import { analyzeFile, detectLanguage, analyzePythonFile } from "@propcheck/parser";
-import { inferProperties, createLlmClient, createMockClient, repairProperty, mockRepairProperty, classifyProperties, buildFeedbackSummary, mockRefineProperties } from "@propcheck/llm";
+import { inferProperties, createClient, createMockClient, repairProperty, mockRepairProperty, classifyProperties, buildFeedbackSummary, mockRefineProperties } from "@propcheck/llm";
 import type { LlmClient } from "@propcheck/llm";
 import { setProperties, initStore } from "@propcheck/store";
 import { generateFastCheckTest, runFastCheckTest } from "@propcheck/engines";
@@ -25,6 +25,8 @@ import type { PropertyDefinition, PropertySet, AnalysisContext, RunConfig } from
 interface InferOptions {
   mock?: boolean;
   model?: string;
+  provider?: string;
+  baseUrl?: string;
   maxProperties?: string;
   minScore?: string;
   skipValidation?: boolean;
@@ -144,6 +146,8 @@ export async function inferCommand(
   const config = loadConfig(projectRoot, {
     mock: options.mock,
     model: options.model,
+    provider: options.provider as "anthropic" | "openai-compatible" | undefined,
+    baseURL: options.baseUrl,
   });
 
   // Validate
@@ -210,6 +214,8 @@ export async function inferCommand(
     maxProperties,
     minScore,
     mock: config.mock,
+    provider: config.provider,
+    baseURL: config.baseURL,
   });
 
   if (result.properties.length === 0) {
@@ -229,7 +235,7 @@ export async function inferCommand(
     const llmClient = config.mock
       ? null
       : config.apiKey
-        ? createLlmClient(config.apiKey, config.model)
+        ? createClient(config.apiKey, config.model, config.provider, config.baseURL)
         : null;
 
     const { validated, dropped, repaired } = await trialRunValidation(
@@ -294,6 +300,8 @@ export async function inferCommand(
             maxProperties,
             minScore,
             mock: false,
+            provider: config.provider,
+            baseURL: config.baseURL,
           });
           improvedProperties = refineResult.properties;
         } else {

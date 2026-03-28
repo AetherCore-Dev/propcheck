@@ -34,9 +34,12 @@ export interface LlmClient {
 
 const RETRY_DELAYS = [1000, 2000, 4000];
 
-/** Create an Anthropic API client. */
-export function createLlmClient(apiKey: string, model: string): LlmClient {
-  const client = new Anthropic({ apiKey });
+/** Create an Anthropic API client. Supports custom baseURL for proxies/mirrors. */
+export function createLlmClient(apiKey: string, model: string, baseURL?: string | null): LlmClient {
+  const client = new Anthropic({
+    apiKey,
+    ...(baseURL ? { baseURL } : {}),
+  });
 
   return {
     async call(

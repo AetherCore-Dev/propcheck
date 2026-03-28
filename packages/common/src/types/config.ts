@@ -6,11 +6,17 @@ import type { SupportedLanguage } from "./analysis";
 
 /** Top-level propcheck configuration. */
 export interface PropcheckConfig {
-  /** Anthropic API key (BYOK). Loaded from env or config file. */
+  /** API key (Anthropic, OpenRouter, or any compatible provider). */
   readonly apiKey: string | null;
 
   /** LLM model to use for property inference. */
   readonly model: string;
+
+  /** LLM provider: "anthropic" for native Anthropic API, "openai-compatible" for OpenRouter/one-api/etc. */
+  readonly provider: "anthropic" | "openai-compatible";
+
+  /** Base URL for the LLM API. null = use provider default. */
+  readonly baseURL: string | null;
 
   /** Maximum properties to infer per function. */
   readonly maxPropertiesPerFunction: number;
@@ -38,6 +44,8 @@ export interface PropcheckConfig {
 export const DEFAULT_CONFIG: PropcheckConfig = {
   apiKey: null,
   model: "claude-sonnet-4-20250514",
+  provider: "anthropic",
+  baseURL: null,
   maxPropertiesPerFunction: 5,
   minScore: 10,
   defaultMode: "default",

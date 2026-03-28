@@ -32,9 +32,11 @@ program
   .command("infer <target>")
   .description("Infer testable properties for target file(s) using LLM")
   .option("--mock", "Use mock LLM client (no API key needed)")
-  .option("--model <model>", "LLM model to use", "claude-sonnet-4-20250514")
+  .option("--model <model>", "LLM model to use")
+  .option("--provider <provider>", "LLM provider: anthropic or openai-compatible")
+  .option("--base-url <url>", "Base URL for LLM API (for proxies / OpenRouter)")
   .option("--max-properties <n>", "Max properties per function", "5")
-  .option("--min-score <n>", "Minimum quality score (0-15)", "10")
+  .option("--min-score <n>", "Minimum quality score (0-13)", "10")
   .option("--skip-validation", "Skip trial-run validation of inferred properties")
   .option("--refine", "Enable refinement loop (Round 2): strengthen weak properties")
   .action(inferCommand);

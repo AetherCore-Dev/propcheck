@@ -7,6 +7,8 @@
 import type { AnalysisContext, PropertyDefinition } from "@propcheck/common";
 import { hashContent } from "@propcheck/common";
 import { createLlmClient } from "./client";
+import type { LlmClient } from "./client";
+import { createOpenAIClient } from "./openai-client";
 import { createMockClient } from "./mock-client";
 import { buildInferPrompt, getSystemPrompt, getInferTool } from "./prompts/infer-properties";
 import { parseInferResponse } from "./response-parser";
@@ -16,6 +18,8 @@ export interface InferOptions {
   readonly maxProperties: number;
   readonly minScore: number;
   readonly mock: boolean;
+  readonly provider?: "anthropic" | "openai-compatible";
+  readonly baseURL?: string | null;
 }
 
 export interface InferResult {
@@ -31,7 +35,7 @@ const DEFAULT_OPTIONS: InferOptions = {
   mock: false,
 };
 
-// Claude Sonnet pricing (per 1M tokens)
+// Claude Sonnet pricing (per 1M tokens) — approximate for cost display
 const INPUT_COST_PER_1M = 3.0;
 const OUTPUT_COST_PER_1M = 15.0;
 
@@ -40,6 +44,21 @@ function estimateCost(inputTokens: number, outputTokens: number): number {
     (inputTokens / 1_000_000) * INPUT_COST_PER_1M +
     (outputTokens / 1_000_000) * OUTPUT_COST_PER_1M
   );
+}
+
+/**
+ * Create the appropriate LLM client based on provider configuration.
+ */
+export function createClient(
+  apiKey: string,
+  model: string,
+  provider: "anthropic" | "openai-compatible" = "anthropic",
+  baseURL?: string | null,
+): LlmClient {
+  if (provider === "openai-compatible") {
+    return createOpenAIClient(apiKey, model, baseURL ?? undefined);
+  }
+  return createLlmClient(apiKey, model, baseURL);
 }
 
 /**
@@ -54,10 +73,10 @@ export async function inferProperties(
   const opts: InferOptions = { ...DEFAULT_OPTIONS, ...options };
   const startTime = Date.now();
 
-  // Create client (real or mock)
+  // Create client (mock → real, dispatch by provider)
   const client = opts.mock
     ? createMockClient()
-    : createLlmClient(apiKey!, model);
+    : createClient(apiKey!, model, opts.provider, opts.baseURL);
 
   // Build prompt
   const systemPrompt = getSystemPrompt();
@@ -103,6 +122,7 @@ export async function inferProperties(
 
 // Re-exports
 export { createLlmClient } from "./client";
+export { createOpenAIClient } from "./openai-client";
 export type { LlmClient, ApiResponse, LlmToolSchema } from "./client";
 export { createMockClient } from "./mock-client";
 export { parseInferResponse } from "./response-parser";

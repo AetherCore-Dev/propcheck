@@ -2,8 +2,8 @@
  * Configuration loader for propcheck.
  *
  * Priority (highest to lowest):
- * 1. CLI flags (--mock, --model, etc.)
- * 2. Environment variables (ANTHROPIC_API_KEY, PROPCHECK_MOCK)
+ * 1. CLI flags (--mock, --model, --provider, --base-url, etc.)
+ * 2. Environment variables (PROPCHECK_API_KEY / ANTHROPIC_API_KEY, etc.)
  * 3. .propcheckrc file (JSON)
  * 4. Default values
  */
@@ -18,6 +18,8 @@ import { DEFAULTS } from "./defaults";
 const PropcheckRcSchema = z.object({
   apiKey: z.string().optional(),
   model: z.string().optional(),
+  provider: z.enum(["anthropic", "openai-compatible"]).optional(),
+  baseURL: z.string().url().optional(),
   maxPropertiesPerFunction: z.number().int().min(1).max(20).optional(),
   minScore: z.number().int().min(0).max(13).optional(),
   defaultMode: z.enum(["quick", "default", "thorough"]).optional(),
@@ -30,6 +32,8 @@ const PropcheckRcSchema = z.object({
 export interface ConfigOverrides {
   readonly apiKey?: string;
   readonly model?: string;
+  readonly provider?: "anthropic" | "openai-compatible";
+  readonly baseURL?: string;
   readonly mock?: boolean;
   readonly mode?: "quick" | "default" | "thorough";
   readonly verbose?: boolean;
@@ -65,14 +69,37 @@ export function loadConfig(
   }
 
   // Layer 3: Environment variables
-  const envApiKey = process.env["ANTHROPIC_API_KEY"];
+  // API key: PROPCHECK_API_KEY > ANTHROPIC_API_KEY > OPENAI_API_KEY
+  const envApiKey =
+    process.env["PROPCHECK_API_KEY"] ??
+    process.env["ANTHROPIC_API_KEY"] ??
+    process.env["OPENAI_API_KEY"];
   const envMock = process.env["PROPCHECK_MOCK"];
+  const envBaseURL =
+    process.env["PROPCHECK_BASE_URL"] ??
+    process.env["ANTHROPIC_BASE_URL"] ??
+    process.env["OPENAI_BASE_URL"];
+  const envProvider = process.env["PROPCHECK_PROVIDER"];
 
   if (envApiKey) {
     config = { ...config, apiKey: envApiKey };
   }
   if (envMock === "true" || envMock === "1") {
     config = { ...config, mock: true };
+  }
+  if (envBaseURL) {
+    config = { ...config, baseURL: envBaseURL };
+  }
+  if (envProvider === "anthropic" || envProvider === "openai-compatible") {
+    config = { ...config, provider: envProvider };
+  }
+
+  // Auto-detect provider from baseURL if not explicitly set
+  if (config.baseURL && !envProvider && !overrides.provider) {
+    const url = config.baseURL.toLowerCase();
+    if (url.includes("openrouter.ai") || url.includes("openai.com")) {
+      config = { ...config, provider: "openai-compatible" };
+    }
   }
 
   // Layer 4: CLI overrides (highest priority)
@@ -81,6 +108,12 @@ export function loadConfig(
   }
   if (overrides.model !== undefined) {
     config = { ...config, model: overrides.model };
+  }
+  if (overrides.provider !== undefined) {
+    config = { ...config, provider: overrides.provider };
+  }
+  if (overrides.baseURL !== undefined) {
+    config = { ...config, baseURL: overrides.baseURL };
   }
   if (overrides.mock !== undefined) {
     config = { ...config, mock: overrides.mock };
@@ -105,8 +138,12 @@ export function validateConfig(
 
   if (command === "infer" && !config.mock && !config.apiKey) {
     errors.push(
-      "ANTHROPIC_API_KEY is required for property inference.\n" +
-      "Set it via: export ANTHROPIC_API_KEY=sk-ant-...\n" +
+      "API key is required for property inference.\n" +
+      "Set it via one of:\n" +
+      "  export PROPCHECK_API_KEY=sk-...      # any provider\n" +
+      "  export ANTHROPIC_API_KEY=sk-ant-...  # Anthropic direct\n" +
+      "  export OPENAI_API_KEY=sk-or-...      # OpenRouter / OpenAI-compatible\n" +
+      "Or add \"apiKey\" to .propcheckrc\n" +
       "Or use --mock for offline testing with canned responses.",
     );
   }

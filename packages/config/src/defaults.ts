@@ -8,6 +8,8 @@ import type { PropcheckConfig } from "@propcheck/common";
 export const DEFAULTS: PropcheckConfig = {
   apiKey: null,
   model: "claude-sonnet-4-20250514",
+  provider: "anthropic",
+  baseURL: null,
   maxPropertiesPerFunction: 5,
   minScore: 10,
   defaultMode: "default",

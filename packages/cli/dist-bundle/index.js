@@ -402,6 +402,8 @@ var require_defaults = __commonJS({
     exports2.DEFAULTS = {
       apiKey: null,
       model: "claude-sonnet-4-20250514",
+      provider: "anthropic",
+      baseURL: null,
       maxPropertiesPerFunction: 5,
       minScore: 10,
       defaultMode: "default",
@@ -464,6 +466,8 @@ var require_loader = __commonJS({
     var PropcheckRcSchema = zod_1.z.object({
       apiKey: zod_1.z.string().optional(),
       model: zod_1.z.string().optional(),
+      provider: zod_1.z.enum(["anthropic", "openai-compatible"]).optional(),
+      baseURL: zod_1.z.string().url().optional(),
       maxPropertiesPerFunction: zod_1.z.number().int().min(1).max(20).optional(),
       minScore: zod_1.z.number().int().min(0).max(13).optional(),
       defaultMode: zod_1.z.enum(["quick", "default", "thorough"]).optional(),
@@ -488,19 +492,39 @@ var require_loader = __commonJS({
           console.warn(`  Warning: Failed to parse .propcheckrc (using defaults): ${err instanceof Error ? err.message : String(err)}`);
         }
       }
-      const envApiKey = process.env["ANTHROPIC_API_KEY"];
+      const envApiKey = process.env["PROPCHECK_API_KEY"] ?? process.env["ANTHROPIC_API_KEY"] ?? process.env["OPENAI_API_KEY"];
       const envMock = process.env["PROPCHECK_MOCK"];
+      const envBaseURL = process.env["PROPCHECK_BASE_URL"] ?? process.env["ANTHROPIC_BASE_URL"] ?? process.env["OPENAI_BASE_URL"];
+      const envProvider = process.env["PROPCHECK_PROVIDER"];
       if (envApiKey) {
         config = { ...config, apiKey: envApiKey };
       }
       if (envMock === "true" || envMock === "1") {
         config = { ...config, mock: true };
       }
+      if (envBaseURL) {
+        config = { ...config, baseURL: envBaseURL };
+      }
+      if (envProvider === "anthropic" || envProvider === "openai-compatible") {
+        config = { ...config, provider: envProvider };
+      }
+      if (config.baseURL && !envProvider && !overrides.provider) {
+        const url = config.baseURL.toLowerCase();
+        if (url.includes("openrouter.ai") || url.includes("openai.com")) {
+          config = { ...config, provider: "openai-compatible" };
+        }
+      }
       if (overrides.apiKey !== void 0) {
         config = { ...config, apiKey: overrides.apiKey };
       }
       if (overrides.model !== void 0) {
         config = { ...config, model: overrides.model };
+      }
+      if (overrides.provider !== void 0) {
+        config = { ...config, provider: overrides.provider };
+      }
+      if (overrides.baseURL !== void 0) {
+        config = { ...config, baseURL: overrides.baseURL };
       }
       if (overrides.mock !== void 0) {
         config = { ...config, mock: overrides.mock };
@@ -513,7 +537,7 @@ var require_loader = __commonJS({
     function validateConfig2(config, command) {
       const errors = [];
       if (command === "infer" && !config.mock && !config.apiKey) {
-        errors.push("ANTHROPIC_API_KEY is required for property inference.\nSet it via: export ANTHROPIC_API_KEY=sk-ant-...\nOr use --mock for offline testing with canned responses.");
+        errors.push('API key is required for property inference.\nSet it via one of:\n  export PROPCHECK_API_KEY=sk-...      # any provider\n  export ANTHROPIC_API_KEY=sk-ant-...  # Anthropic direct\n  export OPENAI_API_KEY=sk-or-...      # OpenRouter / OpenAI-compatible\nOr add "apiKey" to .propcheckrc\nOr use --mock for offline testing with canned responses.');
       }
       return errors;
     }
@@ -1084,6 +1108,8 @@ var require_config = __commonJS({
     exports2.DEFAULT_CONFIG = {
       apiKey: null,
       model: "claude-sonnet-4-20250514",
+      provider: "anthropic",
+      baseURL: null,
       maxPropertiesPerFunction: 5,
       minScore: 10,
       defaultMode: "default",
@@ -1464,12 +1490,15 @@ var require_client = __commonJS({
       return mod && mod.__esModule ? mod : { "default": mod };
     };
     Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.createLlmClient = createLlmClient2;
+    exports2.createLlmClient = createLlmClient;
     var sdk_1 = __importDefault(require("@anthropic-ai/sdk"));
     var common_1 = require_dist4();
     var RETRY_DELAYS = [1e3, 2e3, 4e3];
-    function createLlmClient2(apiKey, model) {
-      const client = new sdk_1.default({ apiKey });
+    function createLlmClient(apiKey, model, baseURL) {
+      const client = new sdk_1.default({
+        apiKey,
+        ...baseURL ? { baseURL } : {}
+      });
       return {
         async call(systemPrompt, userPrompt, tools, options = {}) {
           const maxTokens = options.maxTokens ?? 4096;
@@ -1503,6 +1532,116 @@ var require_client = __commonJS({
               }
               const isRetryable = err instanceof sdk_1.default.RateLimitError || err instanceof sdk_1.default.InternalServerError;
               if (isRetryable && attempt < RETRY_DELAYS.length) {
+                await sleep(RETRY_DELAYS[attempt]);
+                continue;
+              }
+              break;
+            }
+          }
+          throw new common_1.LlmError(`API call failed after ${RETRY_DELAYS.length + 1} attempts: ${String(lastError)}`, { attempts: RETRY_DELAYS.length + 1 });
+        }
+      };
+    }
+    function sleep(ms) {
+      return new Promise((resolve4) => setTimeout(resolve4, ms));
+    }
+  }
+});
+
+// ../llm/dist/openai-client.js
+var require_openai_client = __commonJS({
+  "../llm/dist/openai-client.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.createOpenAIClient = createOpenAIClient;
+    var common_1 = require_dist4();
+    var RETRY_DELAYS = [1e3, 2e3, 4e3];
+    function toOpenAITools(tools) {
+      return tools.map((t) => ({
+        type: "function",
+        function: {
+          name: t.name,
+          description: t.description,
+          parameters: t.input_schema
+        }
+      }));
+    }
+    function createOpenAIClient(apiKey, model, baseURL = "https://openrouter.ai/api/v1") {
+      const base = baseURL.replace(/\/+$/, "");
+      const endpoint = `${base}/chat/completions`;
+      return {
+        async call(systemPrompt, userPrompt, tools, options = {}) {
+          const maxTokens = options.maxTokens ?? 4096;
+          const temperature = options.temperature ?? 0.2;
+          const messages = [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt }
+          ];
+          const openaiTools = toOpenAITools(tools);
+          const body = {
+            model,
+            messages,
+            max_tokens: maxTokens,
+            temperature
+          };
+          if (openaiTools.length > 0) {
+            body.tools = openaiTools;
+            body.tool_choice = {
+              type: "function",
+              function: { name: tools[0].name }
+            };
+          }
+          let lastError;
+          for (let attempt = 0; attempt <= RETRY_DELAYS.length; attempt++) {
+            try {
+              const response = await fetch(endpoint, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${apiKey}`,
+                  // OpenRouter-specific headers (harmless for other providers)
+                  "HTTP-Referer": "https://github.com/AetherCore-Dev/propcheck",
+                  "X-Title": "propcheck"
+                },
+                body: JSON.stringify(body)
+              });
+              if (!response.ok) {
+                const errorText = await response.text().catch(() => "");
+                if (response.status === 401 || response.status === 403) {
+                  throw new common_1.LlmError("Invalid API key", {
+                    code: "AUTH_ERROR",
+                    status: response.status
+                  });
+                }
+                if ((response.status === 429 || response.status >= 500) && attempt < RETRY_DELAYS.length) {
+                  await sleep(RETRY_DELAYS[attempt]);
+                  continue;
+                }
+                throw new common_1.LlmError(`API request failed: ${response.status} ${response.statusText} - ${errorText.slice(0, 500)}`, { status: response.status });
+              }
+              const data = await response.json();
+              const choice = data.choices?.[0];
+              const toolCall = choice?.message?.tool_calls?.[0];
+              let content = null;
+              if (toolCall) {
+                try {
+                  content = JSON.parse(toolCall.function.arguments);
+                } catch {
+                  content = toolCall.function.arguments;
+                }
+              }
+              return {
+                content,
+                inputTokens: data.usage?.prompt_tokens ?? 0,
+                outputTokens: data.usage?.completion_tokens ?? 0,
+                model: data.model ?? model
+              };
+            } catch (err) {
+              if (err instanceof common_1.LlmError) {
+                throw err;
+              }
+              lastError = err;
+              if (attempt < RETRY_DELAYS.length) {
                 await sleep(RETRY_DELAYS[attempt]);
                 continue;
               }
@@ -2883,10 +3022,12 @@ var require_dist5 = __commonJS({
   "../llm/dist/index.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.mockRefineProperties = exports2.buildRefinementPrompt = exports2.buildFeedbackSummary = exports2.classifyProperties = exports2.mockRepairProperty = exports2.repairProperty = exports2.getInferTool = exports2.getSystemPrompt = exports2.buildInferPrompt = exports2.isRedundant = exports2.scoreAndFilter = exports2.scoreProperty = exports2.parseInferResponse = exports2.createMockClient = exports2.createLlmClient = void 0;
+    exports2.mockRefineProperties = exports2.buildRefinementPrompt = exports2.buildFeedbackSummary = exports2.classifyProperties = exports2.mockRepairProperty = exports2.repairProperty = exports2.getInferTool = exports2.getSystemPrompt = exports2.buildInferPrompt = exports2.isRedundant = exports2.scoreAndFilter = exports2.scoreProperty = exports2.parseInferResponse = exports2.createMockClient = exports2.createOpenAIClient = exports2.createLlmClient = void 0;
+    exports2.createClient = createClient2;
     exports2.inferProperties = inferProperties2;
     var common_1 = require_dist4();
     var client_1 = require_client();
+    var openai_client_1 = require_openai_client();
     var mock_client_1 = require_mock_client();
     var infer_properties_1 = require_infer_properties();
     var response_parser_1 = require_response_parser();
@@ -2901,10 +3042,16 @@ var require_dist5 = __commonJS({
     function estimateCost(inputTokens, outputTokens) {
       return inputTokens / 1e6 * INPUT_COST_PER_1M + outputTokens / 1e6 * OUTPUT_COST_PER_1M;
     }
+    function createClient2(apiKey, model, provider = "anthropic", baseURL) {
+      if (provider === "openai-compatible") {
+        return (0, openai_client_1.createOpenAIClient)(apiKey, model, baseURL ?? void 0);
+      }
+      return (0, client_1.createLlmClient)(apiKey, model, baseURL);
+    }
     async function inferProperties2(apiKey, model, context, options = {}) {
       const opts = { ...DEFAULT_OPTIONS, ...options };
       const startTime = Date.now();
-      const client = opts.mock ? (0, mock_client_1.createMockClient)() : (0, client_1.createLlmClient)(apiKey, model);
+      const client = opts.mock ? (0, mock_client_1.createMockClient)() : createClient2(apiKey, model, opts.provider, opts.baseURL);
       const systemPrompt = (0, infer_properties_1.getSystemPrompt)();
       const userPrompt = (0, infer_properties_1.buildInferPrompt)(context);
       const tool = (0, infer_properties_1.getInferTool)();
@@ -2937,6 +3084,10 @@ var require_dist5 = __commonJS({
     var client_2 = require_client();
     Object.defineProperty(exports2, "createLlmClient", { enumerable: true, get: function() {
       return client_2.createLlmClient;
+    } });
+    var openai_client_2 = require_openai_client();
+    Object.defineProperty(exports2, "createOpenAIClient", { enumerable: true, get: function() {
+      return openai_client_2.createOpenAIClient;
     } });
     var mock_client_2 = require_mock_client();
     Object.defineProperty(exports2, "createMockClient", { enumerable: true, get: function() {
@@ -4244,7 +4395,9 @@ async function inferCommand(target, options) {
   const projectRoot = process.cwd();
   const config = (0, import_config.loadConfig)(projectRoot, {
     mock: options.mock,
-    model: options.model
+    model: options.model,
+    provider: options.provider,
+    baseURL: options.baseUrl
   });
   const errors = (0, import_config.validateConfig)(config, "infer");
   if (errors.length > 0) {
@@ -4302,7 +4455,9 @@ async function inferCommand(target, options) {
   const result = await (0, import_llm.inferProperties)(config.apiKey, config.model, context, {
     maxProperties,
     minScore,
-    mock: config.mock
+    mock: config.mock,
+    provider: config.provider,
+    baseURL: config.baseURL
   });
   if (result.properties.length === 0) {
     console.log("  No properties inferred (all filtered out by quality scoring).\n");
@@ -4313,7 +4468,7 @@ async function inferCommand(target, options) {
     const testsDir = path2.join(storeDir, "tests");
     await fs.mkdir(testsDir, { recursive: true });
     console.log(`  Validating ${result.properties.length} properties (trial run, 100 iterations)...`);
-    const llmClient = config.mock ? null : config.apiKey ? (0, import_llm.createLlmClient)(config.apiKey, config.model) : null;
+    const llmClient = config.mock ? null : config.apiKey ? (0, import_llm.createClient)(config.apiKey, config.model, config.provider, config.baseURL) : null;
     const { validated, dropped, repaired } = await trialRunValidation(
       result.properties,
       targetPath,
@@ -4363,7 +4518,9 @@ async function inferCommand(target, options) {
           const refineResult = await (0, import_llm.inferProperties)(config.apiKey, config.model, context, {
             maxProperties,
             minScore,
-            mock: false
+            mock: false,
+            provider: config.provider,
+            baseURL: config.baseURL
           });
           improvedProperties = refineResult.properties;
         } else {
@@ -4599,7 +4756,7 @@ function printReport(report, target) {
 var program = new import_commander.Command();
 program.name("propcheck").description("AI-powered property-based testing \u2014 find bugs your tests miss").version("0.1.0");
 program.command("init").description("Initialize .propcheck/ directory in the current project").action(initCommand);
-program.command("infer <target>").description("Infer testable properties for target file(s) using LLM").option("--mock", "Use mock LLM client (no API key needed)").option("--model <model>", "LLM model to use", "claude-sonnet-4-20250514").option("--max-properties <n>", "Max properties per function", "5").option("--min-score <n>", "Minimum quality score (0-15)", "10").option("--skip-validation", "Skip trial-run validation of inferred properties").option("--refine", "Enable refinement loop (Round 2): strengthen weak properties").action(inferCommand);
+program.command("infer <target>").description("Infer testable properties for target file(s) using LLM").option("--mock", "Use mock LLM client (no API key needed)").option("--model <model>", "LLM model to use").option("--provider <provider>", "LLM provider: anthropic or openai-compatible").option("--base-url <url>", "Base URL for LLM API (for proxies / OpenRouter)").option("--max-properties <n>", "Max properties per function", "5").option("--min-score <n>", "Minimum quality score (0-13)", "10").option("--skip-validation", "Skip trial-run validation of inferred properties").option("--refine", "Enable refinement loop (Round 2): strengthen weak properties").action(inferCommand);
 program.command("run [target]").description("Run property tests against target file(s)").option("--quick", "Quick mode: 100 iterations").option("--thorough", "Thorough mode: 10,000 iterations").option("--seed <n>", "Random seed for reproducibility").option("--json", "Output results as JSON").option("--changed", "Only run properties for git-changed files").action(runCommand);
 program.command("badge").description("Output markdown badge snippet for your README").action(badgeCommand);
 program.command("quality <target>").description("Measure property effectiveness via mutation testing").action(qualityCommand);
