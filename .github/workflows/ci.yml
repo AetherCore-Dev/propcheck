@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [main, master]
 
+permissions:
+  contents: read
+
 jobs:
   build-and-test:
     runs-on: ${{ matrix.os }}
@@ -26,6 +29,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
+          cache: "npm"
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -59,6 +63,8 @@ jobs:
           node packages/cli/dist/index.js --version
           node packages/cli/dist/index.js init
           node packages/cli/dist/index.js infer --mock test-fixtures/typescript/cart-buggy.ts
+          # cart-buggy.ts intentionally has a bug (discount > 100% → negative price),
+          # so propcheck run correctly finds property violations — || true prevents CI failure.
           node packages/cli/dist/index.js run --quick test-fixtures/typescript/cart-buggy.ts || true
           node packages/cli/dist/index.js infer --mock test-fixtures/typescript/sort-utils.ts
           node packages/cli/dist/index.js run --quick test-fixtures/typescript/sort-utils.ts

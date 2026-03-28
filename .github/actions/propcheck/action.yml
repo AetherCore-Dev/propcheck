@@ -1,6 +1,10 @@
 name: "propcheck"
 description: "Run AI-powered property-based testing on every PR"
-author: "propcheck"
+author: "AetherCore-Dev"
+
+branding:
+  icon: "shield"
+  color: "green"
 
 inputs:
   target:
@@ -11,6 +15,21 @@ inputs:
     description: "Run mode: quick, default, thorough"
     required: false
     default: "default"
+  version:
+    description: "propcheck version to install (default: latest)"
+    required: false
+    default: "latest"
+
+outputs:
+  passed:
+    description: "Number of properties that passed"
+    value: ${{ steps.run.outputs.passed }}
+  failed:
+    description: "Number of properties that failed"
+    value: ${{ steps.run.outputs.failed }}
+  total:
+    description: "Total properties tested"
+    value: ${{ steps.run.outputs.total }}
 
 runs:
   using: "composite"
@@ -22,15 +41,36 @@ runs:
 
     - name: Install propcheck
       shell: bash
-      run: npm install -g propcheck fast-check
+      run: npm install -g "propcheck@${{ inputs.version }}" fast-check
 
     - name: Run propcheck
+      id: run
       shell: bash
       run: |
-        if [ "${{ inputs.mode }}" = "quick" ]; then
-          propcheck run --quick ${{ inputs.target }}
-        elif [ "${{ inputs.mode }}" = "thorough" ]; then
-          propcheck run --thorough ${{ inputs.target }}
+        TARGET="${{ inputs.target }}"
+        MODE="${{ inputs.mode }}"
+
+        if [ "$MODE" = "quick" ]; then
+          OUTPUT=$(propcheck run --quick --json "$TARGET" 2>&1) || true
+        elif [ "$MODE" = "thorough" ]; then
+          OUTPUT=$(propcheck run --thorough --json "$TARGET" 2>&1) || true
         else
-          propcheck run ${{ inputs.target }}
+          OUTPUT=$(propcheck run --json "$TARGET" 2>&1) || true
+        fi
+
+        PASSED=$(echo "$OUTPUT" | grep -o '"status":"passed"' | wc -l || echo 0)
+        FAILED=$(echo "$OUTPUT" | grep -o '"status":"failed"' | wc -l || echo 0)
+        TOTAL=$((PASSED + FAILED))
+
+        echo "passed=$PASSED" >> $GITHUB_OUTPUT
+        echo "failed=$FAILED" >> $GITHUB_OUTPUT
+        echo "total=$TOTAL" >> $GITHUB_OUTPUT
+
+        # Also run human-readable output for logs
+        if [ "$MODE" = "quick" ]; then
+          propcheck run --quick "$TARGET"
+        elif [ "$MODE" = "thorough" ]; then
+          propcheck run --thorough "$TARGET"
+        else
+          propcheck run "$TARGET"
         fi

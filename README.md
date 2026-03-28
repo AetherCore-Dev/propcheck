@@ -117,26 +117,25 @@ Add `.github/workflows/propcheck.yml` to your repo:
 ```yaml
 name: propcheck
 on: [pull_request]
-permissions: { contents: read, pull-requests: write }
 jobs:
   propcheck:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: "20" }
-      - run: npm ci && npm install -g propcheck
-      - run: propcheck run > /tmp/output.txt 2>&1 || true
-      - uses: actions/github-script@v7
+      - uses: AetherCore-Dev/propcheck/.github/actions/propcheck@main
         with:
-          script: |
-            const fs = require('fs');
-            const output = fs.readFileSync('/tmp/output.txt','utf8');
-            await github.rest.issues.createComment({
-              owner: context.repo.owner, repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body: '## propcheck\n```\n' + output.trim().slice(0,3000) + '\n```',
-            });
+          target: "src/"
+          mode: "quick"
+```
+
+Or use outputs for custom PR comments:
+
+```yaml
+      - uses: AetherCore-Dev/propcheck/.github/actions/propcheck@main
+        id: pbt
+        with:
+          target: "src/"
+      - run: echo "${{ steps.pbt.outputs.passed }} passed, ${{ steps.pbt.outputs.failed }} failed"
 ```
 
 Every PR reviewer sees propcheck results. **Distribution built into the workflow.**

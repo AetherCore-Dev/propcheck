@@ -3060,9 +3060,9 @@ var require_fc_codegen = __commonJS({
               parts.push(`min: ${Number(c.min)}`);
             if (c.max !== void 0)
               parts.push(`max: ${Number(c.max)}`);
-            return `fc.double({ ${parts.join(", ")}, noNaN: true })`;
+            return `fc.double({ ${parts.join(", ")}, noNaN: true, noDefaultInfinity: true })`;
           }
-          return "fc.double({ noNaN: true })";
+          return "fc.double({ min: 0, noNaN: true, noDefaultInfinity: true })";
         case "string":
           if (c.maxLength !== void 0) {
             return `fc.string({ maxLength: ${Number(c.maxLength)} })`;
@@ -3114,14 +3114,26 @@ var require_fc_codegen = __commonJS({
         const generators = Object.entries(prop.generators);
         const arbNames = generators.map(([name]) => name);
         const arbExprs = generators.map(([, spec]) => mapGenerator(spec));
-        const assertion = prop.assertion.replace(new RegExp(`\\b${funcName}\\(`, "g"), `target.${funcName}(`);
+        let assertion = prop.assertion.replace(new RegExp(`\\b${funcName}\\(`, "g"), `target.${funcName}(`);
+        for (const varName of assertion.match(/\b[a-zA-Z_]\w*\b/g) ?? []) {
+          if (varName !== funcName && varName !== "target" && varName !== "true" && varName !== "false" && varName !== "null" && varName !== "undefined" && varName !== "Math" && varName !== "Number" && varName !== "String" && varName !== "Array" && varName !== "JSON" && varName !== "Object" && varName !== "NaN" && varName !== "Infinity" && !arbNames.includes(varName) && !functionNames.includes(varName)) {
+            assertion = assertion.replace(new RegExp(`\\b${varName}\\(`, "g"), `target.${varName}(`);
+          }
+        }
         lines.push(`// ${prop.id}: ${toSafeComment(prop.description)}`);
         lines.push(`// Category: ${toSafeComment(prop.category)}`);
         lines.push(`// Evidence: ${toSafeComment(prop.evidence)}`);
         lines.push(`try {`);
         if (generators.length === 0) {
-          lines.push(`  const __result = ${assertion};`);
-          lines.push(`  if (!__result) throw new Error("Assertion failed: ${assertion.replace(/"/g, '\\"')}");`);
+          lines.push(`  fc.assert(`);
+          lines.push(`    fc.property(`);
+          lines.push(`      fc.constant(null),`);
+          lines.push(`      () => {`);
+          lines.push(`        return ${assertion};`);
+          lines.push(`      }`);
+          lines.push(`    ),`);
+          lines.push(`    { numRuns: 1 }`);
+          lines.push(`  );`);
           lines.push(`  console.log(JSON.stringify({ propertyId: "${prop.id}", status: "passed", iterations: 1 }));`);
         } else {
           lines.push(`  fc.assert(`);
