@@ -125,4 +125,88 @@ describe("fc-codegen", () => {
 
     assert.ok(result.content.includes("seed: 42"));
   });
+
+  it("should handle zero-parameter assertions via fc.constant(null)", () => {
+    const prop = makeProp({
+      id: "prop_zero",
+      targetFunction: "calculateTotal",
+      assertion: "calculateTotal([]) === 0",
+      generators: {},
+    });
+
+    const result = generateFastCheckTest(
+      [prop],
+      "/project/src/cart.ts",
+      "/project/.propcheck/tests",
+      defaultConfig,
+    );
+
+    // Should use fc.constant(null) as a dummy arbitrary instead of
+    // a plain boolean check, so all properties go through fc.assert.
+    assert.ok(result.content.includes("fc.constant(null)"), "Should use fc.constant(null) for zero-param");
+    assert.ok(result.content.includes("fc.assert("), "Should use fc.assert");
+    assert.ok(result.content.includes("numRuns: 1"), "Should run exactly 1 iteration");
+    assert.ok(result.content.includes("target.calculateTotal([]) === 0"), "Should rewrite function name");
+  });
+
+  it("should handle array literal assertions correctly", () => {
+    const prop = makeProp({
+      id: "prop_arr",
+      targetFunction: "calculateTotal",
+      assertion: "calculateTotal([price]) === price",
+      generators: {
+        price: { type: "float", constraints: { min: 0, max: 10000 } },
+      },
+    });
+
+    const result = generateFastCheckTest(
+      [prop],
+      "/project/src/cart.ts",
+      "/project/.propcheck/tests",
+      defaultConfig,
+    );
+
+    // [price] is valid JS — price is a lambda param and [price] creates an array.
+    // The generated code should contain the assertion with target-qualified function name.
+    assert.ok(result.content.includes("target.calculateTotal([price]) === price"), "Should preserve array literal");
+    assert.ok(result.content.includes("fc.double("), "Should generate double arbitrary");
+    assert.ok(result.content.includes("(price)"), "Should use price as lambda param");
+  });
+
+  it("should default unconstrained doubles to non-negative range", () => {
+    const prop = makeProp({
+      generators: {
+        x: { type: "float" },
+      },
+    });
+
+    const result = generateFastCheckTest(
+      [prop],
+      "/project/src/test.ts",
+      "/project/.propcheck/tests",
+      defaultConfig,
+    );
+
+    assert.ok(result.content.includes("min: 0"), "Unconstrained double should default to min: 0");
+    assert.ok(result.content.includes("noNaN: true"), "Should include noNaN");
+    assert.ok(result.content.includes("noDefaultInfinity: true"), "Should include noDefaultInfinity");
+  });
+
+  it("should preserve explicit constraints on doubles", () => {
+    const prop = makeProp({
+      generators: {
+        x: { type: "float", constraints: { min: -50, max: 50 } },
+      },
+    });
+
+    const result = generateFastCheckTest(
+      [prop],
+      "/project/src/test.ts",
+      "/project/.propcheck/tests",
+      defaultConfig,
+    );
+
+    assert.ok(result.content.includes("min: -50"), "Should preserve explicit min");
+    assert.ok(result.content.includes("max: 50"), "Should preserve explicit max");
+  });
 });

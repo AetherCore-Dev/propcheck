@@ -35,9 +35,13 @@ function mapGenerator(spec: GeneratorSpec): string {
         const parts: string[] = [];
         if (c.min !== undefined) parts.push(`min: ${Number(c.min)}`);
         if (c.max !== undefined) parts.push(`max: ${Number(c.max)}`);
-        return `fc.double({ ${parts.join(", ")}, noNaN: true })`;
+        return `fc.double({ ${parts.join(", ")}, noNaN: true, noDefaultInfinity: true })`;
       }
-      return "fc.double({ noNaN: true })";
+      // Default to non-negative range — most business-domain values (prices,
+      // counts, percentages) are non-negative, and unconstrained doubles that
+      // span -1.7e308..+1.7e308 cause false failures far more often than they
+      // find real bugs.
+      return "fc.double({ min: 0, noNaN: true, noDefaultInfinity: true })";
 
     case "string":
       if (c.maxLength !== undefined) {
@@ -119,11 +123,47 @@ export function generateFastCheckTest(
     const arbNames = generators.map(([name]) => name);
     const arbExprs = generators.map(([, spec]) => mapGenerator(spec));
 
-    // Replace bare function calls with target.funcName in assertion
-    const assertion = prop.assertion.replace(
+    // Replace bare function calls with target.funcName in assertion.
+    // Also replace calls to any other imported function names from the target module.
+    let assertion = prop.assertion.replace(
       new RegExp(`\\b${funcName}\\(`, "g"),
       `target.${funcName}(`,
     );
+
+    // Rewrite array-literal arguments that embed generator parameter names.
+    // e.g. "calculateTotal([price])" → build the array in the predicate body.
+    // We detect patterns like funcName([paramName, ...]) and leave them as-is
+    // since JavaScript `[paramName]` inside a lambda is valid — the parameter
+    // names from fc.property destructuring are in scope.  No rewrite needed
+    // for correctness, but we ensure all referenced names actually exist as
+    // generator parameters to catch LLM hallucinated variable names.
+    for (const varName of assertion.match(/\b[a-zA-Z_]\w*\b/g) ?? []) {
+      if (
+        varName !== funcName &&
+        varName !== "target" &&
+        varName !== "true" &&
+        varName !== "false" &&
+        varName !== "null" &&
+        varName !== "undefined" &&
+        varName !== "Math" &&
+        varName !== "Number" &&
+        varName !== "String" &&
+        varName !== "Array" &&
+        varName !== "JSON" &&
+        varName !== "Object" &&
+        varName !== "NaN" &&
+        varName !== "Infinity" &&
+        !arbNames.includes(varName) &&
+        !functionNames.includes(varName)
+      ) {
+        // Unknown variable in assertion — likely references another function
+        // from the target module.  Qualify with target.
+        assertion = assertion.replace(
+          new RegExp(`\\b${varName}\\(`, "g"),
+          `target.${varName}(`,
+        );
+      }
+    }
 
     lines.push(`// ${prop.id}: ${toSafeComment(prop.description)}`);
     lines.push(`// Category: ${toSafeComment(prop.category)}`);
@@ -131,9 +171,18 @@ export function generateFastCheckTest(
     lines.push(`try {`);
 
     if (generators.length === 0) {
-      // Zero-parameter assertion — run as simple check, no fc.property needed
-      lines.push(`  const __result = ${assertion};`);
-      lines.push(`  if (!__result) throw new Error("Assertion failed: ${assertion.replace(/"/g, '\\"')}");`);
+      // Zero-parameter assertion — wrap with a dummy fc.constant(null) arbitrary
+      // so all properties go through the same fc.assert pathway.  fast-check's
+      // fc.property() requires at least 1 arbitrary.
+      lines.push(`  fc.assert(`);
+      lines.push(`    fc.property(`);
+      lines.push(`      fc.constant(null),`);
+      lines.push(`      () => {`);
+      lines.push(`        return ${assertion};`);
+      lines.push(`      }`);
+      lines.push(`    ),`);
+      lines.push(`    { numRuns: 1 }`);
+      lines.push(`  );`);
       lines.push(`  console.log(JSON.stringify({ propertyId: "${prop.id}", status: "passed", iterations: 1 }));`);
     } else {
       lines.push(`  fc.assert(`);

@@ -54,5 +54,12 @@
       "optional": true
     }
   },
-  "license": "MIT"
+  "license": "MIT",
+  "author": "AetherCore-Dev",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "bugs": {
+    "url": "https://github.com/AetherCore-Dev/propcheck/issues"
+  }
 }
