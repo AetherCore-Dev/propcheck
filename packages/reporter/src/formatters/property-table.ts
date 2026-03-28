@@ -18,7 +18,7 @@ export function formatPropertyLine(
   if (!outcome) {
     // Inference display
     const cat = chalk.dim(`[${property.category}]`);
-    const score = chalk.dim(`score: ${property.score}/15`);
+    const score = chalk.dim(`score: ${property.score}/13`);
     return `  ${chalk.cyan("*")} ${padded} ${cat}  ${score}`;
   }
 

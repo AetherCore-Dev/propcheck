@@ -1,52 +1,48 @@
 # propcheck Demo — Terminal Recording Script
 # Usage: vhs < demo.tape
 # Requires: vhs (brew install charmbracelet/tap/vhs)
+#
+# Prerequisites (run once before recording):
+#   node packages/cli/dist/index.js infer --mock examples/price-utils.ts
 
 Output demo.gif
 Set FontSize 16
-Set Width 1000
-Set Height 600
+Set Width 1200
+Set Height 650
 Set Theme "Catppuccin Mocha"
 Set Padding 20
-Set TypingSpeed 50ms
+Set TypingSpeed 40ms
 Set WindowBar Colorful
 Set WindowBarSize 40
 
-# Title
+# ── Step 1: Show the code (looks production-ready) ──
 Sleep 500ms
-Type "# propcheck — find bugs your 100% test coverage missed"
+Type "cat examples/price-utils.ts"
 Enter
-Sleep 1s
+Sleep 2.5s
 Ctrl+L
 
-# Step 1: Show the "fully tested" code
-Type "cat src/cart.ts"
+# ── Step 2: Show 12/12 tests passing (build false confidence) ──
+Type "node --experimental-strip-types --test examples/price-utils.test.ts"
 Enter
 Sleep 3s
-
-# Step 2: Show existing test coverage is 100%
-Type "# ✅ Existing tests: 100% coverage, all passing"
-Enter
-Sleep 1.5s
-Type "# But is the code actually correct? Let's find out..."
-Enter
-Sleep 2s
 Ctrl+L
 
-# Step 3: Infer properties (the wow moment setup)
-Type "npx propcheck infer src/cart.ts"
+# ── Step 3: The pivot ──
+Type "# 12 tests. All passing. But is the code actually correct?"
 Enter
-Sleep 4s
+Sleep 2s
 
-# Step 4: Run properties (the wow moment)
-Type "npx propcheck run src/cart.ts"
+# ── Step 4: propcheck infer (discover properties) ──
+Type "node packages/cli/dist/index.js infer --mock examples/price-utils.ts"
+Enter
+Sleep 5s
+Ctrl+L
+
+# ── Step 5: propcheck run — THE REVEAL ──
+Type "node packages/cli/dist/index.js run examples/price-utils.ts"
 Enter
 Sleep 5s
 
-# Step 5: Mutation testing
-Type "npx propcheck quality src/cart.ts"
-Enter
+# Let the audience absorb the FAIL
 Sleep 4s
-
-# Final pause to read results
-Sleep 3s

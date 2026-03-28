@@ -465,7 +465,7 @@ var require_loader = __commonJS({
       apiKey: zod_1.z.string().optional(),
       model: zod_1.z.string().optional(),
       maxPropertiesPerFunction: zod_1.z.number().int().min(1).max(20).optional(),
-      minScore: zod_1.z.number().int().min(0).max(15).optional(),
+      minScore: zod_1.z.number().int().min(0).max(13).optional(),
       defaultMode: zod_1.z.enum(["quick", "default", "thorough"]).optional(),
       timeout: zod_1.z.number().int().min(1e3).max(3e5).optional(),
       storeDir: zod_1.z.string().regex(/^[a-zA-Z0-9._-]+(?:\/[a-zA-Z0-9._-]+)*$/, "storeDir must be a relative path without traversal").optional(),
@@ -998,7 +998,6 @@ var require_python = __commonJS({
       const imports = [];
       const importRegex = /^(?:from\s+(\S+)\s+)?import\s+(.+)$/gm;
       let importMatch;
-      importRegex.lastIndex = 0;
       while ((importMatch = importRegex.exec(source)) !== null) {
         const [, fromModule, specifiers] = importMatch;
         const specs = specifiers.split(",").map((s) => s.trim().split(/\s+as\s+/)[0].trim());
@@ -1263,11 +1262,11 @@ var require_git = __commonJS({
     function getChangedFiles2(cwd) {
       let diffOutput;
       try {
-        diffOutput = (0, node_child_process_1.execSync)("git diff HEAD --unified=0 --diff-filter=ACMR --name-only", {
-          cwd,
-          encoding: "utf8",
-          timeout: 1e4
-        });
+        const diffResult = (0, node_child_process_1.spawnSync)("git", ["diff", "HEAD", "--unified=0", "--diff-filter=ACMR", "--name-only"], { cwd, encoding: "utf8", timeout: 1e4 });
+        if (diffResult.status !== 0) {
+          return [];
+        }
+        diffOutput = diffResult.stdout;
       } catch {
         return [];
       }
@@ -1349,10 +1348,28 @@ var require_assertion_sanitizer = __commonJS({
       // HTTP access
       /\bos\b\s*\./,
       // OS module access
+      /\bfetch\s*\(/,
+      // fetch() API — async data exfiltration
+      /\bXMLHttpRequest\b/,
+      // XHR constructor
+      /\bWebSocket\b/,
+      // WebSocket constructor
+      /\bsetTimeout\s*\(/,
+      // Async side-effect via timer
+      /\bsetInterval\s*\(/,
+      // Async side-effect via timer
+      /\bPromise\s*\./,
+      // Promise chain (can wrap exfil calls)
       /\bnew\s+Function\b/,
       // new Function()
-      /;\s*\w/
+      /;\s*\w/,
       // Statement separator followed by identifier (multi-statement)
+      /[\r\n\u2028\u2029]/,
+      // Newlines / line separators (multi-statement via newline)
+      /\/\//,
+      // Single-line comment (could prematurely end assertion line)
+      /\/\*/
+      // Block comment open (could swallow surrounding code)
     ];
     var MAX_ASSERTION_LENGTH = 500;
     function validateAssertion(assertion) {
@@ -2324,17 +2341,22 @@ var require_response_parser = __commonJS({
       value: zod_1.z.unknown()
     });
     var GeneratorSpecSchema = zod_1.z.object({
-      type: zod_1.z.string(),
-      constraints: zod_1.z.record(zod_1.z.unknown()).optional()
+      type: zod_1.z.string().max(50),
+      constraints: zod_1.z.object({
+        min: zod_1.z.number().finite().optional(),
+        max: zod_1.z.number().finite().optional(),
+        maxLength: zod_1.z.number().int().nonnegative().optional(),
+        element: zod_1.z.string().max(50).regex(/^[a-zA-Z_][a-zA-Z0-9_]*$/).optional()
+      }).passthrough().optional()
     });
     var RawPropertySchema = zod_1.z.object({
-      targetFunction: zod_1.z.string(),
-      description: zod_1.z.string(),
-      category: zod_1.z.string(),
-      assertion: zod_1.z.string(),
+      targetFunction: zod_1.z.string().max(200),
+      description: zod_1.z.string().max(500),
+      category: zod_1.z.string().max(50),
+      assertion: zod_1.z.string().max(500),
       generators: zod_1.z.record(GeneratorSpecSchema),
-      seedInputs: zod_1.z.array(SeedInputSchema).min(1),
-      evidence: zod_1.z.string(),
+      seedInputs: zod_1.z.array(SeedInputSchema).min(1).max(20),
+      evidence: zod_1.z.string().max(500),
       confidence: zod_1.z.number().min(0).max(1)
     });
     var ResponseSchema = zod_1.z.object({
@@ -2365,10 +2387,20 @@ var require_response_parser = __commonJS({
         const raw = parsed.data;
         const assertionCheck = (0, common_1.validateAssertion)(raw.assertion);
         if (!assertionCheck.valid) {
+          console.warn(`[propcheck] Dropped unsafe property "${raw.targetFunction}": ${assertionCheck.reason}`);
           continue;
         }
-        const hasUnsafeKey = Object.keys(raw.generators).some((k) => !(0, common_1.validateGeneratorKey)(k));
+        const generatorKeys = Object.keys(raw.generators);
+        if (generatorKeys.length > 20) {
+          console.warn(`[propcheck] Dropped property "${raw.targetFunction}": too many generators (${generatorKeys.length})`);
+          continue;
+        }
+        const hasUnsafeKey = generatorKeys.some((k) => !(0, common_1.validateGeneratorKey)(k));
         if (hasUnsafeKey) {
+          console.warn(`[propcheck] Dropped property "${raw.targetFunction}": unsafe generator key`);
+          continue;
+        }
+        if (!/^[a-zA-Z_$][a-zA-Z0-9_$.]*$/.test(raw.targetFunction)) {
           continue;
         }
         const category = VALID_CATEGORIES.includes(raw.category) ? raw.category : "boundary";
@@ -2448,7 +2480,7 @@ var require_scoring = __commonJS({
       if (property.seedInputs.length >= 3) {
         score += 1;
       }
-      return Math.min(score, 15);
+      return Math.min(score, 13);
     }
     function isRedundant(property, existing) {
       const normalized = property.assertion.replace(/\s+/g, " ").trim();
@@ -3004,6 +3036,9 @@ var require_fc_codegen = __commonJS({
     exports2.generateFastCheckTest = generateFastCheckTest3;
     var common_1 = require_dist4();
     var path6 = __importStar(require("path"));
+    function toSafeComment(s) {
+      return s.replace(/[\r\n\u2028\u2029]/g, " ").slice(0, 200);
+    }
     function mapGenerator(spec) {
       const c = spec.constraints ?? {};
       switch (spec.type) {
@@ -3011,9 +3046,9 @@ var require_fc_codegen = __commonJS({
           if (c.min !== void 0 || c.max !== void 0) {
             const parts = [];
             if (c.min !== void 0)
-              parts.push(`min: ${c.min}`);
+              parts.push(`min: ${Number(c.min)}`);
             if (c.max !== void 0)
-              parts.push(`max: ${c.max}`);
+              parts.push(`max: ${Number(c.max)}`);
             return `fc.integer({ ${parts.join(", ")} })`;
           }
           return "fc.integer()";
@@ -3022,22 +3057,22 @@ var require_fc_codegen = __commonJS({
           if (c.min !== void 0 || c.max !== void 0) {
             const parts = [];
             if (c.min !== void 0)
-              parts.push(`min: ${c.min}`);
+              parts.push(`min: ${Number(c.min)}`);
             if (c.max !== void 0)
-              parts.push(`max: ${c.max}`);
+              parts.push(`max: ${Number(c.max)}`);
             return `fc.double({ ${parts.join(", ")}, noNaN: true })`;
           }
           return "fc.double({ noNaN: true })";
         case "string":
           if (c.maxLength !== void 0) {
-            return `fc.string({ maxLength: ${c.maxLength} })`;
+            return `fc.string({ maxLength: ${Number(c.maxLength)} })`;
           }
           return "fc.string()";
         case "boolean":
           return "fc.boolean()";
         case "array": {
-          const element = c.element ? mapGenerator({ type: String(c.element) }) : "fc.anything()";
-          const maxLen = c.maxLength ? `, { maxLength: ${c.maxLength} }` : "";
+          const element = c.element ? mapGenerator({ type: String(c.element).replace(/[^a-zA-Z0-9_]/g, "") }) : "fc.anything()";
+          const maxLen = c.maxLength ? `, { maxLength: ${Number(c.maxLength)} }` : "";
           return `fc.array(${element}${maxLen})`;
         }
         case "record":
@@ -3080,9 +3115,9 @@ var require_fc_codegen = __commonJS({
         const arbNames = generators.map(([name]) => name);
         const arbExprs = generators.map(([, spec]) => mapGenerator(spec));
         const assertion = prop.assertion.replace(new RegExp(`\\b${funcName}\\(`, "g"), `target.${funcName}(`);
-        lines.push(`// ${prop.id}: ${prop.description}`);
-        lines.push(`// Category: ${prop.category}`);
-        lines.push(`// Evidence: ${prop.evidence}`);
+        lines.push(`// ${prop.id}: ${toSafeComment(prop.description)}`);
+        lines.push(`// Category: ${toSafeComment(prop.category)}`);
+        lines.push(`// Evidence: ${toSafeComment(prop.evidence)}`);
         lines.push(`try {`);
         if (generators.length === 0) {
           lines.push(`  const __result = ${assertion};`);
@@ -3139,6 +3174,7 @@ var require_process_runner = __commonJS({
     exports2.runProcess = runProcess;
     var node_child_process_1 = require("child_process");
     var common_1 = require_dist4();
+    var MAX_OUTPUT_BYTES = 10 * 1024 * 1024;
     function runProcess(command, args, options = {}) {
       const timeout = options.timeout ?? 6e4;
       return new Promise((resolve4, reject) => {
@@ -3172,10 +3208,14 @@ var require_process_runner = __commonJS({
         let stderr = "";
         let killed = false;
         proc.stdout.on("data", (data) => {
-          stdout += data.toString();
+          if (stdout.length < MAX_OUTPUT_BYTES) {
+            stdout += data.toString();
+          }
         });
         proc.stderr.on("data", (data) => {
-          stderr += data.toString();
+          if (stderr.length < MAX_OUTPUT_BYTES) {
+            stderr += data.toString();
+          }
         });
         const timer = setTimeout(() => {
           killed = true;
@@ -3222,7 +3262,7 @@ var require_result_parser = __commonJS({
           continue;
         try {
           const parsed = JSON.parse(trimmed);
-          if (parsed.propertyId && parsed.status) {
+          if (parsed.propertyId && (parsed.status === "passed" || parsed.status === "failed")) {
             results.push(parsed);
           }
         } catch {
@@ -3254,7 +3294,7 @@ var require_result_parser = __commonJS({
             duration: 0,
             seed: config.seed ?? 0
           });
-        } else {
+        } else if (raw.status === "failed") {
           failed.push({
             propertyId: prop.id,
             status: "failed",
@@ -3263,6 +3303,13 @@ var require_result_parser = __commonJS({
             originalInput: raw.counterexample,
             errorMessage: raw.errorMessage ?? "Property violated",
             seed: config.seed ?? 0,
+            duration: 0
+          });
+        } else {
+          errors.push({
+            propertyId: prop.id,
+            status: "error",
+            errorMessage: `Unexpected status in test output: "${String(raw.status)}"`,
             duration: 0
           });
         }
@@ -3396,6 +3443,9 @@ var require_hyp_codegen = __commonJS({
     exports2.generateHypothesisTest = generateHypothesisTest2;
     var common_1 = require_dist4();
     var path6 = __importStar(require("path"));
+    function toSafeComment(s) {
+      return s.replace(/[\r\n\u2028\u2029]/g, " ").slice(0, 200);
+    }
     function mapStrategy(spec) {
       const c = spec.constraints ?? {};
       switch (spec.type) {
@@ -3403,24 +3453,24 @@ var require_hyp_codegen = __commonJS({
         case "int": {
           const parts = [];
           if (c.min !== void 0)
-            parts.push(`min_value=${c.min}`);
+            parts.push(`min_value=${Number(c.min)}`);
           if (c.max !== void 0)
-            parts.push(`max_value=${c.max}`);
+            parts.push(`max_value=${Number(c.max)}`);
           return parts.length > 0 ? `st.integers(${parts.join(", ")})` : "st.integers()";
         }
         case "float":
         case "number": {
           const parts = ["allow_nan=False", "allow_infinity=False"];
           if (c.min !== void 0)
-            parts.push(`min_value=${c.min}`);
+            parts.push(`min_value=${Number(c.min)}`);
           if (c.max !== void 0)
-            parts.push(`max_value=${c.max}`);
+            parts.push(`max_value=${Number(c.max)}`);
           return `st.floats(${parts.join(", ")})`;
         }
         case "string":
         case "str": {
           if (c.maxLength !== void 0) {
-            return `st.text(max_size=${c.maxLength})`;
+            return `st.text(max_size=${Number(c.maxLength)})`;
           }
           return "st.text()";
         }
@@ -3429,8 +3479,8 @@ var require_hyp_codegen = __commonJS({
           return "st.booleans()";
         case "array":
         case "list": {
-          const element = c.element ? mapStrategy({ type: String(c.element) }) : "st.integers()";
-          const maxLen = c.maxLength ? `, max_size=${c.maxLength}` : "";
+          const element = c.element ? mapStrategy({ type: String(c.element).replace(/[^a-zA-Z0-9_]/g, "") }) : "st.integers()";
+          const maxLen = c.maxLength ? `, max_size=${Number(c.maxLength)}` : "";
           return `st.lists(${element}${maxLen})`;
         }
         case "dict":
@@ -3476,9 +3526,9 @@ var require_hyp_codegen = __commonJS({
         assertion = assertion.replace(/\bnull\b/g, "None");
         assertion = assertion.replace(/\bundefined\b/g, "None");
         assertion = assertion.replace(/\.length\b/g, ".__len__()");
-        lines.push(`# ${prop.id}: ${prop.description}`);
-        lines.push(`# Category: ${prop.category}`);
-        lines.push(`# Evidence: ${prop.evidence}`);
+        lines.push(`# ${prop.id}: ${toSafeComment(prop.description)}`);
+        lines.push(`# Category: ${toSafeComment(prop.category)}`);
+        lines.push(`# Evidence: ${toSafeComment(prop.evidence)}`);
         lines.push(`def test_${prop.id}():`);
         lines.push(`    try:`);
         if (generators.length === 0) {
@@ -3557,12 +3607,17 @@ var require_hyp_runner = __commonJS({
     var path6 = __importStar(require("path"));
     var process_runner_1 = require_process_runner();
     var result_parser_1 = require_result_parser();
+    var _cachedPythonCmd = null;
     async function findPython() {
+      if (_cachedPythonCmd !== null)
+        return _cachedPythonCmd;
       for (const cmd of ["python", "python3"]) {
         try {
           const result = await (0, process_runner_1.runProcess)(cmd, ["--version"], { timeout: 5e3 });
-          if (result.exitCode === 0)
+          if (result.exitCode === 0) {
+            _cachedPythonCmd = cmd;
             return cmd;
+          }
         } catch {
         }
       }
@@ -3792,7 +3847,7 @@ var require_dist6 = __commonJS({
   "../engines/dist/index.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.runMutationTesting = exports2.generateMutants = exports2.mapResults = exports2.parseJsonLines = exports2.runProcess = exports2.runHypothesisTest = exports2.generateHypothesisTest = exports2.runFastCheckTest = exports2.generateFastCheckTest = void 0;
+    exports2.runMutationTesting = exports2.generateMutants = exports2.runProcess = exports2.runHypothesisTest = exports2.generateHypothesisTest = exports2.runFastCheckTest = exports2.generateFastCheckTest = void 0;
     var fc_codegen_1 = require_fc_codegen();
     Object.defineProperty(exports2, "generateFastCheckTest", { enumerable: true, get: function() {
       return fc_codegen_1.generateFastCheckTest;
@@ -3812,13 +3867,6 @@ var require_dist6 = __commonJS({
     var process_runner_1 = require_process_runner();
     Object.defineProperty(exports2, "runProcess", { enumerable: true, get: function() {
       return process_runner_1.runProcess;
-    } });
-    var result_parser_1 = require_result_parser();
-    Object.defineProperty(exports2, "parseJsonLines", { enumerable: true, get: function() {
-      return result_parser_1.parseJsonLines;
-    } });
-    Object.defineProperty(exports2, "mapResults", { enumerable: true, get: function() {
-      return result_parser_1.mapResults;
     } });
     var operators_1 = require_operators();
     Object.defineProperty(exports2, "generateMutants", { enumerable: true, get: function() {
@@ -3846,7 +3894,7 @@ var require_property_table = __commonJS({
       const padded = desc.padEnd(50);
       if (!outcome) {
         const cat = chalk_1.default.dim(`[${property.category}]`);
-        const score = chalk_1.default.dim(`score: ${property.score}/15`);
+        const score = chalk_1.default.dim(`score: ${property.score}/13`);
         return `  ${chalk_1.default.cyan("*")} ${padded} ${cat}  ${score}`;
       }
       switch (outcome.status) {
@@ -4237,15 +4285,11 @@ async function inferCommand(target, options) {
   }
   console.log(`
   Analyzing ${context.functions.length} functions in ${target}...`);
+  const maxProperties = Math.min(Math.max(1, parseInt(options.maxProperties ?? "5", 10) || 5), 20);
+  const minScore = Math.min(Math.max(0, parseInt(options.minScore ?? "10", 10) || 10), 15);
   const result = await (0, import_llm.inferProperties)(config.apiKey, config.model, context, {
-    maxProperties: (() => {
-      const n = parseInt(options.maxProperties ?? "5", 10);
-      return Number.isNaN(n) ? 5 : n;
-    })(),
-    minScore: (() => {
-      const n = parseInt(options.minScore ?? "10", 10);
-      return Number.isNaN(n) ? 10 : n;
-    })(),
+    maxProperties,
+    minScore,
     mock: config.mock
   });
   if (result.properties.length === 0) {
@@ -4305,8 +4349,8 @@ async function inferCommand(target, options) {
           improvedProperties = (0, import_llm.mockRefineProperties)(classifications);
         } else if (llmClient) {
           const refineResult = await (0, import_llm.inferProperties)(config.apiKey, config.model, context, {
-            maxProperties: parseInt(options.maxProperties ?? "5", 10),
-            minScore: parseInt(options.minScore ?? "10", 10),
+            maxProperties,
+            minScore,
             mock: false
           });
           improvedProperties = refineResult.properties;

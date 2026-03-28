@@ -15,24 +15,43 @@ propcheck finds them.
 
 ---
 
-<!-- Replace with actual VHS-recorded GIF: vhs < demo.tape -->
-```
-$ propcheck run src/price-utils.ts
+<!-- TODO: Replace with actual VHS-recorded GIF after running: vhs < demo.tape -->
+<!-- ![propcheck demo](demo.gif) -->
 
-  src/price-utils.ts
-  ✗ applyDiscount: result should be non-negative         FAIL
-    Counterexample: applyDiscount(5e-324, 150)
-    Shrunk to minimal case (32 shrink steps)
+### Before: All Tests Pass
+
+```
+$ node --test examples/price-utils.test.ts
+
+  ✔ applyDiscount (4 tests)
+  ✔ calculateTotal (4 tests)
+  ✔ formatPrice (4 tests)
+
+  tests 12  pass 12  fail 0  duration_ms 89
+```
+
+### After: propcheck Finds What Tests Miss
+
+```
+$ propcheck run examples/price-utils.ts
+
+  examples/price-utils.ts
+  ✗ applyDiscount: Discounted price should be non-negative   FAIL
+    Counterexample: applyDiscount(49.99, 150)
+    A $49.99 item with 150% "discount" produces -$24.99 (negative price!)
+    Shrunk to minimal case (93 shrink steps)
     Seed: 0 (reproduce with --seed 0)
-  ✓ applyDiscount: zero discount returns original price   PASS (1000/1000)
-  ✓ applyDiscount: 100% discount returns zero             PASS (1000/1000)
-  ✓ splitBill: total equals sum of individual shares      PASS (1000/1000)
-  ✓ compoundInterest: result >= principal when rate >= 0  PASS (1000/1000)
+  ✓ applyDiscount: Zero discount returns original price      PASS (1000/1000)
+  ✓ applyDiscount: 100% discount results in zero price       PASS (1000/1000)
+  ✓ calculateTotal: Total of empty array is zero             PASS (1000/1000)
+  ✓ calculateTotal: Total is non-negative for valid prices   PASS (1000/1000)
+  ✓ formatPrice: Output always has exactly 2 decimal places  PASS (1000/1000)
+  ✓ formatPrice: Roundtrip within rounding tolerance         PASS (1000/1000)
 
-  Properties: 9 | Passed: 8 | Failed: 1 | Duration: 0.3s
+  Properties: 9 | Passed: 8 | Failed: 1 | Duration: 0.2s
 ```
 
-> 12 unit tests. 100% coverage. All green. **propcheck still found a bug in 0.3 seconds.**
+> 12 unit tests. 100% line coverage. All green. **propcheck still found a bug in 0.2 seconds.**
 
 ---
 
@@ -41,7 +60,7 @@ $ propcheck run src/price-utils.ts
 ```
 1. INFER — LLM discovers properties of your code          ($0.05, one-time)
 2. RUN   — 1,000 random inputs per property, every commit  ($0, forever)
-3. FAIL  — Shrink to minimal counterexample                (0.3 seconds)
+3. FAIL  — Shrink to minimal counterexample                (0.2 seconds)
 ```
 
 The LLM is a **one-time cost**. After inference, properties persist in `.propcheck/properties.json`. Every CI run is free — pure deterministic fuzzing via [fast-check](https://github.com/dubzzz/fast-check) and [Hypothesis](https://hypothesis.readthedocs.io/).
@@ -49,14 +68,14 @@ The LLM is a **one-time cost**. After inference, properties persist in `.propche
 ## Quick Start
 
 ```bash
-npx propcheck init                           # Create .propcheck/ directory
-npx propcheck infer src/price-utils.ts       # LLM infers properties (needs ANTHROPIC_API_KEY)
-npx propcheck run src/price-utils.ts         # Run 1000 random inputs per property
+npx propcheck init                                # Create .propcheck/ directory
+npx propcheck infer examples/price-utils.ts       # LLM infers properties (needs ANTHROPIC_API_KEY)
+npx propcheck run examples/price-utils.ts         # Run 1000 random inputs per property
 ```
 
 No API key? Try the demo:
 ```bash
-npx propcheck infer --mock src/price-utils.ts && npx propcheck run src/price-utils.ts
+npx propcheck infer --mock examples/price-utils.ts && npx propcheck run examples/price-utils.ts
 ```
 
 ## What propcheck discovers
@@ -82,13 +101,13 @@ npx propcheck infer --mock src/price-utils.ts && npx propcheck run src/price-uti
 ## Run Modes
 
 ```bash
-propcheck run --quick              # 100 iterations — fast feedback while coding
-propcheck run                      # 1,000 iterations — default for CI
-propcheck run --thorough           # 10,000 iterations — pre-release deep check
-propcheck run --changed            # Only test files changed in git diff
-propcheck run --seed 42            # Reproducible runs
-propcheck run --json               # Machine-readable output for CI
-propcheck quality src/cart.ts      # Mutation testing — measure property strength
+propcheck run --quick                             # 100 iterations — fast feedback while coding
+propcheck run                                     # 1,000 iterations — default for CI
+propcheck run --thorough                          # 10,000 iterations — pre-release deep check
+propcheck run --changed                           # Only test files changed in git diff
+propcheck run --seed 42                           # Reproducible runs
+propcheck run --json                              # Machine-readable output for CI
+propcheck quality examples/price-utils.ts         # Mutation testing — measure property strength
 ```
 
 ## CI/CD — Auto-review every PR
@@ -120,20 +139,20 @@ jobs:
             });
 ```
 
-Every PR reviewer sees propcheck results. Every comment links back to propcheck. **Distribution built into the workflow.**
+Every PR reviewer sees propcheck results. **Distribution built into the workflow.**
 
 ## Mutation Testing
 
 How strong are your properties? Inject code mutations, see how many your properties catch:
 
 ```
-$ propcheck quality src/cart.ts
+$ propcheck quality examples/price-utils.ts
 
-  Mutation Testing: src/cart.ts
+  Mutation Testing: examples/price-utils.ts
   Generated 7 mutants (+ → -, > → >=, 0 → 1, ...)
   Testing against 9 properties...
 
-  Killed:         7 (100.0%)    ← Your properties caught all mutations
+  Killed:         7 (100.0%)
   Survived:       0 (0.0%)
   Mutation score: 100.0%
 
@@ -148,7 +167,30 @@ $ propcheck quality src/cart.ts
 
 Generate: `npx propcheck badge`
 
-## Architecture
+## Supported Languages
+
+| Language | Parser | PBT Engine | Status |
+|----------|--------|------------|--------|
+| TypeScript / JavaScript | TS Compiler API | fast-check | **Ready** |
+| Python | Type hints + docstrings | Hypothesis | **Ready** |
+| Rust | — | proptest | Planned |
+| Go | — | rapid | Planned |
+
+## Configuration
+
+```json
+// .propcheckrc
+{
+  "model": "claude-sonnet-4-20250514",
+  "maxPropertiesPerFunction": 5,
+  "minScore": 10,
+  "defaultMode": "default",
+  "timeout": 30000
+}
+```
+
+<details>
+<summary><strong>Architecture</strong></summary>
 
 ```
 ┌──────────────────────────────────────────────┐
@@ -167,16 +209,10 @@ Generate: `npx propcheck badge`
 └──────────────────────────────────────────────┘
 ```
 
-## Supported Languages
+</details>
 
-| Language | Parser | PBT Engine | Status |
-|----------|--------|------------|--------|
-| TypeScript / JavaScript | TS Compiler API | fast-check | **Ready** |
-| Python | Type hints + docstrings | Hypothesis | **Ready** |
-| Rust | — | proptest | Planned |
-| Go | — | rapid | Planned |
-
-## Research Foundation
+<details>
+<summary><strong>Research Foundation</strong></summary>
 
 Built on peer-reviewed techniques from 5 top papers:
 
@@ -188,18 +224,7 @@ Built on peer-reviewed techniques from 5 top papers:
 | [FUEL](https://arxiv.org/abs/2506.17642) | Nanjing University | Feedback loops, 14 CVEs | `--refine` flag |
 | [Quokka](https://arxiv.org/abs/2509.21629) | Stanford / SRI | SMT formal verification | Future: `propcheck verify` |
 
-## Configuration
-
-```json
-// .propcheckrc
-{
-  "model": "claude-sonnet-4-20250514",
-  "maxPropertiesPerFunction": 5,
-  "minScore": 10,
-  "defaultMode": "default",
-  "timeout": 30000
-}
-```
+</details>
 
 ## Contributing
 
