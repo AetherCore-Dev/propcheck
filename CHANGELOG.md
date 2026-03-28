@@ -32,10 +32,11 @@ All notable changes to propcheck are documented in this file.
 - `hyp-runner.ts`: cached Python command lookup
 - Process runner: 10MB stdout/stderr cap to prevent OOM
 
-### Known Issues (codegen layer)
-- Zero-parameter assertions (`calculateTotal([]) === 0`) fail — `fc.property` requires >= 1 arbitrary
-- Array literal assertions (`calculateTotal([price])`) generate invalid fast-check code
-- `fc.double()` generates negative values even when business logic expects non-negative — needs `min: 0` constraint propagation
+### Fixed (codegen layer)
+- Zero-parameter assertions now use `fc.constant(null)` dummy arbitrary instead of fragile boolean check
+- Array literal assertions (`calculateTotal([price])`) verified working — `[price]` is valid JS in lambda scope
+- `fc.double()` defaults to `min: 0, noDefaultInfinity: true` for unconstrained generators — prevents false failures on non-negative business logic
+- Added `noDefaultInfinity: true` to all double generators
 
 ### Next
 - `npm publish`

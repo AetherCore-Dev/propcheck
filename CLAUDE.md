@@ -12,8 +12,8 @@ AI-powered Property-Based Testing CLI. LLM infers code properties → determinis
 - Bundler: tsup (~180KB single-file bundle)
 - Test runner: Node.js `--experimental-strip-types` for direct .ts import
 
-## Project Status (2026-03-27)
-**Phase 1 MVP: COMPLETE + npm-ready** — 63 files, ~6,500 lines, 50 tests all passing.
+## Project Status (2026-03-28)
+**Phase 1 MVP: COMPLETE + npm-ready** — 63 files, ~6,500 lines, 54 tests all passing.
 
 ### What's Done
 - Full CLI: `init`, `infer`, `run`, `badge` commands
