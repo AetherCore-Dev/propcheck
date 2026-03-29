@@ -24,6 +24,11 @@ const GeneratorSpecSchema = z.object({
     max: z.number().finite().optional(),
     maxLength: z.number().int().nonnegative().optional(),
     element: z.string().max(50).regex(/^[a-zA-Z_][a-zA-Z0-9_]*$/).optional(),
+    elementConstraints: z.object({
+      min: z.number().finite().optional(),
+      max: z.number().finite().optional(),
+      maxLength: z.number().int().nonnegative().optional(),
+    }).passthrough().optional(),
   }).passthrough().optional(),
 });
 
@@ -42,54 +47,101 @@ const ResponseSchema = z.object({
   properties: z.array(RawPropertySchema),
 });
 
+function splitTopLevelArgs(s: string): string[] {
+  const parts: string[] = [];
+  let start = 0;
+  let depth = 0;
+  let quote: "'" | '"' | "`" | null = null;
+  let escaped = false;
+
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+
+    if (quote) {
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      if (ch === "\\") {
+        escaped = true;
+        continue;
+      }
+      if (ch === quote) {
+        quote = null;
+      }
+      continue;
+    }
+
+    if (ch === "'" || ch === '"' || ch === "`") {
+      quote = ch;
+      continue;
+    }
+
+    if (ch === "(" || ch === "[" || ch === "{") {
+      depth++;
+      continue;
+    }
+
+    if (ch === ")" || ch === "]" || ch === "}") {
+      depth = Math.max(0, depth - 1);
+      continue;
+    }
+
+    if (ch === "," && depth === 0) {
+      parts.push(s.slice(start, i).trim());
+      start = i + 1;
+    }
+  }
+
+  parts.push(s.slice(start).trim());
+  return parts.filter(Boolean);
+}
+
 /**
  * Parse a string-format generator spec (e.g. "float(0, 10000)") into a
  * structured GeneratorSpec object.
  *
  * Real LLMs often return generators as shorthand strings instead of the
- * structured object format described in the tool schema.  This normalizer
+ * structured object format described in the tool schema. This normalizer
  * bridges the gap so both forms are accepted.
  */
 function parseStringGenerator(s: string): { type: string; constraints?: Record<string, unknown> } {
-  // Match patterns like: float(0, 10000), integer(-100, 100), array(float(0, 1000), 0, 10), string(50)
-  const funcMatch = s.match(/^([a-zA-Z_]+)\((.*)\)$/);
+  const funcMatch = s.trim().match(/^([a-zA-Z_][a-zA-Z0-9_]*)\((.*)\)$/);
   if (!funcMatch) {
     return { type: s.replace(/[^a-zA-Z0-9_]/g, "") || "any" };
   }
 
   const typeName = funcMatch[1];
-  const argsStr = funcMatch[2];
+  const args = splitTopLevelArgs(funcMatch[2]);
 
   if (typeName === "array") {
-    // array(float(0, 1000), 0, 10) → element type + length constraints
-    const innerMatch = argsStr.match(/^([a-zA-Z_]+(?:\([^)]*\))?),\s*(\d+),\s*(\d+)$/);
-    if (innerMatch) {
-      const elementStr = innerMatch[1];
-      const elementParsed = parseStringGenerator(elementStr);
+    if (args.length >= 1) {
+      const elementParsed = parseStringGenerator(args[0]);
+      const maxLength = args.length >= 3 && !isNaN(Number(args[2])) ? Number(args[2]) : undefined;
       return {
         type: "array",
         constraints: {
           element: elementParsed.type,
-          maxLength: Number(innerMatch[3]),
+          ...(elementParsed.constraints ? { elementConstraints: elementParsed.constraints } : {}),
+          ...(maxLength !== undefined ? { maxLength } : {}),
         },
       };
-    }
-    // array(float(0, 1000))
-    const simpleInner = argsStr.match(/^([a-zA-Z_]+(?:\([^)]*\))?)$/);
-    if (simpleInner) {
-      const elementParsed = parseStringGenerator(simpleInner[1]);
-      return { type: "array", constraints: { element: elementParsed.type } };
     }
     return { type: "array" };
   }
 
-  // Simple: float(0, 10000) → { type: "float", constraints: { min: 0, max: 10000 } }
-  const numArgs = argsStr.split(",").map((a) => a.trim()).filter(Boolean);
-  if (numArgs.length === 2 && !isNaN(Number(numArgs[0])) && !isNaN(Number(numArgs[1]))) {
-    return { type: typeName, constraints: { min: Number(numArgs[0]), max: Number(numArgs[1]) } };
+  if (args.length === 2 && !isNaN(Number(args[0])) && !isNaN(Number(args[1]))) {
+    return { type: typeName, constraints: { min: Number(args[0]), max: Number(args[1]) } };
   }
-  if (numArgs.length === 1 && !isNaN(Number(numArgs[0]))) {
-    return { type: typeName, constraints: { maxLength: Number(numArgs[0]) } };
+
+  if (args.length === 1 && !isNaN(Number(args[0]))) {
+    const value = Number(args[0]);
+    if (typeName === "string") {
+      return { type: typeName, constraints: { maxLength: value } };
+    }
+    if (typeName === "integer" || typeName === "float" || typeName === "number") {
+      return { type: typeName, constraints: { max: value } };
+    }
   }
 
   return { type: typeName };
@@ -99,12 +151,47 @@ function parseStringGenerator(s: string): { type: string; constraints?: Record<s
  * Normalize a raw property's generators field: convert string-format
  * specs to structured objects so they pass Zod validation.
  */
+function normalizeGeneratorObject(raw: Record<string, unknown>): Record<string, unknown> {
+  const type = typeof raw.type === "string" ? raw.type : "any";
+  const constraints = raw.constraints && typeof raw.constraints === "object"
+    ? { ...(raw.constraints as Record<string, unknown>) }
+    : undefined;
+
+  if (type === "array" && constraints) {
+    const itemType = typeof constraints.itemType === "string" ? constraints.itemType : undefined;
+    const itemMin = typeof constraints.itemMin === "number" ? constraints.itemMin : undefined;
+    const itemMax = typeof constraints.itemMax === "number" ? constraints.itemMax : undefined;
+    const maxItems = typeof constraints.maxItems === "number" ? constraints.maxItems : undefined;
+
+    if (itemType && constraints.element === undefined) {
+      constraints.element = itemType;
+    }
+    if ((itemMin !== undefined || itemMax !== undefined) && constraints.elementConstraints === undefined) {
+      constraints.elementConstraints = {
+        ...(itemMin !== undefined ? { min: itemMin } : {}),
+        ...(itemMax !== undefined ? { max: itemMax } : {}),
+      };
+    }
+    if (maxItems !== undefined && constraints.maxLength === undefined) {
+      constraints.maxLength = maxItems;
+    }
+  }
+
+  return {
+    ...raw,
+    type,
+    ...(constraints ? { constraints } : {}),
+  };
+}
+
 function normalizeGenerators(raw: Record<string, unknown>): Record<string, unknown> {
   if (!raw || typeof raw !== "object") return raw;
   const result: Record<string, unknown> = {};
   for (const [key, val] of Object.entries(raw)) {
     if (typeof val === "string") {
       result[key] = parseStringGenerator(val);
+    } else if (val && typeof val === "object") {
+      result[key] = normalizeGeneratorObject(val as Record<string, unknown>);
     } else {
       result[key] = val;
     }

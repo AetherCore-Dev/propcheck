@@ -30,12 +30,12 @@ AI-powered Property-Based Testing CLI. LLM infers code properties → determinis
 - GitHub repo: pushed to AetherCore-Dev/propcheck
 
 ### Real LLM Validation Results (2026-03-29, Claude Opus 4.6 via OpenAI-compatible proxy)
-- 3 functions in price-utils.ts → 14 high-quality properties inferred in single pass
-- Property categories: boundary, monotonic, equivalence, metamorphic, cross-function, idempotent
-- All 14 properties passed trial-run validation (100 iterations each)
-- Run results: 12 passed, 2 failed (floating-point precision edge cases in cross-function properties)
-- Real bug detected: discount > 100% produces negative prices
-- Token usage: ~5,600 tokens, ~$0.06 per file
+- 3 functions in `examples/price-utils.ts` → 15 high-quality properties inferred in a single pass
+- Property categories: boundary, monotonic, equivalence, conservation, metamorphic, idempotent, type-preservation
+- All 15 properties passed trial-run validation (100 iterations each)
+- Full run results: 12 passed, 3 failed — remaining failures are model-side over-strong properties / floating-point edge cases, not codegen or parser bugs
+- Real bug detection pipeline is working end-to-end; mock demo remains the cleanest recording path
+- Token usage: ~5,800-6,000 tokens, ~$0.06 per file
 
 ### Mock Validation Results
 - 12 functions tested across 4 fixtures (TS + Python)

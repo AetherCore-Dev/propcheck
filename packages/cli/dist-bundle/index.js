@@ -2485,7 +2485,12 @@ var require_response_parser = __commonJS({
         min: zod_1.z.number().finite().optional(),
         max: zod_1.z.number().finite().optional(),
         maxLength: zod_1.z.number().int().nonnegative().optional(),
-        element: zod_1.z.string().max(50).regex(/^[a-zA-Z_][a-zA-Z0-9_]*$/).optional()
+        element: zod_1.z.string().max(50).regex(/^[a-zA-Z_][a-zA-Z0-9_]*$/).optional(),
+        elementConstraints: zod_1.z.object({
+          min: zod_1.z.number().finite().optional(),
+          max: zod_1.z.number().finite().optional(),
+          maxLength: zod_1.z.number().int().nonnegative().optional()
+        }).passthrough().optional()
       }).passthrough().optional()
     });
     var RawPropertySchema = zod_1.z.object({
@@ -2501,41 +2506,110 @@ var require_response_parser = __commonJS({
     var ResponseSchema = zod_1.z.object({
       properties: zod_1.z.array(RawPropertySchema)
     });
+    function splitTopLevelArgs(s) {
+      const parts = [];
+      let start = 0;
+      let depth = 0;
+      let quote = null;
+      let escaped = false;
+      for (let i = 0; i < s.length; i++) {
+        const ch = s[i];
+        if (quote) {
+          if (escaped) {
+            escaped = false;
+            continue;
+          }
+          if (ch === "\\") {
+            escaped = true;
+            continue;
+          }
+          if (ch === quote) {
+            quote = null;
+          }
+          continue;
+        }
+        if (ch === "'" || ch === '"' || ch === "`") {
+          quote = ch;
+          continue;
+        }
+        if (ch === "(" || ch === "[" || ch === "{") {
+          depth++;
+          continue;
+        }
+        if (ch === ")" || ch === "]" || ch === "}") {
+          depth = Math.max(0, depth - 1);
+          continue;
+        }
+        if (ch === "," && depth === 0) {
+          parts.push(s.slice(start, i).trim());
+          start = i + 1;
+        }
+      }
+      parts.push(s.slice(start).trim());
+      return parts.filter(Boolean);
+    }
     function parseStringGenerator(s) {
-      const funcMatch = s.match(/^([a-zA-Z_]+)\((.*)\)$/);
+      const funcMatch = s.trim().match(/^([a-zA-Z_][a-zA-Z0-9_]*)\((.*)\)$/);
       if (!funcMatch) {
         return { type: s.replace(/[^a-zA-Z0-9_]/g, "") || "any" };
       }
       const typeName = funcMatch[1];
-      const argsStr = funcMatch[2];
+      const args = splitTopLevelArgs(funcMatch[2]);
       if (typeName === "array") {
-        const innerMatch = argsStr.match(/^([a-zA-Z_]+(?:\([^)]*\))?),\s*(\d+),\s*(\d+)$/);
-        if (innerMatch) {
-          const elementStr = innerMatch[1];
-          const elementParsed = parseStringGenerator(elementStr);
+        if (args.length >= 1) {
+          const elementParsed = parseStringGenerator(args[0]);
+          const maxLength = args.length >= 3 && !isNaN(Number(args[2])) ? Number(args[2]) : void 0;
           return {
             type: "array",
             constraints: {
               element: elementParsed.type,
-              maxLength: Number(innerMatch[3])
+              ...elementParsed.constraints ? { elementConstraints: elementParsed.constraints } : {},
+              ...maxLength !== void 0 ? { maxLength } : {}
             }
           };
         }
-        const simpleInner = argsStr.match(/^([a-zA-Z_]+(?:\([^)]*\))?)$/);
-        if (simpleInner) {
-          const elementParsed = parseStringGenerator(simpleInner[1]);
-          return { type: "array", constraints: { element: elementParsed.type } };
-        }
         return { type: "array" };
       }
-      const numArgs = argsStr.split(",").map((a) => a.trim()).filter(Boolean);
-      if (numArgs.length === 2 && !isNaN(Number(numArgs[0])) && !isNaN(Number(numArgs[1]))) {
-        return { type: typeName, constraints: { min: Number(numArgs[0]), max: Number(numArgs[1]) } };
+      if (args.length === 2 && !isNaN(Number(args[0])) && !isNaN(Number(args[1]))) {
+        return { type: typeName, constraints: { min: Number(args[0]), max: Number(args[1]) } };
       }
-      if (numArgs.length === 1 && !isNaN(Number(numArgs[0]))) {
-        return { type: typeName, constraints: { maxLength: Number(numArgs[0]) } };
+      if (args.length === 1 && !isNaN(Number(args[0]))) {
+        const value = Number(args[0]);
+        if (typeName === "string") {
+          return { type: typeName, constraints: { maxLength: value } };
+        }
+        if (typeName === "integer" || typeName === "float" || typeName === "number") {
+          return { type: typeName, constraints: { max: value } };
+        }
       }
       return { type: typeName };
+    }
+    function normalizeGeneratorObject(raw) {
+      const type = typeof raw.type === "string" ? raw.type : "any";
+      const constraints = raw.constraints && typeof raw.constraints === "object" ? { ...raw.constraints } : void 0;
+      if (type === "array" && constraints) {
+        const itemType = typeof constraints.itemType === "string" ? constraints.itemType : void 0;
+        const itemMin = typeof constraints.itemMin === "number" ? constraints.itemMin : void 0;
+        const itemMax = typeof constraints.itemMax === "number" ? constraints.itemMax : void 0;
+        const maxItems = typeof constraints.maxItems === "number" ? constraints.maxItems : void 0;
+        if (itemType && constraints.element === void 0) {
+          constraints.element = itemType;
+        }
+        if ((itemMin !== void 0 || itemMax !== void 0) && constraints.elementConstraints === void 0) {
+          constraints.elementConstraints = {
+            ...itemMin !== void 0 ? { min: itemMin } : {},
+            ...itemMax !== void 0 ? { max: itemMax } : {}
+          };
+        }
+        if (maxItems !== void 0 && constraints.maxLength === void 0) {
+          constraints.maxLength = maxItems;
+        }
+      }
+      return {
+        ...raw,
+        type,
+        ...constraints ? { constraints } : {}
+      };
     }
     function normalizeGenerators(raw) {
       if (!raw || typeof raw !== "object")
@@ -2544,6 +2618,8 @@ var require_response_parser = __commonJS({
       for (const [key, val] of Object.entries(raw)) {
         if (typeof val === "string") {
           result[key] = parseStringGenerator(val);
+        } else if (val && typeof val === "object") {
+          result[key] = normalizeGeneratorObject(val);
         } else {
           result[key] = val;
         }
@@ -3246,6 +3322,36 @@ var require_fc_codegen = __commonJS({
     exports2.generateFastCheckTest = generateFastCheckTest3;
     var common_1 = require_dist4();
     var path6 = __importStar(require("path"));
+    var JS_BUILTINS = /* @__PURE__ */ new Set([
+      "target",
+      "true",
+      "false",
+      "null",
+      "undefined",
+      "Math",
+      "Number",
+      "String",
+      "Array",
+      "JSON",
+      "Object",
+      "RegExp",
+      "Date",
+      "Error",
+      "TypeError",
+      "RangeError",
+      "Set",
+      "Map",
+      "NaN",
+      "Infinity",
+      "parseFloat",
+      "parseInt",
+      "isNaN",
+      "isFinite",
+      "encodeURIComponent",
+      "decodeURIComponent",
+      "console",
+      "globalThis"
+    ]);
     function toSafeComment(s) {
       return s.replace(/[\r\n\u2028\u2029]/g, " ").slice(0, 200);
     }
@@ -3281,7 +3387,16 @@ var require_fc_codegen = __commonJS({
         case "boolean":
           return "fc.boolean()";
         case "array": {
-          const element = c.element ? mapGenerator({ type: String(c.element).replace(/[^a-zA-Z0-9_]/g, "") }) : "fc.anything()";
+          const elementType = c.element ?? c.elementType;
+          const nestedConstraints = c.elementConstraints && typeof c.elementConstraints === "object" ? c.elementConstraints : {
+            ...c.elementMin !== void 0 ? { min: c.elementMin } : {},
+            ...c.elementMax !== void 0 ? { max: c.elementMax } : {},
+            ...c.elementMaxLength !== void 0 ? { maxLength: c.elementMaxLength } : {}
+          };
+          const element = elementType ? mapGenerator({
+            type: String(elementType).replace(/[^a-zA-Z0-9_]/g, ""),
+            ...Object.keys(nestedConstraints).length > 0 ? { constraints: nestedConstraints } : {}
+          }) : "fc.anything()";
           const maxLen = c.maxLength ? `, { maxLength: ${Number(c.maxLength)} }` : "";
           return `fc.array(${element}${maxLen})`;
         }
@@ -3290,6 +3405,49 @@ var require_fc_codegen = __commonJS({
         default:
           return "fc.anything()";
       }
+    }
+    function normalizeAssertionSyntax(assertion) {
+      let depth = 0;
+      let quote = null;
+      let escaped = false;
+      for (let i = 0; i < assertion.length; i++) {
+        const ch = assertion[i];
+        if (quote) {
+          if (escaped) {
+            escaped = false;
+            continue;
+          }
+          if (ch === "\\") {
+            escaped = true;
+            continue;
+          }
+          if (ch === quote) {
+            quote = null;
+          }
+          continue;
+        }
+        if (ch === "'" || ch === '"' || ch === "`") {
+          quote = ch;
+          continue;
+        }
+        if (ch === "(" || ch === "[" || ch === "{") {
+          depth++;
+          continue;
+        }
+        if (ch === ")" || ch === "]" || ch === "}") {
+          depth = Math.max(0, depth - 1);
+          continue;
+        }
+        if (depth === 0 && assertion.startsWith("implies", i) && /\s/.test(assertion[i - 1] ?? "") && /\s/.test(assertion[i + "implies".length] ?? "")) {
+          const left = assertion.slice(0, i).trim();
+          const right = assertion.slice(i + "implies".length).trim();
+          if (!left || !right) {
+            return assertion;
+          }
+          return `!(${normalizeAssertionSyntax(left)}) || (${normalizeAssertionSyntax(right)})`;
+        }
+      }
+      return assertion;
     }
     function generateFastCheckTest3(properties, targetFile, testDir, config) {
       const relativeImport = (0, common_1.toForwardSlash)(path6.relative(testDir, targetFile)).replace(/\.(ts|tsx|js|jsx)$/, "");
@@ -3324,38 +3482,8 @@ var require_fc_codegen = __commonJS({
         const generators = Object.entries(prop.generators);
         const arbNames = generators.map(([name]) => name);
         const arbExprs = generators.map(([, spec]) => mapGenerator(spec));
-        let assertion = prop.assertion.replace(/(.+?)\s+implies\s+(.+)/g, "!($1) || ($2)");
+        let assertion = normalizeAssertionSyntax(prop.assertion);
         assertion = assertion.replace(new RegExp(`(?<!\\.)\\b${funcName}\\(`, "g"), `target.${funcName}(`);
-        const JS_BUILTINS = /* @__PURE__ */ new Set([
-          "target",
-          "true",
-          "false",
-          "null",
-          "undefined",
-          "Math",
-          "Number",
-          "String",
-          "Array",
-          "JSON",
-          "Object",
-          "RegExp",
-          "Date",
-          "Error",
-          "TypeError",
-          "RangeError",
-          "Set",
-          "Map",
-          "NaN",
-          "Infinity",
-          "parseFloat",
-          "parseInt",
-          "isNaN",
-          "isFinite",
-          "encodeURIComponent",
-          "decodeURIComponent",
-          "console",
-          "globalThis"
-        ]);
         for (const varName of assertion.match(/\b[a-zA-Z_]\w*\b/g) ?? []) {
           if (varName !== funcName && !JS_BUILTINS.has(varName) && !arbNames.includes(varName) && !functionNames.includes(varName)) {
             assertion = assertion.replace(new RegExp(`(?<!\\.)\\b${varName}\\(`, "g"), `target.${varName}(`);

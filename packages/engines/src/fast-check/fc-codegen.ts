@@ -8,6 +8,16 @@ import type { PropertyDefinition, GeneratorSpec, RunConfig } from "@propcheck/co
 import { toForwardSlash } from "@propcheck/common";
 import * as path from "node:path";
 
+const JS_BUILTINS = new Set([
+  "target", "true", "false", "null", "undefined",
+  "Math", "Number", "String", "Array", "JSON", "Object", "RegExp",
+  "Date", "Error", "TypeError", "RangeError", "Set", "Map",
+  "NaN", "Infinity",
+  "parseFloat", "parseInt", "isNaN", "isFinite",
+  "encodeURIComponent", "decodeURIComponent",
+  "console", "globalThis",
+]);
+
 /** Strip newlines and limit length for safe embedding in code comments. */
 function toSafeComment(s: string): string {
   return s.replace(/[\r\n\u2028\u2029]/g, " ").slice(0, 200);
@@ -53,7 +63,21 @@ function mapGenerator(spec: GeneratorSpec): string {
       return "fc.boolean()";
 
     case "array": {
-      const element = c.element ? mapGenerator({ type: String(c.element).replace(/[^a-zA-Z0-9_]/g, "") }) : "fc.anything()";
+      const elementType = c.element ?? c.elementType;
+      const nestedConstraints = c.elementConstraints && typeof c.elementConstraints === "object"
+        ? (c.elementConstraints as Record<string, unknown>)
+        : {
+            ...(c.elementMin !== undefined ? { min: c.elementMin } : {}),
+            ...(c.elementMax !== undefined ? { max: c.elementMax } : {}),
+            ...(c.elementMaxLength !== undefined ? { maxLength: c.elementMaxLength } : {}),
+          };
+
+      const element = elementType
+        ? mapGenerator({
+            type: String(elementType).replace(/[^a-zA-Z0-9_]/g, ""),
+            ...(Object.keys(nestedConstraints).length > 0 ? { constraints: nestedConstraints } : {}),
+          })
+        : "fc.anything()";
       const maxLen = c.maxLength ? `, { maxLength: ${Number(c.maxLength)} }` : "";
       return `fc.array(${element}${maxLen})`;
     }
@@ -64,6 +88,70 @@ function mapGenerator(spec: GeneratorSpec): string {
     default:
       return "fc.anything()";
   }
+}
+
+/**
+ * Normalize logical implication syntax used by LLMs.
+ *
+ * Example: `A implies B` → `!(A) || (B)`
+ *
+ * Handles chained top-level implications recursively while ignoring occurrences
+ * inside quoted strings and nested parentheses.
+ */
+function normalizeAssertionSyntax(assertion: string): string {
+  let depth = 0;
+  let quote: "'" | '"' | "`" | null = null;
+  let escaped = false;
+
+  for (let i = 0; i < assertion.length; i++) {
+    const ch = assertion[i];
+
+    if (quote) {
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      if (ch === "\\") {
+        escaped = true;
+        continue;
+      }
+      if (ch === quote) {
+        quote = null;
+      }
+      continue;
+    }
+
+    if (ch === "'" || ch === '"' || ch === "`") {
+      quote = ch;
+      continue;
+    }
+
+    if (ch === "(" || ch === "[" || ch === "{") {
+      depth++;
+      continue;
+    }
+
+    if (ch === ")" || ch === "]" || ch === "}") {
+      depth = Math.max(0, depth - 1);
+      continue;
+    }
+
+    if (
+      depth === 0 &&
+      assertion.startsWith("implies", i) &&
+      /\s/.test(assertion[i - 1] ?? "") &&
+      /\s/.test(assertion[i + "implies".length] ?? "")
+    ) {
+      const left = assertion.slice(0, i).trim();
+      const right = assertion.slice(i + "implies".length).trim();
+      if (!left || !right) {
+        return assertion;
+      }
+      return `!(${normalizeAssertionSyntax(left)}) || (${normalizeAssertionSyntax(right)})`;
+    }
+  }
+
+  return assertion;
 }
 
 /**
@@ -124,11 +212,7 @@ export function generateFastCheckTest(
     const arbExprs = generators.map(([, spec]) => mapGenerator(spec));
 
     // Normalize non-JS patterns that real LLMs produce.
-    // "A implies B" → "!(A) || (B)"   (logical implication)
-    let assertion = prop.assertion.replace(
-      /(.+?)\s+implies\s+(.+)/g,
-      "!($1) || ($2)",
-    );
+    let assertion = normalizeAssertionSyntax(prop.assertion);
 
     // Replace bare function calls with target.funcName in assertion.
     // Use negative lookbehind to avoid replacing method calls like `.funcName(`.
@@ -143,16 +227,6 @@ export function generateFastCheckTest(
     //   - Generator parameter names (e.g. `price`, `discount`)
     //   - JS built-in globals (Math, Number, parseFloat, etc.)
     //   - Keywords (true, false, null, undefined)
-    const JS_BUILTINS = new Set([
-      "target", "true", "false", "null", "undefined",
-      "Math", "Number", "String", "Array", "JSON", "Object", "RegExp",
-      "Date", "Error", "TypeError", "RangeError", "Set", "Map",
-      "NaN", "Infinity",
-      "parseFloat", "parseInt", "isNaN", "isFinite",
-      "encodeURIComponent", "decodeURIComponent",
-      "console", "globalThis",
-    ]);
-
     for (const varName of assertion.match(/\b[a-zA-Z_]\w*\b/g) ?? []) {
       if (
         varName !== funcName &&

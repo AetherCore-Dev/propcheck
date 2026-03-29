@@ -58,6 +58,130 @@ describe("response-parser", () => {
     assert.equal(parseInferResponse(undefined, opts).length, 0);
     assert.equal(parseInferResponse("string", opts).length, 0);
   });
+
+  it("should normalize string-format generators from real LLMs", () => {
+    const raw = {
+      properties: [
+        {
+          targetFunction: "applyDiscount",
+          description: "Zero discount returns original price",
+          category: "boundary",
+          assertion: "applyDiscount(price, 0) === price",
+          generators: { price: "float(0, 10000)" },
+          seedInputs: [{ label: "normal", value: { price: 1 } }],
+          evidence: "formula preserves price at 0% discount",
+          confidence: 0.9,
+        },
+      ],
+    };
+
+    const result = parseInferResponse(raw, opts);
+    assert.equal(result.length, 1);
+    assert.deepEqual(result[0].generators, { price: { type: "float", constraints: { min: 0, max: 10000 } } });
+  });
+
+  it("should normalize nested array generator strings", () => {
+    const raw = {
+      properties: [
+        {
+          targetFunction: "calculateTotal",
+          description: "works for arrays",
+          category: "boundary",
+          assertion: "calculateTotal(prices) >= 0",
+          generators: { prices: "array(float(0, 1000), 0, 10)" },
+          seedInputs: [{ label: "normal", value: { prices: [1, 2, 3] } }],
+          evidence: "sum of non-negative values is non-negative",
+          confidence: 0.8,
+        },
+      ],
+    };
+
+    const result = parseInferResponse(raw, opts);
+    assert.equal(result.length, 1);
+    assert.deepEqual(result[0].generators, {
+      prices: {
+        type: "array",
+        constraints: {
+          element: "float",
+          elementConstraints: { min: 0, max: 1000 },
+          maxLength: 10,
+        },
+      },
+    });
+  });
+
+  it("should map single numeric argument generators by type", () => {
+    const raw = {
+      properties: [
+        {
+          targetFunction: "formatPrice",
+          description: "string max length",
+          category: "boundary",
+          assertion: "formatPrice(value).length <= 50",
+          generators: {
+            value: "float(100)",
+            label: "string(50)",
+          },
+          seedInputs: [{ label: "normal", value: { value: 10, label: "ok" } }],
+          evidence: "test generator parsing",
+          confidence: 0.8,
+        },
+      ],
+    };
+
+    const result = parseInferResponse(raw, opts);
+    assert.equal(result.length, 1);
+    assert.deepEqual(result[0].generators, {
+      value: { type: "float", constraints: { max: 100 } },
+      label: { type: "string", constraints: { maxLength: 50 } },
+    });
+  });
+
+  it("should normalize array generator objects from third-party providers", () => {
+    const raw = {
+      properties: [
+        {
+          targetFunction: "calculateTotal",
+          description: "sum of non-negative prices is non-negative",
+          category: "boundary",
+          assertion: "calculateTotal(prices) >= 0",
+          generators: {
+            prices: {
+              type: "array",
+              constraints: {
+                itemType: "float",
+                itemMin: 0,
+                itemMax: 100000,
+                minItems: 0,
+                maxItems: 100,
+              },
+            },
+          },
+          seedInputs: [{ label: "normal", value: { prices: [1, 2, 3] } }],
+          evidence: "sum of non-negative values is non-negative",
+          confidence: 0.9,
+        },
+      ],
+    };
+
+    const result = parseInferResponse(raw, opts);
+    assert.equal(result.length, 1);
+    assert.deepEqual(result[0].generators, {
+      prices: {
+        type: "array",
+        constraints: {
+          itemType: "float",
+          itemMin: 0,
+          itemMax: 100000,
+          minItems: 0,
+          maxItems: 100,
+          element: "float",
+          elementConstraints: { min: 0, max: 100000 },
+          maxLength: 100,
+        },
+      },
+    });
+  });
 });
 
 describe("scoring", () => {

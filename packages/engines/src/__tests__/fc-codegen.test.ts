@@ -97,7 +97,14 @@ describe("fc-codegen", () => {
         s: { type: "string" },
         b: { type: "boolean" },
         f: { type: "float", constraints: { min: 0, max: 1 } },
-        arr: { type: "array", constraints: { element: "integer", maxLength: 10 } },
+        arr: {
+          type: "array",
+          constraints: {
+            element: "integer",
+            elementConstraints: { min: 0, max: 10 },
+            maxLength: 10,
+          },
+        },
       },
     });
 
@@ -112,6 +119,7 @@ describe("fc-codegen", () => {
     assert.ok(result.content.includes("fc.boolean()"));
     assert.ok(result.content.includes("fc.double("));
     assert.ok(result.content.includes("fc.array("));
+    assert.ok(result.content.includes("fc.integer({ min: 0, max: 10 })"), "Should preserve nested array element constraints");
   });
 
   it("should respect seed in config", () => {
@@ -208,5 +216,73 @@ describe("fc-codegen", () => {
 
     assert.ok(result.content.includes("min: -50"), "Should preserve explicit min");
     assert.ok(result.content.includes("max: 50"), "Should preserve explicit max");
+  });
+
+  it("should normalize top-level implies syntax into valid JS", () => {
+    const prop = makeProp({
+      targetFunction: "applyDiscount",
+      assertion: "discount1 <= discount2 implies applyDiscount(price, discount1) >= applyDiscount(price, discount2)",
+      generators: {
+        price: { type: "float", constraints: { min: 0, max: 1000 } },
+        discount1: { type: "float", constraints: { min: 0, max: 100 } },
+        discount2: { type: "float", constraints: { min: 0, max: 100 } },
+      },
+    });
+
+    const result = generateFastCheckTest(
+      [prop],
+      "/project/src/cart.ts",
+      "/project/.propcheck/tests",
+      defaultConfig,
+    );
+
+    assert.ok(
+      result.content.includes("!(discount1 <= discount2) || (target.applyDiscount(price, discount1) >= target.applyDiscount(price, discount2))"),
+      "Should rewrite implies to JS implication",
+    );
+  });
+
+  it("should support alternate array constraint field names from providers", () => {
+    const prop = makeProp({
+      targetFunction: "calculateTotal",
+      assertion: "calculateTotal(prices) >= 0",
+      generators: {
+        prices: {
+          type: "array",
+          constraints: {
+            elementType: "float",
+            elementMin: 0,
+            elementMax: 100,
+            maxLength: 5,
+          },
+        },
+      },
+    });
+
+    const result = generateFastCheckTest(
+      [prop],
+      "/project/src/cart.ts",
+      "/project/.propcheck/tests",
+      defaultConfig,
+    );
+
+    assert.ok(result.content.includes("fc.array(fc.double({ min: 0, max: 100, noNaN: true, noDefaultInfinity: true }), { maxLength: 5 })"));
+  });
+
+  it("should not rewrite quoted implies occurrences", () => {
+    const prop = makeProp({
+      targetFunction: "formatLabel",
+      assertion: "formatLabel(label) === 'implies'",
+      generators: { label: { type: "string", constraints: { maxLength: 20 } } },
+    });
+
+    const result = generateFastCheckTest(
+      [prop],
+      "/project/src/labels.ts",
+      "/project/.propcheck/tests",
+      defaultConfig,
+    );
+
+    assert.ok(result.content.includes("target.formatLabel(label) === 'implies'"));
   });
 });

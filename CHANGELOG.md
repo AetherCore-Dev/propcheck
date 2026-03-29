@@ -22,10 +22,11 @@ All notable changes to propcheck are documented in this file.
 
 ### Changed
 - VHS demo.tape: added opening title card, increased font to 18px, taller window (700px), disabled cursor blink, suppressed Node.js warnings
+- README: embedded `demo.gif`, documented OpenAI-compatible `/v1` provider support, and updated config examples
 
 ### Next
 - `npm publish`
-- Real Anthropic API validation
+- Reduce remaining false positives from real LLM-generated floating-point / over-strong properties
 - Phase 2: self-repair (3-round), refinement loop, VS Code extension
 
 ## [0.1.0] - 2026-03-27

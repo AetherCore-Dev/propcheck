@@ -15,8 +15,9 @@ propcheck finds them.
 
 ---
 
-<!-- TODO: Replace with actual VHS-recorded GIF after running: vhs < demo.tape -->
-<!-- ![propcheck demo](demo.gif) -->
+![propcheck demo](demo.gif)
+
+> Demo uses `--mock` for a clean, deterministic recording. Real LLM inference is also validated against OpenAI-compatible `/v1` endpoints.
 
 ### Before: All Tests Pass
 
@@ -65,12 +66,25 @@ $ propcheck run examples/price-utils.ts
 
 The LLM is a **one-time cost**. After inference, properties persist in `.propcheck/properties.json`. Every CI run is free — pure deterministic fuzzing via [fast-check](https://github.com/dubzzz/fast-check) and [Hypothesis](https://hypothesis.readthedocs.io/).
 
+Supports both **Anthropic direct API** and **OpenAI-compatible `/v1` endpoints** (OpenRouter, one-api/new-api, custom proxy gateways).
+
 ## Quick Start
 
 ```bash
 npx propcheck init                                # Create .propcheck/ directory
-npx propcheck infer examples/price-utils.ts       # LLM infers properties (needs ANTHROPIC_API_KEY)
+npx propcheck infer examples/price-utils.ts       # LLM infers properties (needs PROPCHECK_API_KEY)
 npx propcheck run examples/price-utils.ts         # Run 1000 random inputs per property
+```
+
+Using an OpenAI-compatible `/v1` provider:
+
+```bash
+PROPCHECK_API_KEY=sk-... \
+  npx propcheck infer \
+  --provider openai-compatible \
+  --model claude-opus-4-6 \
+  --base-url https://your-proxy.example/v1 \
+  examples/price-utils.ts
 ```
 
 No API key? Try the demo:
@@ -92,8 +106,10 @@ npx propcheck infer --mock examples/price-utils.ts && npx propcheck run examples
 ## Features
 
 - **Multi-language** — TypeScript, JavaScript, Python (Rust/Go planned)
+- **Multi-provider LLM support** — Anthropic direct API or OpenAI-compatible `/v1` endpoints
 - **Zero-config CI** — `propcheck run --changed` only tests git-modified files
 - **Mutation testing** — `propcheck quality` measures how strong your properties are
+- **Real-world validated** — tested with real Claude Opus 4.6 inference through an OpenAI-compatible proxy
 - **Self-repair** — Auto-fixes generated test code that fails to compile *(coming soon)*
 - **Refinement loop** — `--refine` strengthens weak properties via iterative LLM feedback *(coming soon)*
 - **PR Bot** — Auto-comments propcheck results on every Pull Request *(coming soon)*
@@ -180,7 +196,9 @@ Generate: `npx propcheck badge`
 ```json
 // .propcheckrc
 {
+  "provider": "anthropic",
   "model": "claude-sonnet-4-20250514",
+  "baseURL": null,
   "maxPropertiesPerFunction": 5,
   "minScore": 10,
   "defaultMode": "default",
