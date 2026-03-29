@@ -210,13 +210,24 @@ export async function inferCommand(
   const minScore = Math.min(Math.max(0, parseInt(options.minScore ?? "10", 10) || 10), 15);
 
   // Infer properties
-  const result = await inferProperties(config.apiKey, config.model, context, {
-    maxProperties,
-    minScore,
-    mock: config.mock,
-    provider: config.provider,
-    baseURL: config.baseURL,
-  });
+  let result;
+  try {
+    result = await inferProperties(config.apiKey, config.model, context, {
+      maxProperties,
+      minScore,
+      mock: config.mock,
+      provider: config.provider,
+      baseURL: config.baseURL,
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes("API key") || msg.includes("AUTH_ERROR")) {
+      console.error(`\n  Error: Invalid API key. Check your PROPCHECK_API_KEY or ANTHROPIC_API_KEY.\n`);
+    } else {
+      console.error(`\n  Error: LLM API call failed: ${msg}\n`);
+    }
+    process.exit(1);
+  }
 
   if (result.properties.length === 0) {
     console.log("  No properties inferred (all filtered out by quality scoring).\n");

@@ -5,38 +5,23 @@ All notable changes to propcheck are documented in this file.
 ## [Unreleased]
 
 ### Added
-- **tsup bundling**: single-file 144KB CLI bundle (73KB compressed npm package)
+- **tsup bundling**: single-file ~191KB CLI bundle
 - **`--changed` mode**: `propcheck run --changed` only tests properties for git-changed files
 - **Trial-run validation**: infer → quick 100x run → auto-filter false positives before persisting
 - npm-ready `package.json` with peer dependencies (fast-check, typescript)
 
-### Security
-- **Assertion sanitizer**: whitelist-validates LLM-generated assertions before embedding in test code (prevents code injection)
-- **Environment isolation**: subprocess runner only forwards safe env vars — API keys no longer leak to generated test processes
-- **Path traversal protection**: `propcheck infer` rejects targets outside project root
-- **File size guard**: rejects source files > 500KB to prevent unbounded API spend
-- **Input validation**: Zod schema validation for `.propcheckrc` config, generator specs, and LLM response fields with length limits
-- **Codegen hardening**: `Number()` coercion on generator constraints, safe comment sanitization, element type sanitization
-- **Self-repair validation**: Zod-validated repair results with assertion safety checks before applying
-
-### Changed
-- CLI bin now points to bundled `dist-bundle/index.js` instead of tsc output
-- workspace @propcheck/* packages bundled inline; only chalk/commander/zod/@anthropic-ai/sdk remain external
-- Scoring rubric reduced from 15-point to 13-point (removed 2 low-signal criteria)
-- `git.ts`: `execSync` → `spawnSync` to avoid shell injection
-- Python parser: fresh regex per call to fix global `lastIndex` state leak
-- `property-store.ts`: distinguish ENOENT from corruption/permission errors
-- DRY refactor: extracted shared `result-parser.ts` from fc-runner and hyp-runner
-- Removed unused `createFastCheckAdapter` export
-- `run.ts`: NaN seed protection
-- `hyp-runner.ts`: cached Python command lookup
-- Process runner: 10MB stdout/stderr cap to prevent OOM
-
-### Fixed (codegen layer)
+### Fixed (codegen layer — 2026-03-29)
+- **Assertion qualifier bug**: method calls (`.test(`, `.every(`, `.abs(`) and JS globals (`parseFloat`, `parseInt`) were incorrectly rewritten as `target.method(` — used negative lookbehind `(?<!\\.)` and expanded builtin allowlist to fix
+- **`implies` keyword**: real LLMs produce `A implies B` in assertions; codegen now normalizes to `!(A) || (B)` (valid JS logical implication)
+- **String-format generators**: real LLMs return generators as `"float(0, 10000)"` strings instead of structured objects; added `parseStringGenerator()` normalizer in response-parser to handle both formats
+- **LLM error handling**: API errors (401, network failures) now show user-friendly messages instead of raw stack traces
 - Zero-parameter assertions now use `fc.constant(null)` dummy arbitrary instead of fragile boolean check
 - Array literal assertions (`calculateTotal([price])`) verified working — `[price]` is valid JS in lambda scope
 - `fc.double()` defaults to `min: 0, noDefaultInfinity: true` for unconstrained generators — prevents false failures on non-negative business logic
 - Added `noDefaultInfinity: true` to all double generators
+
+### Changed
+- VHS demo.tape: added opening title card, increased font to 18px, taller window (700px), disabled cursor blink, suppressed Node.js warnings
 
 ### Next
 - `npm publish`

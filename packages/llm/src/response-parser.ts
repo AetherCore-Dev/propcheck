@@ -42,6 +42,93 @@ const ResponseSchema = z.object({
   properties: z.array(RawPropertySchema),
 });
 
+/**
+ * Parse a string-format generator spec (e.g. "float(0, 10000)") into a
+ * structured GeneratorSpec object.
+ *
+ * Real LLMs often return generators as shorthand strings instead of the
+ * structured object format described in the tool schema.  This normalizer
+ * bridges the gap so both forms are accepted.
+ */
+function parseStringGenerator(s: string): { type: string; constraints?: Record<string, unknown> } {
+  // Match patterns like: float(0, 10000), integer(-100, 100), array(float(0, 1000), 0, 10), string(50)
+  const funcMatch = s.match(/^([a-zA-Z_]+)\((.*)\)$/);
+  if (!funcMatch) {
+    return { type: s.replace(/[^a-zA-Z0-9_]/g, "") || "any" };
+  }
+
+  const typeName = funcMatch[1];
+  const argsStr = funcMatch[2];
+
+  if (typeName === "array") {
+    // array(float(0, 1000), 0, 10) → element type + length constraints
+    const innerMatch = argsStr.match(/^([a-zA-Z_]+(?:\([^)]*\))?),\s*(\d+),\s*(\d+)$/);
+    if (innerMatch) {
+      const elementStr = innerMatch[1];
+      const elementParsed = parseStringGenerator(elementStr);
+      return {
+        type: "array",
+        constraints: {
+          element: elementParsed.type,
+          maxLength: Number(innerMatch[3]),
+        },
+      };
+    }
+    // array(float(0, 1000))
+    const simpleInner = argsStr.match(/^([a-zA-Z_]+(?:\([^)]*\))?)$/);
+    if (simpleInner) {
+      const elementParsed = parseStringGenerator(simpleInner[1]);
+      return { type: "array", constraints: { element: elementParsed.type } };
+    }
+    return { type: "array" };
+  }
+
+  // Simple: float(0, 10000) → { type: "float", constraints: { min: 0, max: 10000 } }
+  const numArgs = argsStr.split(",").map((a) => a.trim()).filter(Boolean);
+  if (numArgs.length === 2 && !isNaN(Number(numArgs[0])) && !isNaN(Number(numArgs[1]))) {
+    return { type: typeName, constraints: { min: Number(numArgs[0]), max: Number(numArgs[1]) } };
+  }
+  if (numArgs.length === 1 && !isNaN(Number(numArgs[0]))) {
+    return { type: typeName, constraints: { maxLength: Number(numArgs[0]) } };
+  }
+
+  return { type: typeName };
+}
+
+/**
+ * Normalize a raw property's generators field: convert string-format
+ * specs to structured objects so they pass Zod validation.
+ */
+function normalizeGenerators(raw: Record<string, unknown>): Record<string, unknown> {
+  if (!raw || typeof raw !== "object") return raw;
+  const result: Record<string, unknown> = {};
+  for (const [key, val] of Object.entries(raw)) {
+    if (typeof val === "string") {
+      result[key] = parseStringGenerator(val);
+    } else {
+      result[key] = val;
+    }
+  }
+  return result;
+}
+
+/**
+ * Pre-process a raw property item from the LLM before Zod validation.
+ * Handles format differences between what the tool schema requests and
+ * what real LLMs actually return.
+ */
+function normalizeRawProperty(item: unknown): unknown {
+  if (!item || typeof item !== "object") return item;
+  const obj = item as Record<string, unknown>;
+
+  // Normalize generators from string format to object format
+  if (obj.generators && typeof obj.generators === "object") {
+    obj.generators = normalizeGenerators(obj.generators as Record<string, unknown>);
+  }
+
+  return obj;
+}
+
 export interface ParseOptions {
   readonly sourceHash: string;
   readonly modelId: string;
@@ -81,7 +168,8 @@ function parsePropertyArray(
   let counter = 1;
 
   for (const item of items) {
-    const parsed = RawPropertySchema.safeParse(item);
+    const normalized = normalizeRawProperty(item);
+    const parsed = RawPropertySchema.safeParse(normalized);
     if (!parsed.success) {
       continue; // Skip malformed entries
     }

@@ -123,43 +123,47 @@ export function generateFastCheckTest(
     const arbNames = generators.map(([name]) => name);
     const arbExprs = generators.map(([, spec]) => mapGenerator(spec));
 
-    // Replace bare function calls with target.funcName in assertion.
-    // Also replace calls to any other imported function names from the target module.
+    // Normalize non-JS patterns that real LLMs produce.
+    // "A implies B" → "!(A) || (B)"   (logical implication)
     let assertion = prop.assertion.replace(
-      new RegExp(`\\b${funcName}\\(`, "g"),
+      /(.+?)\s+implies\s+(.+)/g,
+      "!($1) || ($2)",
+    );
+
+    // Replace bare function calls with target.funcName in assertion.
+    // Use negative lookbehind to avoid replacing method calls like `.funcName(`.
+    assertion = assertion.replace(
+      new RegExp(`(?<!\\.)\\b${funcName}\\(`, "g"),
       `target.${funcName}(`,
     );
 
-    // Rewrite array-literal arguments that embed generator parameter names.
-    // e.g. "calculateTotal([price])" → build the array in the predicate body.
-    // We detect patterns like funcName([paramName, ...]) and leave them as-is
-    // since JavaScript `[paramName]` inside a lambda is valid — the parameter
-    // names from fc.property destructuring are in scope.  No rewrite needed
-    // for correctness, but we ensure all referenced names actually exist as
-    // generator parameters to catch LLM hallucinated variable names.
+    // Qualify bare function calls from the target module with `target.`.
+    // We must NOT qualify:
+    //   - Method calls (e.g. `.test(`, `.every(`, `.abs(`)
+    //   - Generator parameter names (e.g. `price`, `discount`)
+    //   - JS built-in globals (Math, Number, parseFloat, etc.)
+    //   - Keywords (true, false, null, undefined)
+    const JS_BUILTINS = new Set([
+      "target", "true", "false", "null", "undefined",
+      "Math", "Number", "String", "Array", "JSON", "Object", "RegExp",
+      "Date", "Error", "TypeError", "RangeError", "Set", "Map",
+      "NaN", "Infinity",
+      "parseFloat", "parseInt", "isNaN", "isFinite",
+      "encodeURIComponent", "decodeURIComponent",
+      "console", "globalThis",
+    ]);
+
     for (const varName of assertion.match(/\b[a-zA-Z_]\w*\b/g) ?? []) {
       if (
         varName !== funcName &&
-        varName !== "target" &&
-        varName !== "true" &&
-        varName !== "false" &&
-        varName !== "null" &&
-        varName !== "undefined" &&
-        varName !== "Math" &&
-        varName !== "Number" &&
-        varName !== "String" &&
-        varName !== "Array" &&
-        varName !== "JSON" &&
-        varName !== "Object" &&
-        varName !== "NaN" &&
-        varName !== "Infinity" &&
+        !JS_BUILTINS.has(varName) &&
         !arbNames.includes(varName) &&
         !functionNames.includes(varName)
       ) {
-        // Unknown variable in assertion — likely references another function
-        // from the target module.  Qualify with target.
+        // Only qualify standalone function calls — NOT method calls preceded by `.`
+        // Use negative lookbehind (?<!\.) to skip `.method(` patterns.
         assertion = assertion.replace(
-          new RegExp(`\\b${varName}\\(`, "g"),
+          new RegExp(`(?<!\\.)\\b${varName}\\(`, "g"),
           `target.${varName}(`,
         );
       }

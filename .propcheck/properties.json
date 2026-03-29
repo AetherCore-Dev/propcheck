@@ -444,7 +444,7 @@
           "confidence": 0.92,
           "evidence": "@param discount - Discount percentage (0-100); prices should not go negative",
           "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
-          "inferredAt": "2026-03-28T06:38:52.058Z",
+          "inferredAt": "2026-03-29T05:17:41.496Z",
           "modelId": "claude-opus-4-20250514-mock"
         },
         {
@@ -496,7 +496,7 @@
           "confidence": 0.88,
           "evidence": "Discount reduces price; @param discount - Discount percentage (0-100)",
           "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
-          "inferredAt": "2026-03-28T06:38:52.059Z",
+          "inferredAt": "2026-03-29T05:17:41.497Z",
           "modelId": "claude-opus-4-20250514-mock"
         },
         {
@@ -538,7 +538,7 @@
           "confidence": 0.98,
           "evidence": "Zero discount means no change to price",
           "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
-          "inferredAt": "2026-03-28T06:38:52.059Z",
+          "inferredAt": "2026-03-29T05:17:41.497Z",
           "modelId": "claude-opus-4-20250514-mock"
         },
         {
@@ -580,7 +580,7 @@
           "confidence": 0.95,
           "evidence": "100% discount = free; price * (1 - 100/100) = 0",
           "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
-          "inferredAt": "2026-03-28T06:38:52.059Z",
+          "inferredAt": "2026-03-29T05:17:41.497Z",
           "modelId": "claude-opus-4-20250514-mock"
         },
         {
@@ -600,7 +600,7 @@
           "confidence": 0.95,
           "evidence": "@param prices - Array of item prices; empty cart costs nothing",
           "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
-          "inferredAt": "2026-03-28T06:38:52.059Z",
+          "inferredAt": "2026-03-29T05:17:41.497Z",
           "modelId": "claude-opus-4-20250514-mock"
         },
         {
@@ -642,7 +642,7 @@
           "confidence": 0.97,
           "evidence": "Single item total = the item itself",
           "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
-          "inferredAt": "2026-03-28T06:38:52.060Z",
+          "inferredAt": "2026-03-29T05:17:41.497Z",
           "modelId": "claude-opus-4-20250514-mock"
         },
         {
@@ -690,7 +690,7 @@
           "confidence": 0.85,
           "evidence": "@returns Total sum; sum of non-negative numbers is non-negative",
           "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
-          "inferredAt": "2026-03-28T06:38:52.060Z",
+          "inferredAt": "2026-03-29T05:17:41.497Z",
           "modelId": "claude-opus-4-20250514-mock"
         },
         {
@@ -732,7 +732,7 @@
           "confidence": 0.93,
           "evidence": "@returns Formatted string like \"99.99\"; toFixed(2) always gives 2 decimals",
           "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
-          "inferredAt": "2026-03-28T06:38:52.060Z",
+          "inferredAt": "2026-03-29T05:17:41.497Z",
           "modelId": "claude-opus-4-20250514-mock"
         },
         {
@@ -774,12 +774,12 @@
           "confidence": 0.8,
           "evidence": "Formatted price should round-trip within rounding tolerance",
           "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
-          "inferredAt": "2026-03-28T06:38:52.060Z",
+          "inferredAt": "2026-03-29T05:17:41.497Z",
           "modelId": "claude-opus-4-20250514-mock"
         }
       ],
       "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
-      "inferredAt": "2026-03-28T06:38:52.265Z"
+      "inferredAt": "2026-03-29T05:17:41.584Z"
     }
   }
 }

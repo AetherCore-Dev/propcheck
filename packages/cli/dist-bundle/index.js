@@ -2501,6 +2501,64 @@ var require_response_parser = __commonJS({
     var ResponseSchema = zod_1.z.object({
       properties: zod_1.z.array(RawPropertySchema)
     });
+    function parseStringGenerator(s) {
+      const funcMatch = s.match(/^([a-zA-Z_]+)\((.*)\)$/);
+      if (!funcMatch) {
+        return { type: s.replace(/[^a-zA-Z0-9_]/g, "") || "any" };
+      }
+      const typeName = funcMatch[1];
+      const argsStr = funcMatch[2];
+      if (typeName === "array") {
+        const innerMatch = argsStr.match(/^([a-zA-Z_]+(?:\([^)]*\))?),\s*(\d+),\s*(\d+)$/);
+        if (innerMatch) {
+          const elementStr = innerMatch[1];
+          const elementParsed = parseStringGenerator(elementStr);
+          return {
+            type: "array",
+            constraints: {
+              element: elementParsed.type,
+              maxLength: Number(innerMatch[3])
+            }
+          };
+        }
+        const simpleInner = argsStr.match(/^([a-zA-Z_]+(?:\([^)]*\))?)$/);
+        if (simpleInner) {
+          const elementParsed = parseStringGenerator(simpleInner[1]);
+          return { type: "array", constraints: { element: elementParsed.type } };
+        }
+        return { type: "array" };
+      }
+      const numArgs = argsStr.split(",").map((a) => a.trim()).filter(Boolean);
+      if (numArgs.length === 2 && !isNaN(Number(numArgs[0])) && !isNaN(Number(numArgs[1]))) {
+        return { type: typeName, constraints: { min: Number(numArgs[0]), max: Number(numArgs[1]) } };
+      }
+      if (numArgs.length === 1 && !isNaN(Number(numArgs[0]))) {
+        return { type: typeName, constraints: { maxLength: Number(numArgs[0]) } };
+      }
+      return { type: typeName };
+    }
+    function normalizeGenerators(raw) {
+      if (!raw || typeof raw !== "object")
+        return raw;
+      const result = {};
+      for (const [key, val] of Object.entries(raw)) {
+        if (typeof val === "string") {
+          result[key] = parseStringGenerator(val);
+        } else {
+          result[key] = val;
+        }
+      }
+      return result;
+    }
+    function normalizeRawProperty(item) {
+      if (!item || typeof item !== "object")
+        return item;
+      const obj = item;
+      if (obj.generators && typeof obj.generators === "object") {
+        obj.generators = normalizeGenerators(obj.generators);
+      }
+      return obj;
+    }
     function parseInferResponse(raw, options) {
       if (!raw || typeof raw !== "object") {
         return [];
@@ -2519,7 +2577,8 @@ var require_response_parser = __commonJS({
       const results = [];
       let counter = 1;
       for (const item of items) {
-        const parsed = RawPropertySchema.safeParse(item);
+        const normalized = normalizeRawProperty(item);
+        const parsed = RawPropertySchema.safeParse(normalized);
         if (!parsed.success) {
           continue;
         }
@@ -3265,10 +3324,41 @@ var require_fc_codegen = __commonJS({
         const generators = Object.entries(prop.generators);
         const arbNames = generators.map(([name]) => name);
         const arbExprs = generators.map(([, spec]) => mapGenerator(spec));
-        let assertion = prop.assertion.replace(new RegExp(`\\b${funcName}\\(`, "g"), `target.${funcName}(`);
+        let assertion = prop.assertion.replace(/(.+?)\s+implies\s+(.+)/g, "!($1) || ($2)");
+        assertion = assertion.replace(new RegExp(`(?<!\\.)\\b${funcName}\\(`, "g"), `target.${funcName}(`);
+        const JS_BUILTINS = /* @__PURE__ */ new Set([
+          "target",
+          "true",
+          "false",
+          "null",
+          "undefined",
+          "Math",
+          "Number",
+          "String",
+          "Array",
+          "JSON",
+          "Object",
+          "RegExp",
+          "Date",
+          "Error",
+          "TypeError",
+          "RangeError",
+          "Set",
+          "Map",
+          "NaN",
+          "Infinity",
+          "parseFloat",
+          "parseInt",
+          "isNaN",
+          "isFinite",
+          "encodeURIComponent",
+          "decodeURIComponent",
+          "console",
+          "globalThis"
+        ]);
         for (const varName of assertion.match(/\b[a-zA-Z_]\w*\b/g) ?? []) {
-          if (varName !== funcName && varName !== "target" && varName !== "true" && varName !== "false" && varName !== "null" && varName !== "undefined" && varName !== "Math" && varName !== "Number" && varName !== "String" && varName !== "Array" && varName !== "JSON" && varName !== "Object" && varName !== "NaN" && varName !== "Infinity" && !arbNames.includes(varName) && !functionNames.includes(varName)) {
-            assertion = assertion.replace(new RegExp(`\\b${varName}\\(`, "g"), `target.${varName}(`);
+          if (varName !== funcName && !JS_BUILTINS.has(varName) && !arbNames.includes(varName) && !functionNames.includes(varName)) {
+            assertion = assertion.replace(new RegExp(`(?<!\\.)\\b${varName}\\(`, "g"), `target.${varName}(`);
           }
         }
         lines.push(`// ${prop.id}: ${toSafeComment(prop.description)}`);
@@ -4452,13 +4542,28 @@ async function inferCommand(target, options) {
   Analyzing ${context.functions.length} functions in ${target}...`);
   const maxProperties = Math.min(Math.max(1, parseInt(options.maxProperties ?? "5", 10) || 5), 20);
   const minScore = Math.min(Math.max(0, parseInt(options.minScore ?? "10", 10) || 10), 15);
-  const result = await (0, import_llm.inferProperties)(config.apiKey, config.model, context, {
-    maxProperties,
-    minScore,
-    mock: config.mock,
-    provider: config.provider,
-    baseURL: config.baseURL
-  });
+  let result;
+  try {
+    result = await (0, import_llm.inferProperties)(config.apiKey, config.model, context, {
+      maxProperties,
+      minScore,
+      mock: config.mock,
+      provider: config.provider,
+      baseURL: config.baseURL
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes("API key") || msg.includes("AUTH_ERROR")) {
+      console.error(`
+  Error: Invalid API key. Check your PROPCHECK_API_KEY or ANTHROPIC_API_KEY.
+`);
+    } else {
+      console.error(`
+  Error: LLM API call failed: ${msg}
+`);
+    }
+    process.exit(1);
+  }
   if (result.properties.length === 0) {
     console.log("  No properties inferred (all filtered out by quality scoring).\n");
     return;

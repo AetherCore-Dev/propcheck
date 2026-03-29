@@ -12,23 +12,32 @@ AI-powered Property-Based Testing CLI. LLM infers code properties → determinis
 - Bundler: tsup (~180KB single-file bundle)
 - Test runner: Node.js `--experimental-strip-types` for direct .ts import
 
-## Project Status (2026-03-28)
-**Phase 1 MVP: COMPLETE + npm-ready** — 63 files, ~6,500 lines, 54 tests all passing.
+## Project Status (2026-03-29)
+**Phase 1 MVP: COMPLETE + Real LLM Validated** — 63 files, ~6,800 lines, 54 tests all passing.
 
 ### What's Done
-- Full CLI: `init`, `infer`, `run`, `badge` commands
+- Full CLI: `init`, `infer`, `run`, `badge`, `quality` commands
 - Trial-run validation: infer → quick 100x run → filter false positives
 - `--changed` mode: git diff → only test changed files
 - `--quick` / `--thorough` / `--seed` / `--json` flags
-- tsup bundling: ~180KB single-file bundle
+- tsup bundling: ~191KB single-file bundle
 - Multi-language: TypeScript/JavaScript (fast-check) + Python (Hypothesis)
+- Multi-provider: Anthropic direct API + OpenAI-compatible (OpenRouter, one-api, etc.)
 - GitHub Action (composite action in .github/actions/propcheck/)
 - CI workflow (3 platforms × 3 Node versions)
 - Security hardening: assertion sanitizer, subprocess env isolation, path traversal protection, Zod config validation
 - Mutation testing: `propcheck quality` command scaffolded
 - GitHub repo: pushed to AetherCore-Dev/propcheck
 
-### Validation Results (Opus-quality mock)
+### Real LLM Validation Results (2026-03-29, Claude Opus 4.6 via OpenAI-compatible proxy)
+- 3 functions in price-utils.ts → 14 high-quality properties inferred in single pass
+- Property categories: boundary, monotonic, equivalence, metamorphic, cross-function, idempotent
+- All 14 properties passed trial-run validation (100 iterations each)
+- Run results: 12 passed, 2 failed (floating-point precision edge cases in cross-function properties)
+- Real bug detected: discount > 100% produces negative prices
+- Token usage: ~5,600 tokens, ~$0.06 per file
+
+### Mock Validation Results
 - 12 functions tested across 4 fixtures (TS + Python)
 - 9 properties per file, all meaningful (0 tautologies)
 - 0% false positives on correct code
@@ -37,8 +46,7 @@ AI-powered Property-Based Testing CLI. LLM infers code properties → determinis
 
 ### What's NOT Done (Phase 2)
 - npm publish (package ready, needs `npm publish` from cli/)
-- Real Anthropic API validation (mock covers quality, real API untested)
-- Self-repair (3-round compile-error fix loop — code scaffolded, needs real LLM validation)
+- Self-repair with real LLM (code scaffolded, mock validated)
 - Refinement loop (FUEL-style: infer → run → analyze → re-infer)
 - PR Comment Bot (auto-comment propcheck results on PRs)
 - VS Code extension
@@ -70,6 +78,13 @@ node packages/cli/dist/index.js run --quick <file>
 node packages/cli/dist/index.js run --json <file>
 node packages/cli/dist/index.js badge
 
+# Real LLM inference (OpenAI-compatible provider)
+PROPCHECK_API_KEY=sk-xxx node packages/cli/dist/index.js infer \
+  --provider openai-compatible \
+  --model claude-opus-4-6 \
+  --base-url https://your-proxy.com/v1 \
+  <file>
+
 # CLI (bundled — same commands via dist-bundle)
 node packages/cli/dist-bundle/index.js --help
 
@@ -78,13 +93,13 @@ for pkg in parser store llm engines; do
   cd packages/$pkg && node --test dist/**/*.test.js && cd ../..
 done
 
+# Record demo GIF
+vhs < demo.tape
+
 # npm publish (when ready)
 cd packages/cli && npm publish
 ```
 
 ## Next Priority
 1. `cd packages/cli && npm publish`
-2. Real Anthropic API test with ANTHROPIC_API_KEY
-3. Phase 2: self-repair (real LLM validation), refinement loop, PR Bot, VS Code extension
-
-See research: `../ai-code-trust-research/plans/propcheck-blueprint.md`
+2. Phase 2: self-repair (real LLM validation), refinement loop, PR Bot, VS Code extension
