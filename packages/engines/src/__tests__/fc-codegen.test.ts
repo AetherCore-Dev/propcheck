@@ -285,4 +285,38 @@ describe("fc-codegen", () => {
 
     assert.ok(result.content.includes("target.formatLabel(label) === 'implies'"));
   });
+
+  it("should handle real provider array constraints with direct min/max keys", () => {
+    // Real providers (Claude via OpenAI-compatible gateway) return:
+    //   { elementType: "float", min: 0, max: 10000, maxLength: 50 }
+    // instead of { elementConstraints: { min, max } }
+    const prop = makeProp({
+      targetFunction: "calculateTotal",
+      assertion: "calculateTotal(prices) >= 0",
+      generators: {
+        prices: {
+          type: "array",
+          constraints: {
+            elementType: "float",
+            min: 0,
+            max: 10000,
+            maxLength: 50,
+          },
+        },
+      },
+    });
+
+    const result = generateFastCheckTest(
+      [prop],
+      "/project/src/cart.ts",
+      "/project/.propcheck/tests",
+      defaultConfig,
+    );
+
+    // Must NOT fall back to fc.anything() — should use constrained double
+    assert.ok(
+      result.content.includes("fc.array(fc.double({ min: 0, max: 10000, noNaN: true, noDefaultInfinity: true }), { maxLength: 50 })"),
+      "Should use direct min/max from array constraints as element constraints",
+    );
+  });
 });

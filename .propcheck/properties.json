@@ -398,7 +398,7 @@
         {
           "id": "prop_001",
           "targetFunction": "applyDiscount",
-          "description": "A 0% discount returns the original price unchanged",
+          "description": "Zero discount returns the original price unchanged",
           "category": "boundary",
           "assertion": "applyDiscount(price, 0) === price",
           "generators": {
@@ -429,7 +429,7 @@
               "label": "extreme",
               "value": {
                 "discount": 0,
-                "price": 99999.99
+                "price": 999999.99
               }
             }
           ],
@@ -437,13 +437,13 @@
           "confidence": 1,
           "evidence": "applyDiscount returns price * (1 - discount / 100). When discount=0, this is price * 1 = price.",
           "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
-          "inferredAt": "2026-03-29T08:34:17.574Z",
+          "inferredAt": "2026-03-29T09:02:43.114Z",
           "modelId": "claude-opus-4-6"
         },
         {
           "id": "prop_002",
           "targetFunction": "applyDiscount",
-          "description": "A 100% discount returns 0",
+          "description": "100% discount returns zero",
           "category": "boundary",
           "assertion": "applyDiscount(price, 100) === 0",
           "generators": {
@@ -474,7 +474,7 @@
               "label": "extreme",
               "value": {
                 "discount": 100,
-                "price": 99999.99
+                "price": 999999.99
               }
             }
           ],
@@ -482,7 +482,7 @@
           "confidence": 1,
           "evidence": "applyDiscount returns price * (1 - 100/100) = price * 0 = 0.",
           "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
-          "inferredAt": "2026-03-29T08:34:17.575Z",
+          "inferredAt": "2026-03-29T09:02:43.115Z",
           "modelId": "claude-opus-4-6"
         },
         {
@@ -534,7 +534,7 @@
           "confidence": 1,
           "evidence": "For price >= 0 and 0 <= discount <= 100, the factor (1 - discount/100) is in [0, 1], so result is in [0, price].",
           "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
-          "inferredAt": "2026-03-29T08:34:17.575Z",
+          "inferredAt": "2026-03-29T09:02:43.115Z",
           "modelId": "claude-opus-4-6"
         },
         {
@@ -579,16 +579,16 @@
               "label": "boundary",
               "value": {
                 "discount1": 0,
-                "discount2": 100,
+                "discount2": 0,
                 "price": 50
               }
             },
             {
               "label": "extreme",
               "value": {
-                "discount1": 49.99,
-                "discount2": 50.01,
-                "price": 99999.99
+                "discount1": 0,
+                "discount2": 100,
+                "price": 99999
               }
             }
           ],
@@ -596,13 +596,13 @@
           "confidence": 1,
           "evidence": "applyDiscount = price * (1 - discount/100). Since price >= 0, increasing discount decreases the result.",
           "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
-          "inferredAt": "2026-03-29T08:34:17.576Z",
+          "inferredAt": "2026-03-29T09:02:43.115Z",
           "modelId": "claude-opus-4-6"
         },
         {
           "id": "prop_005",
           "targetFunction": "applyDiscount",
-          "description": "Applying discount is equivalent to subtracting the discount amount from the price",
+          "description": "Discount is linear: applying discount d to price p equals p - p*d/100",
           "category": "equivalence",
           "assertion": "Math.abs(applyDiscount(price, discount) - (price - price * discount / 100)) < 1e-10",
           "generators": {
@@ -626,13 +626,13 @@
               "label": "normal",
               "value": {
                 "discount": 15,
-                "price": 200
+                "price": 79.99
               }
             },
             {
               "label": "boundary",
               "value": {
-                "discount": 0,
+                "discount": 50,
                 "price": 0
               }
             },
@@ -640,21 +640,21 @@
               "label": "extreme",
               "value": {
                 "discount": 99.99,
-                "price": 99999.99
+                "price": 100000
               }
             }
           ],
           "score": 13,
           "confidence": 1,
-          "evidence": "price * (1 - discount/100) is algebraically equal to price - price * discount / 100.",
+          "evidence": "price * (1 - discount/100) is algebraically equivalent to price - price * discount / 100.",
           "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
-          "inferredAt": "2026-03-29T08:34:17.576Z",
+          "inferredAt": "2026-03-29T09:02:43.115Z",
           "modelId": "claude-opus-4-6"
         },
         {
           "id": "prop_006",
           "targetFunction": "calculateTotal",
-          "description": "Total of an empty array is 0",
+          "description": "Total of an empty array is zero",
           "category": "boundary",
           "assertion": "calculateTotal([]) === 0",
           "generators": {},
@@ -670,7 +670,7 @@
           "confidence": 1,
           "evidence": "reduce with initial value 0 on an empty array returns 0.",
           "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
-          "inferredAt": "2026-03-29T08:34:17.576Z",
+          "inferredAt": "2026-03-29T09:02:43.115Z",
           "modelId": "claude-opus-4-6"
         },
         {
@@ -704,21 +704,21 @@
             {
               "label": "extreme",
               "value": {
-                "price": 99999.99
+                "price": 999999.99
               }
             }
           ],
           "score": 13,
           "confidence": 1,
-          "evidence": "reduce on a single-element array with initial 0 returns 0 + element = element.",
+          "evidence": "reduce over a single element with initial 0 returns 0 + element = element.",
           "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
-          "inferredAt": "2026-03-29T08:34:17.576Z",
+          "inferredAt": "2026-03-29T09:02:43.115Z",
           "modelId": "claude-opus-4-6"
         },
         {
           "id": "prop_008",
           "targetFunction": "calculateTotal",
-          "description": "Concatenating two arrays gives a total equal to the sum of their individual totals",
+          "description": "Concatenating two arrays gives a total equal to the sum of their individual totals (conservation/additivity)",
           "category": "conservation",
           "assertion": "Math.abs(calculateTotal(a.concat(b)) - (calculateTotal(a) + calculateTotal(b))) < 1e-6",
           "generators": {
@@ -770,11 +770,13 @@
               "label": "extreme",
               "value": {
                 "a": [
-                  99999.99,
-                  99999.99
+                  99999,
+                  99999,
+                  99999
                 ],
                 "b": [
-                  99999.99
+                  99999,
+                  99999
                 ]
               }
             }
@@ -783,13 +785,13 @@
           "confidence": 0.95,
           "evidence": "Sum is additive: sum(a ++ b) = sum(a) + sum(b). The reduce-based implementation preserves this.",
           "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
-          "inferredAt": "2026-03-29T08:34:17.576Z",
+          "inferredAt": "2026-03-29T09:02:43.115Z",
           "modelId": "claude-opus-4-6"
         },
         {
           "id": "prop_009",
           "targetFunction": "calculateTotal",
-          "description": "Order of prices does not affect the total (commutativity of addition)",
+          "description": "Order of items does not affect the total (commutativity of addition)",
           "category": "metamorphic",
           "assertion": "Math.abs(calculateTotal(prices) - calculateTotal([...prices].reverse())) < 1e-6",
           "generators": {
@@ -828,18 +830,17 @@
                   0.01,
                   0.01,
                   0.01,
-                  0.01,
-                  0.01,
-                  99999.99
+                  99999.99,
+                  0.01
                 ]
               }
             }
           ],
           "score": 13,
           "confidence": 0.95,
-          "evidence": "Addition is commutative, so reversing the array should yield the same sum (within floating-point tolerance).",
+          "evidence": "Addition is commutative, so reversing the array should not change the sum.",
           "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
-          "inferredAt": "2026-03-29T08:34:17.576Z",
+          "inferredAt": "2026-03-29T09:02:43.115Z",
           "modelId": "claude-opus-4-6"
         },
         {
@@ -853,7 +854,7 @@
               "type": "array",
               "constraints": {
                 "min": 0,
-                "max": 10000,
+                "max": 100000,
                 "maxLength": 50,
                 "elementType": "float",
                 "minLength": 0
@@ -885,18 +886,18 @@
               "label": "extreme",
               "value": {
                 "prices": [
-                  99999.99,
-                  99999.99,
-                  99999.99
+                  100000,
+                  100000,
+                  100000
                 ]
               }
             }
           ],
           "score": 13,
           "confidence": 1,
-          "evidence": "Sum of non-negative numbers is non-negative. reduce starts at 0 and adds non-negative values.",
+          "evidence": "Sum of non-negative numbers is non-negative. Doc says prices are item prices (non-negative).",
           "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
-          "inferredAt": "2026-03-29T08:34:17.576Z",
+          "inferredAt": "2026-03-29T09:02:43.115Z",
           "modelId": "claude-opus-4-6"
         },
         {
@@ -909,8 +910,8 @@
             "price": {
               "type": "float",
               "constraints": {
-                "min": -100000,
-                "max": 100000
+                "min": 0,
+                "max": 1000000
               }
             }
           },
@@ -930,7 +931,7 @@
             {
               "label": "extreme",
               "value": {
-                "price": 99999
+                "price": 999999.999
               }
             }
           ],
@@ -938,7 +939,7 @@
           "confidence": 1,
           "evidence": "toFixed(2) always produces a string with exactly 2 decimal places, which includes exactly one '.' character.",
           "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
-          "inferredAt": "2026-03-29T08:34:17.576Z",
+          "inferredAt": "2026-03-29T09:02:43.115Z",
           "modelId": "claude-opus-4-6"
         },
         {
@@ -951,8 +952,8 @@
             "price": {
               "type": "float",
               "constraints": {
-                "min": -100000,
-                "max": 100000
+                "min": 0,
+                "max": 1000000
               }
             }
           },
@@ -972,7 +973,7 @@
             {
               "label": "extreme",
               "value": {
-                "price": 100000
+                "price": 123456.789
               }
             }
           ],
@@ -980,21 +981,21 @@
           "confidence": 1,
           "evidence": "toFixed(2) guarantees exactly 2 decimal digits in the output string.",
           "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
-          "inferredAt": "2026-03-29T08:34:17.576Z",
+          "inferredAt": "2026-03-29T09:02:43.115Z",
           "modelId": "claude-opus-4-6"
         },
         {
           "id": "prop_013",
           "targetFunction": "formatPrice",
-          "description": "Parsing the formatted string back yields a value within 0.005 of the original",
+          "description": "Parsing the formatted string back yields a value within 0.005 of the original (roundtrip within rounding tolerance)",
           "category": "roundtrip",
           "assertion": "Math.abs(parseFloat(formatPrice(price)) - price) < 0.005 + 1e-10",
           "generators": {
             "price": {
               "type": "float",
               "constraints": {
-                "min": -100000,
-                "max": 100000
+                "min": 0,
+                "max": 1000000
               }
             }
           },
@@ -1014,29 +1015,29 @@
             {
               "label": "extreme",
               "value": {
-                "price": 99999.999
+                "price": 999999.999
               }
             }
           ],
           "score": 13,
-          "confidence": 0.95,
-          "evidence": "toFixed(2) rounds to 2 decimal places, so the maximum rounding error is < 0.005. parseFloat recovers the rounded value.",
+          "confidence": 0.98,
+          "evidence": "toFixed(2) rounds to 2 decimal places, so parseFloat(formatPrice(x)) is within 0.005 of x.",
           "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
-          "inferredAt": "2026-03-29T08:34:17.576Z",
+          "inferredAt": "2026-03-29T09:02:43.115Z",
           "modelId": "claude-opus-4-6"
         },
         {
           "id": "prop_014",
           "targetFunction": "formatPrice",
-          "description": "Formatting is idempotent: formatting the parsed result again yields the same string",
+          "description": "Formatting is idempotent: formatting the parsed result of a formatted price gives the same string",
           "category": "idempotent",
           "assertion": "formatPrice(parseFloat(formatPrice(price))) === formatPrice(price)",
           "generators": {
             "price": {
               "type": "float",
               "constraints": {
-                "min": -100000,
-                "max": 100000
+                "min": 0,
+                "max": 1000000
               }
             }
           },
@@ -1044,7 +1045,7 @@
             {
               "label": "normal",
               "value": {
-                "price": 49.99
+                "price": 49.995
               }
             },
             {
@@ -1056,29 +1057,29 @@
             {
               "label": "extreme",
               "value": {
-                "price": 99999.995
+                "price": 999999.999
               }
             }
           ],
           "score": 13,
-          "confidence": 0.95,
-          "evidence": "After toFixed(2) and parseFloat, the value has at most 2 decimal digits, so a second toFixed(2) produces the same string.",
+          "confidence": 0.97,
+          "evidence": "After toFixed(2) and parseFloat, the value already has at most 2 decimal places, so a second toFixed(2) produces the same string.",
           "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
-          "inferredAt": "2026-03-29T08:34:17.576Z",
+          "inferredAt": "2026-03-29T09:02:43.115Z",
           "modelId": "claude-opus-4-6"
         },
         {
           "id": "prop_015",
           "targetFunction": "formatPrice",
-          "description": "The formatted string can be parsed as a valid finite number",
+          "description": "Output string is a valid number (can be parsed back to a finite number)",
           "category": "type-preservation",
           "assertion": "!isNaN(parseFloat(formatPrice(price))) && isFinite(parseFloat(formatPrice(price)))",
           "generators": {
             "price": {
               "type": "float",
               "constraints": {
-                "min": -100000,
-                "max": 100000
+                "min": 0,
+                "max": 1000000
               }
             }
           },
@@ -1098,20 +1099,20 @@
             {
               "label": "extreme",
               "value": {
-                "price": -99999.99
+                "price": 999999.99
               }
             }
           ],
           "score": 13,
           "confidence": 1,
-          "evidence": "toFixed(2) on a finite number produces a numeric string that parseFloat can parse back to a finite number.",
+          "evidence": "toFixed(2) on a finite number produces a valid numeric string that parseFloat can parse back to a finite number.",
           "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
-          "inferredAt": "2026-03-29T08:34:17.576Z",
+          "inferredAt": "2026-03-29T09:02:43.115Z",
           "modelId": "claude-opus-4-6"
         }
       ],
       "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
-      "inferredAt": "2026-03-29T08:34:17.673Z"
+      "inferredAt": "2026-03-29T09:02:43.201Z"
     }
   }
 }

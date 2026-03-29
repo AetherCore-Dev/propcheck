@@ -15,6 +15,7 @@ All notable changes to propcheck are documented in this file.
 - **`implies` keyword**: real LLMs produce `A implies B` in assertions; codegen now normalizes to `!(A) || (B)` (valid JS logical implication)
 - **String-format generators**: real LLMs return generators as `"float(0, 10000)"` strings instead of structured objects; added `parseStringGenerator()` normalizer in response-parser to handle both formats
 - **LLM error handling**: API errors (401, network failures) now show user-friendly messages instead of raw stack traces
+- **Real-provider array constraints**: `fc-codegen.ts` now treats array constraints like `{ elementType: "float", min, max, maxLength }` as constrained element generators instead of falling back to `fc.anything()`
 - Zero-parameter assertions now use `fc.constant(null)` dummy arbitrary instead of fragile boolean check
 - Array literal assertions (`calculateTotal([price])`) verified working — `[price]` is valid JS in lambda scope
 - `fc.double()` defaults to `min: 0, noDefaultInfinity: true` for unconstrained generators — prevents false failures on non-negative business logic
@@ -23,10 +24,10 @@ All notable changes to propcheck are documented in this file.
 ### Changed
 - VHS demo.tape: added opening title card, increased font to 18px, taller window (700px), disabled cursor blink, suppressed Node.js warnings
 - README: embedded `demo.gif`, documented OpenAI-compatible `/v1` provider support, and updated config examples
+- Real validation status: `examples/price-utils.ts` now passes **15/15** inferred properties end-to-end with Claude Opus 4.6 via an OpenAI-compatible proxy
 
 ### Next
 - `npm publish`
-- Reduce remaining false positives from real LLM-generated floating-point / over-strong properties
 - Phase 2: self-repair (3-round), refinement loop, VS Code extension
 
 ## [0.1.0] - 2026-03-27

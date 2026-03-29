@@ -17,7 +17,7 @@ propcheck finds them.
 
 ![propcheck demo](demo.gif)
 
-> Demo uses `--mock` for a clean, deterministic recording. Real LLM inference is also validated against OpenAI-compatible `/v1` endpoints.
+> Demo uses `--mock` for a clean, deterministic recording. Real LLM inference is also validated against OpenAI-compatible `/v1` endpoints, with the current `examples/price-utils.ts` pipeline passing **15/15** inferred properties end-to-end.
 
 ### Before: All Tests Pass
 
@@ -68,6 +68,8 @@ The LLM is a **one-time cost**. After inference, properties persist in `.propche
 
 Supports both **Anthropic direct API** and **OpenAI-compatible `/v1` endpoints** (OpenRouter, one-api/new-api, custom proxy gateways).
 
+Latest real-provider validation: **Claude Opus 4.6 → 15 inferred properties → 15/15 pass on `examples/price-utils.ts`**.
+
 ## Quick Start
 
 ```bash
@@ -109,7 +111,7 @@ npx propcheck infer --mock examples/price-utils.ts && npx propcheck run examples
 - **Multi-provider LLM support** — Anthropic direct API or OpenAI-compatible `/v1` endpoints
 - **Zero-config CI** — `propcheck run --changed` only tests git-modified files
 - **Mutation testing** — `propcheck quality` measures how strong your properties are
-- **Real-world validated** — tested with real Claude Opus 4.6 inference through an OpenAI-compatible proxy
+- **Real-world validated** — Claude Opus 4.6 via an OpenAI-compatible proxy currently passes **15/15** inferred properties on `examples/price-utils.ts`
 - **Self-repair** — Auto-fixes generated test code that fails to compile *(coming soon)*
 - **Refinement loop** — `--refine` strengthens weak properties via iterative LLM feedback *(coming soon)*
 - **PR Bot** — Auto-comments propcheck results on every Pull Request *(coming soon)*

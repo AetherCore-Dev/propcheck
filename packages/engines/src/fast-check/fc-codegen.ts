@@ -64,11 +64,16 @@ function mapGenerator(spec: GeneratorSpec): string {
 
     case "array": {
       const elementType = c.element ?? c.elementType;
+
+      // Build nested element constraints from multiple possible sources:
+      //   1. Explicit "elementConstraints" object (preferred)
+      //   2. "elementMin"/"elementMax" keys
+      //   3. Direct "min"/"max" keys at same level as elementType (real providers)
       const nestedConstraints = c.elementConstraints && typeof c.elementConstraints === "object"
         ? (c.elementConstraints as Record<string, unknown>)
         : {
-            ...(c.elementMin !== undefined ? { min: c.elementMin } : {}),
-            ...(c.elementMax !== undefined ? { max: c.elementMax } : {}),
+            ...((c.elementMin ?? c.min) !== undefined ? { min: c.elementMin ?? c.min } : {}),
+            ...((c.elementMax ?? c.max) !== undefined ? { max: c.elementMax ?? c.max } : {}),
             ...(c.elementMaxLength !== undefined ? { maxLength: c.elementMaxLength } : {}),
           };
 

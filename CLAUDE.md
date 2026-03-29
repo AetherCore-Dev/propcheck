@@ -13,7 +13,7 @@ AI-powered Property-Based Testing CLI. LLM infers code properties → determinis
 - Test runner: Node.js `--experimental-strip-types` for direct .ts import
 
 ## Project Status (2026-03-29)
-**Phase 1 MVP: COMPLETE + Real LLM Validated** — 63 files, ~6,800 lines, 54 tests all passing.
+**Phase 1 MVP: COMPLETE + Real LLM Validated** — 63 files, ~6,800 lines, real provider path passing end-to-end.
 
 ### What's Done
 - Full CLI: `init`, `infer`, `run`, `badge`, `quality` commands
@@ -33,8 +33,8 @@ AI-powered Property-Based Testing CLI. LLM infers code properties → determinis
 - 3 functions in `examples/price-utils.ts` → 15 high-quality properties inferred in a single pass
 - Property categories: boundary, monotonic, equivalence, conservation, metamorphic, idempotent, type-preservation
 - All 15 properties passed trial-run validation (100 iterations each)
-- Full run results: 12 passed, 3 failed — remaining failures are model-side over-strong properties / floating-point edge cases, not codegen or parser bugs
-- Real bug detection pipeline is working end-to-end; mock demo remains the cleanest recording path
+- Full run results: **15/15 passed** after fixing real-provider array constraint mapping in `packages/engines/src/fast-check/fc-codegen.ts`
+- Root cause fixed: some providers emit array element constraints as `elementType + min/max/maxLength`; old codegen incorrectly fell back to `fc.anything()` for those arrays
 - Token usage: ~5,800-6,000 tokens, ~$0.06 per file
 
 ### Mock Validation Results

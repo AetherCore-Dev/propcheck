@@ -3389,8 +3389,8 @@ var require_fc_codegen = __commonJS({
         case "array": {
           const elementType = c.element ?? c.elementType;
           const nestedConstraints = c.elementConstraints && typeof c.elementConstraints === "object" ? c.elementConstraints : {
-            ...c.elementMin !== void 0 ? { min: c.elementMin } : {},
-            ...c.elementMax !== void 0 ? { max: c.elementMax } : {},
+            ...(c.elementMin ?? c.min) !== void 0 ? { min: c.elementMin ?? c.min } : {},
+            ...(c.elementMax ?? c.max) !== void 0 ? { max: c.elementMax ?? c.max } : {},
             ...c.elementMaxLength !== void 0 ? { maxLength: c.elementMaxLength } : {}
           };
           const element = elementType ? mapGenerator({
