@@ -2,7 +2,7 @@
  * Execution types — configuration, results, and failures from PBT runs.
  */
 
-import type { PropertyDefinition } from "./property";
+import type { PropertyDefinition, PropertyStatus } from "./property";
 
 /** Run configuration controlling execution behavior. */
 export interface RunConfig {
@@ -52,11 +52,18 @@ export interface PropertyError {
 /** Union of all property result types. */
 export type PropertyOutcome = PropertyResult | PropertyFailure | PropertyError;
 
+export interface PropertySkip {
+  readonly propertyId: string;
+  readonly reason: "quarantined" | "dropped" | "filter";
+  readonly propertyStatus: PropertyStatus;
+}
+
 /** Aggregated results from a full run. */
 export interface ExecutionResult {
   readonly passed: readonly PropertyResult[];
   readonly failed: readonly PropertyFailure[];
   readonly errors: readonly PropertyError[];
+  readonly skipped: readonly PropertySkip[];
   readonly duration: number;
   readonly totalIterations: number;
   readonly properties: readonly PropertyDefinition[];

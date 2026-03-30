@@ -107,6 +107,7 @@ export function mapResults(
     passed,
     failed,
     errors,
+    skipped: [],
     duration,
     totalIterations: passed.reduce((sum, p) => sum + p.iterations, 0),
     properties,

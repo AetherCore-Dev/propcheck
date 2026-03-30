@@ -2,6 +2,24 @@
 
 All notable changes to propcheck are documented in this file.
 
+## [Unreleased] - 2026-03-30
+
+### Added
+- **Property lifecycle metadata**: persisted `status`, `riskTags`, `riskScore`, and validation evidence on every stored property
+- **Canary validation + auto-weakening**: risky properties now run through targeted canary inputs before persistence and can be auto-refined instead of immediately becoming noisy failures
+- **Run observability**: JSON and CLI summaries now report skipped properties explicitly, including `quarantined`, `dropped`, and CLI-filtered entries
+
+### Fixed
+- **Tiny tolerance weakening**: brittle numeric assertions like `Math.abs(a - b) < 1e-9` now weaken into stable `approxEqual(...)` checks instead of preserving the original ultra-small threshold
+- **Risk-tag false positives**: `approxEqual(...)` assertions are no longer re-tagged as `float_exact_equality`
+- **Legacy store migration**: old `properties.json` files missing `riskScore` now recompute it from persisted `riskTags`
+- **Future schema protection**: the store rejects unsupported future `properties.json` versions instead of silently normalizing them
+- **Dropped-property execution**: `propcheck run` now skips `dropped` properties consistently
+
+### Changed
+- README, CLI README, release notes, and project memory now document the property lifecycle model and new execution controls
+- `propcheck run --json` output now distinguishes executed vs skipped properties for CI consumers
+
 ## [0.2.0] - 2026-03-29
 
 ### Added

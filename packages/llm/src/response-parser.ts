@@ -316,6 +316,9 @@ function parsePropertyArray(
       generators: Object.freeze(generators),
       seedInputs: Object.freeze(seedInputs),
       score: 0, // Will be set by scoring
+      riskScore: 0,
+      riskTags: Object.freeze([]),
+      status: "accepted",
       confidence: raw.confidence,
       evidence: raw.evidence,
       sourceHash: options.sourceHash,

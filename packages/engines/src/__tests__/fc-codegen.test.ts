@@ -20,6 +20,9 @@ function makeProp(overrides: Partial<PropertyDefinition> = {}): PropertyDefiniti
       { label: "extreme", value: { a: -100, b: 100 } },
     ],
     score: 14,
+    riskScore: 14,
+    riskTags: [],
+    status: "accepted",
     confidence: 0.95,
     evidence: "addition is commutative",
     sourceHash: "abc123",
@@ -122,6 +125,27 @@ describe("fc-codegen", () => {
     assert.ok(result.content.includes("fc.double("));
     assert.ok(result.content.includes("fc.array("));
     assert.ok(result.content.includes("fc.integer({ min: 0, max: 10 })"), "Should preserve nested array element constraints");
+  });
+
+  it("should support constant generators for canary validation", () => {
+    const prop = makeProp({
+      generators: {
+        x: { type: "constant", constraints: { value: 0.1 } },
+        y: { type: "constant", constraints: { value: [1, 2] } },
+      },
+      assertion: "add(x, 0) === x",
+    });
+
+    const result = generateFastCheckTest(
+      [prop],
+      "/project/src/test.ts",
+      "/project/.propcheck/tests",
+      defaultConfig,
+    );
+
+    assert.ok(result.content.includes("function approxEqual("));
+    assert.ok(result.content.includes("fc.constant(0.1)"));
+    assert.ok(result.content.includes("fc.constant([1,2])"));
   });
 
   it("should respect seed in config", () => {

@@ -1,6 +1,9 @@
 // === Types ===
 export type {
   PropertyCategory,
+  PropertyStatus,
+  PropertyRiskTag,
+  ValidationEvidence,
   GeneratorSpec,
   SeedInput,
   PropertyDefinition,
@@ -27,6 +30,7 @@ export type {
   PropertyFailure,
   PropertyError,
   PropertyOutcome,
+  PropertySkip,
   ExecutionResult,
   Diagnosis,
 } from "./types/execution";

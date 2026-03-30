@@ -38,7 +38,7 @@ export async function initStore(
   const propertiesPath = path.join(storePath, "properties.json");
   await fs.writeFile(
     propertiesPath,
-    JSON.stringify({ version: 1, modules: {} }, null, 2),
+    JSON.stringify({ version: 2, modules: {} }, null, 2),
     "utf8",
   );
 

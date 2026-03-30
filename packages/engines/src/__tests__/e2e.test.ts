@@ -127,6 +127,7 @@ describe("E2E: Persist → Load → Verify Staleness", () => {
     const result = await inferProperties(null, "mock", context, { mock: true, maxProperties: 5, minScore: 10 });
 
     const ps: PropertySet = {
+      schemaVersion: 2,
       module: "cart.ts",
       filePath: "cart.ts",
       properties: result.properties,

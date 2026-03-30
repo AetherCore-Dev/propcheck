@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import * as assert from "node:assert/strict";
 import { parseInferResponse } from "../response-parser";
-import { scoreProperty, scoreAndFilter, isRedundant } from "../scoring";
+import { scoreProperty, scoreAndFilter, isRedundant, detectRiskTags, computeRiskScore } from "../scoring";
 import { createMockClient } from "../mock-client";
 import { classifyProperties, buildFeedbackSummary, buildRefinementPrompt } from "../prompts/refinement";
 import type { PropertyDefinition, ExecutionResult } from "@propcheck/common";
@@ -20,6 +20,9 @@ function makeTestProp(overrides: Partial<PropertyDefinition> = {}): PropertyDefi
       { label: "extreme", value: -1 },
     ],
     score: 0,
+    riskScore: 0,
+    riskTags: [],
+    status: "accepted",
     confidence: 0.9,
     evidence: "result should be non-negative for positive inputs",
     sourceHash: "abc",
@@ -274,6 +277,44 @@ describe("scoring", () => {
     }));
     assert.ok(score >= 12, `Expected reasonable tolerance to stay high, got ${score}`);
   });
+
+  it("should tag wide numeric domains and missing preconditions as risk", () => {
+    const property = makeTestProp({
+      assertion: "calculateTotal(prices) >= 0",
+      targetFunction: "calculateTotal",
+      generators: { prices: { type: "array", constraints: { element: "float" } } },
+    });
+
+    const tags = detectRiskTags(property);
+    assert.ok(tags.includes("wide_numeric_domain"));
+    assert.ok(tags.includes("missing_precondition"));
+  });
+
+  it("should compute risk score separately from quality score", () => {
+    const property = makeTestProp({
+      targetFunction: "formatPrice",
+      assertion: "parseFloat(formatPrice(price)) === price",
+      generators: { price: { type: "float", constraints: { min: 0, max: 1000 } } },
+    });
+
+    const score = scoreProperty(property);
+    const tags = detectRiskTags(property);
+    const riskScore = computeRiskScore(property, score, tags);
+
+    assert.ok(score > riskScore, `Expected risk score below quality score, got score=${score}, riskScore=${riskScore}`);
+    assert.ok(tags.includes("float_exact_equality"));
+    assert.ok(tags.includes("roundtrip_numeric_fragility"));
+  });
+
+  it("should not flag approxEqual-based assertions as exact float equality", () => {
+    const property = makeTestProp({
+      assertion: "approxEqual(add(a, b), add(b, a))",
+      generators: { a: { type: "float" }, b: { type: "float" } },
+    });
+
+    const tags = detectRiskTags(property);
+    assert.ok(!tags.includes("float_exact_equality"));
+  });
 });
 
 describe("refinement", () => {
@@ -282,6 +323,7 @@ describe("refinement", () => {
       passed: [{ propertyId: "prop_001", status: "passed", iterations: 100, duration: 0, seed: 0 }],
       failed: [{ propertyId: "prop_002", status: "failed", counterexample: [101], shrinkSteps: 3, originalInput: [101], errorMessage: "boom", seed: 0, duration: 0 }],
       errors: [],
+      skipped: [],
       duration: 0,
       totalIterations: 100,
       properties: [],

@@ -17,6 +17,29 @@ export type PropertyCategory =
   | "boundary"          // edge case behavior (result >= 0, etc.)
   | "metamorphic";      // f(transform(x)) relates to f(x)
 
+export type PropertyStatus =
+  | "accepted"
+  | "risky"
+  | "refined"
+  | "quarantined"
+  | "dropped";
+
+export type PropertyRiskTag =
+  | "float_exact_equality"
+  | "tiny_abs_tolerance"
+  | "missing_precondition"
+  | "wide_numeric_domain"
+  | "doc_domain_mismatch"
+  | "roundtrip_numeric_fragility"
+  | "metamorphic_scale_risk";
+
+export interface ValidationEvidence {
+  readonly smokePasses: number;
+  readonly canaryPasses: number;
+  readonly seedsTested: readonly number[];
+  readonly lastValidatedAt: string;
+}
+
 /** Specifies how to generate random inputs for a parameter. */
 export interface GeneratorSpec {
   readonly type: string;
@@ -44,6 +67,11 @@ export interface PropertyDefinition {
   readonly generators: Readonly<Record<string, GeneratorSpec>>;
   readonly seedInputs: readonly SeedInput[];
   readonly score: number;
+  readonly riskScore: number;
+  readonly riskTags: readonly PropertyRiskTag[];
+  readonly status: PropertyStatus;
+  readonly validation?: ValidationEvidence;
+  readonly humanVerified?: boolean;
   readonly confidence: number;
   readonly evidence: string;
   readonly sourceHash: string;
@@ -56,6 +84,7 @@ export interface PropertyDefinition {
  * Keyed by module path in .propcheck/properties.json.
  */
 export interface PropertySet {
+  readonly schemaVersion: 2;
   readonly module: string;
   readonly filePath: string;
   readonly properties: readonly PropertyDefinition[];

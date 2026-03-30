@@ -25,6 +25,9 @@ function makeProp(id: string, fn: string): PropertyDefinition {
     generators: { x: { type: "integer" } },
     seedInputs: [{ label: "normal", value: 5 }],
     score: 12,
+    riskScore: 12,
+    riskTags: [],
+    status: "accepted",
     confidence: 0.8,
     evidence: "return type",
     sourceHash: "abc123",
@@ -35,6 +38,7 @@ function makeProp(id: string, fn: string): PropertyDefinition {
 
 function makePropertySet(module: string): PropertySet {
   return {
+    schemaVersion: 2,
     module,
     filePath: module,
     properties: [makeProp("prop_001", "add"), makeProp("prop_002", "subtract")],
@@ -81,6 +85,66 @@ describe("property-store", () => {
     assert.ok(all.length >= 2);
   });
 
+  it("should hydrate legacy property metadata on read", async () => {
+    const legacy = {
+      version: 1,
+      modules: {
+        "src/legacy.ts": {
+          module: "src/legacy.ts",
+          filePath: "src/legacy.ts",
+          properties: [
+            {
+              id: "prop_legacy",
+              targetFunction: "legacyAdd",
+              description: "legacy property",
+              category: "boundary",
+              assertion: "legacyAdd(x) >= 0",
+              generators: { x: { type: "integer" } },
+              seedInputs: [{ label: "normal", value: 1 }],
+              score: 11,
+              riskTags: ["float_exact_equality"],
+              confidence: 0.8,
+              evidence: "legacy",
+              sourceHash: "legacy-hash",
+              inferredAt: "2026-03-25T00:00:00Z",
+              modelId: "legacy-model",
+            },
+          ],
+          sourceHash: "legacy-hash",
+          inferredAt: "2026-03-25T00:00:00Z",
+        },
+      },
+    };
+
+    await fs.writeFile(path.join(storeDir, "properties.json"), JSON.stringify(legacy, null, 2), "utf8");
+
+    const read = await getProperties(storeDir, "src/legacy.ts");
+    assert.notEqual(read, null);
+    assert.equal(read!.schemaVersion, 2);
+    assert.equal(read!.properties[0].status, "accepted");
+    assert.equal(read!.properties[0].riskScore, 8);
+    assert.deepEqual(read!.properties[0].riskTags, ["float_exact_equality"]);
+  });
+
+  it("should reject unsupported future properties file versions", async () => {
+    const future = {
+      version: 99,
+      modules: {},
+    };
+
+    await fs.writeFile(path.join(storeDir, "properties.json"), JSON.stringify(future, null, 2), "utf8");
+
+    await assert.rejects(() => getAllProperties(storeDir), /Unsupported properties file version 99/);
+
+    await fs.writeFile(path.join(storeDir, "properties.json"), JSON.stringify({
+      version: 2,
+      modules: {
+        "src/cart.ts": makePropertySet("src/cart.ts"),
+        "src/auth.ts": makePropertySet("src/auth.ts"),
+      },
+    }, null, 2), "utf8");
+  });
+
   it("should detect staleness", () => {
     const ps = makePropertySet("src/cart.ts");
     assert.equal(isStale(ps, "abc123"), false);
@@ -109,7 +173,7 @@ describe("init", () => {
         "utf8",
       );
       const parsed = JSON.parse(props);
-      assert.equal(parsed.version, 1);
+      assert.equal(parsed.version, 2);
       assert.deepEqual(parsed.modules, {});
 
       // Subdirs exist

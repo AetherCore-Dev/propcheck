@@ -16,10 +16,28 @@ function toSafeComment(s: string): string {
 /**
  * Map a GeneratorSpec to a Hypothesis strategy expression.
  */
+function toPythonLiteral(value: unknown): string {
+  if (value === null || value === undefined) return "None";
+  if (typeof value === "number") {
+    if (Number.isNaN(value)) return 'float("nan")';
+    if (!Number.isFinite(value)) return value > 0 ? 'float("inf")' : 'float("-inf")';
+    return Object.is(value, -0) ? "-0.0" : String(value);
+  }
+  if (typeof value === "boolean") return value ? "True" : "False";
+  if (typeof value === "string") return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map((item) => toPythonLiteral(item)).join(", ")}]`;
+  if (typeof value === "object") {
+    return `{${Object.entries(value as Record<string, unknown>).map(([key, item]) => `${JSON.stringify(key)}: ${toPythonLiteral(item)}`).join(", ")}}`;
+  }
+  return JSON.stringify(value);
+}
+
 function mapStrategy(spec: GeneratorSpec): string {
   const c = spec.constraints ?? {};
 
   switch (spec.type) {
+    case "constant":
+      return `st.just(${toPythonLiteral(c.value ?? null)})`;
     case "integer":
     case "int": {
       const parts: string[] = [];
@@ -90,6 +108,7 @@ function translateAssertionToPython(assertion: string): string {
   translated = translated.replace(/\bMath\.abs\s*\(/g, "abs(");
   translated = translated.replace(/\bparseFloat\s*\(/g, "float(");
   translated = translated.replace(/\bparseInt\s*\(/g, "int(");
+  translated = translated.replace(/\bapproxEqual\s*\(/g, "approx_equal(");
   translated = translated.replace(/\s*&&\s*/g, " and ");
   translated = translated.replace(/\s*\|\|\s*/g, " or ");
   translated = translated.replace(/!\s*(?!=)\(/g, "not (");
@@ -132,6 +151,9 @@ export function generateHypothesisTest(
   lines.push(`from hypothesis import given, settings`);
   lines.push(`from hypothesis import strategies as st`);
   lines.push(`import ${moduleName} as target`);
+  lines.push(``);
+  lines.push(`def approx_equal(a, b, abs_tol=1e-9, rel_tol=1e-6):`);
+  lines.push(`    return abs(a - b) <= abs_tol + rel_tol * max(1, abs(a), abs(b))`);
   lines.push(``);
   lines.push(`MAX_EXAMPLES = ${config.iterations}`);
   lines.push(``);

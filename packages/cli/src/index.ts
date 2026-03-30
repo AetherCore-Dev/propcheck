@@ -49,6 +49,9 @@ program
   .option("--seed <n>", "Random seed for reproducibility")
   .option("--json", "Output results as JSON")
   .option("--changed", "Only run properties for git-changed files")
+  .option("--skip <ids>", "Comma-separated property IDs to skip")
+  .option("--only <ids>", "Comma-separated property IDs to run exclusively")
+  .option("--include-quarantined", "Run quarantined properties too")
   .action(runCommand);
 
 program

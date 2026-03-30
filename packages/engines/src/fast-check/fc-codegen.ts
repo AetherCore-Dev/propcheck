@@ -30,6 +30,8 @@ function mapGenerator(spec: GeneratorSpec): string {
   const c = spec.constraints ?? {};
 
   switch (spec.type) {
+    case "constant":
+      return `fc.constant(${JSON.stringify(c.value ?? null)})`;
     case "integer":
     case "int":
       if (c.min !== undefined || c.max !== undefined) {
@@ -206,6 +208,10 @@ export function generateFastCheckTest(
   lines.push(``);
   lines.push(`const fc = ${fcRequire};`);
   lines.push(`const target = require("${importPathStr}");`);
+  lines.push(``);
+  lines.push(`function approxEqual(a, b, absTol = 1e-9, relTol = 1e-6) {`);
+  lines.push(`  return Math.abs(a - b) <= absTol + relTol * Math.max(1, Math.abs(a), Math.abs(b));`);
+  lines.push(`}`);
   lines.push(``);
   lines.push(`const numRuns = ${config.iterations};`);
   lines.push(``);

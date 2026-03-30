@@ -3,10 +3,11 @@ import * as assert from "node:assert/strict";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import * as os from "node:os";
-import { inferCommand } from "../commands/infer";
+import { inferCommand, canaryValidateProperties } from "../commands/infer";
 import { runCommand } from "../commands/run";
 import { badgeCommand } from "../commands/badge";
 import { initStore, setProperties } from "@propcheck/store";
+import { hashContent } from "@propcheck/common";
 import type { PropertyDefinition, PropertySet } from "@propcheck/common";
 
 class ExitSignal extends Error {
@@ -100,6 +101,24 @@ async function createFakeHypothesis(rootDir: string): Promise<string> {
   return pyDepsDir;
 }
 
+async function createMathModule(projectDir: string): Promise<string> {
+  const source = [
+    "exports.add = (a, b) => a + b;",
+    "",
+  ].join("\n");
+  await fs.writeFile(path.join(projectDir, "math.js"), source, "utf8");
+  return source;
+}
+
+async function createScaleModule(projectDir: string): Promise<string> {
+  const source = [
+    "exports.scale = (x) => x * 0.1 + x * 0.2;",
+    "",
+  ].join("\n");
+  await fs.writeFile(path.join(projectDir, "scale.js"), source, "utf8");
+  return source;
+}
+
 function makeProperty(overrides: Partial<PropertyDefinition> = {}): PropertyDefinition {
   return {
     id: "prop_001",
@@ -110,6 +129,9 @@ function makeProperty(overrides: Partial<PropertyDefinition> = {}): PropertyDefi
     generators: { a: { type: "integer" }, b: { type: "integer" } },
     seedInputs: [{ label: "normal", value: { a: 1, b: 2 } }],
     score: 13,
+    riskScore: 13,
+    riskTags: [],
+    status: "accepted",
     confidence: 0.9,
     evidence: "addition is commutative",
     sourceHash: "abc",
@@ -165,6 +187,191 @@ describe("cli commands", () => {
     });
   });
 
+  it("should quarantine risky properties that fail canary validation", async () => {
+    await withTempProject(async (projectDir) => {
+      const source = await createMathModule(projectDir);
+      await initStore(projectDir);
+
+      const result = await canaryValidateProperties(
+        [makeProperty({
+          assertion: "add(a, b) === 0",
+          generators: { a: { type: "float" }, b: { type: "float" } },
+          riskScore: 8,
+          riskTags: ["float_exact_equality"],
+          status: "risky",
+          sourceHash: hashContent(source),
+        })],
+        path.join(projectDir, "math.js"),
+        path.join(projectDir, ".propcheck"),
+        "javascript",
+      );
+
+      assert.equal(result.validated.length, 0);
+      assert.equal(result.quarantined.length, 1);
+      assert.equal(result.quarantined[0].prop.status, "quarantined");
+      assert.ok(result.quarantined[0].reason.length > 0);
+    });
+  });
+
+  it("should auto-weaken fragile float equality properties during canary validation", async () => {
+    await withTempProject(async (projectDir) => {
+      const source = await createScaleModule(projectDir);
+      await initStore(projectDir);
+
+      const result = await canaryValidateProperties(
+        [makeProperty({
+          targetFunction: "scale",
+          assertion: "scale(x) === x * 0.3",
+          generators: { x: { type: "float" } },
+          riskScore: 7,
+          riskTags: ["float_exact_equality", "wide_numeric_domain"],
+          status: "risky",
+          sourceHash: hashContent(source),
+        })],
+        path.join(projectDir, "scale.js"),
+        path.join(projectDir, ".propcheck"),
+        "javascript",
+      );
+
+      assert.equal(result.quarantined.length, 0);
+      assert.equal(result.validated.length, 1);
+      assert.equal(result.validated[0].status, "refined");
+      assert.match(result.validated[0].assertion, /approxEqual/);
+    });
+  });
+
+  it("should auto-weaken tiny absolute tolerances to stable approx checks", async () => {
+    await withTempProject(async (projectDir) => {
+      const source = await createScaleModule(projectDir);
+      await initStore(projectDir);
+
+      const result = await canaryValidateProperties(
+        [makeProperty({
+          targetFunction: "scale",
+          assertion: "Math.abs(scale(x) - x * 0.3) < 1e-18",
+          generators: { x: { type: "float" } },
+          riskScore: 7,
+          riskTags: ["tiny_abs_tolerance", "wide_numeric_domain"],
+          status: "risky",
+          sourceHash: hashContent(source),
+        })],
+        path.join(projectDir, "scale.js"),
+        path.join(projectDir, ".propcheck"),
+        "javascript",
+      );
+
+      assert.equal(result.quarantined.length, 0);
+      assert.equal(result.validated.length, 1);
+      assert.equal(result.validated[0].status, "refined");
+      assert.match(result.validated[0].assertion, /approxEqual\(.*1e-6, 1e-6\)/);
+    });
+  });
+
+  it("should skip quarantined properties by default", async () => {
+    await withTempProject(async (projectDir) => {
+      const logs: string[] = [];
+      const originalLog = console.log;
+      console.log = (...args: unknown[]) => {
+        logs.push(args.map(String).join(" "));
+      };
+
+      try {
+        const source = await createMathModule(projectDir);
+        await initStore(projectDir);
+        await setProperties(path.join(projectDir, ".propcheck"), "math.js", {
+          schemaVersion: 2,
+          module: "math.js",
+          filePath: "math.js",
+          properties: [
+            makeProperty(),
+            makeProperty({ id: "prop_002", description: "quarantined property", status: "quarantined" }),
+          ],
+          sourceHash: hashContent(source),
+          inferredAt: "2026-03-30T00:00:00.000Z",
+        });
+
+        const exitCode = await withInterceptedExit(async () => {
+          await runCommand("math.js", {});
+        });
+
+        assert.equal(exitCode, 0);
+        assert.ok(logs.some((line) => line.includes("Skipping 1 quarantined property in math.js")));
+      } finally {
+        console.log = originalLog;
+      }
+    });
+  });
+
+  it("should include skipped dropped properties in JSON output", async () => {
+    await withTempProject(async (projectDir) => {
+      const logs: string[] = [];
+      const originalLog = console.log;
+      console.log = (...args: unknown[]) => {
+        logs.push(args.map(String).join(" "));
+      };
+
+      try {
+        const source = await createMathModule(projectDir);
+        await initStore(projectDir);
+        await setProperties(path.join(projectDir, ".propcheck"), "math.js", {
+          schemaVersion: 2,
+          module: "math.js",
+          filePath: "math.js",
+          properties: [makeProperty({ status: "dropped" })],
+          sourceHash: hashContent(source),
+          inferredAt: "2026-03-30T00:00:00.000Z",
+        });
+
+        const exitCode = await withInterceptedExit(async () => {
+          await runCommand("math.js", { json: true });
+        });
+
+        assert.equal(exitCode, 0);
+        const report = JSON.parse(logs[0]) as {
+          skipped: Array<{ propertyId: string; reason: string; propertyStatus: string }>;
+          summary: { skipped: number; total: number };
+        };
+        assert.equal(report.summary.total, 0);
+        assert.equal(report.summary.skipped, 1);
+        assert.deepEqual(report.skipped, [{ propertyId: "prop_001", reason: "dropped", propertyStatus: "dropped" }]);
+      } finally {
+        console.log = originalLog;
+      }
+    });
+  });
+
+  it("should honor --skip filters and exit cleanly when nothing remains", async () => {
+    await withTempProject(async (projectDir) => {
+      const logs: string[] = [];
+      const originalLog = console.log;
+      console.log = (...args: unknown[]) => {
+        logs.push(args.map(String).join(" "));
+      };
+
+      try {
+        const source = await createMathModule(projectDir);
+        await initStore(projectDir);
+        await setProperties(path.join(projectDir, ".propcheck"), "math.js", {
+          schemaVersion: 2,
+          module: "math.js",
+          filePath: "math.js",
+          properties: [makeProperty()],
+          sourceHash: hashContent(source),
+          inferredAt: "2026-03-30T00:00:00.000Z",
+        });
+
+        const exitCode = await withInterceptedExit(async () => {
+          await runCommand("math.js", { skip: "prop_001" });
+        });
+
+        assert.equal(exitCode, 0);
+        assert.ok(logs.some((line) => line.includes("No runnable properties remain after applying status and CLI filters")));
+      } finally {
+        console.log = originalLog;
+      }
+    });
+  });
+
   it("should print a badge after properties have been stored", async () => {
     await withTempProject(async (projectDir) => {
       const logs: string[] = [];
@@ -176,6 +383,7 @@ describe("cli commands", () => {
       try {
         await initStore(projectDir);
         await setProperties(path.join(projectDir, ".propcheck"), "math.ts", {
+          schemaVersion: 2,
           module: "math.ts",
           filePath: "math.ts",
           properties: [makeProperty()],

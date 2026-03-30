@@ -16,6 +16,9 @@ function makeProp(overrides: Partial<PropertyDefinition> = {}): PropertyDefiniti
     },
     seedInputs: [{ label: "normal", value: { items: [1, 2], flag: false } }],
     score: 13,
+    riskScore: 13,
+    riskTags: [],
+    status: "accepted",
     confidence: 0.9,
     evidence: "generated for codegen coverage",
     sourceHash: "abc",
@@ -56,5 +59,23 @@ describe("hyp-codegen", () => {
     );
 
     assert.ok(content.includes("items=st.lists(st.floats(allow_nan=False, allow_infinity=False, min_value=0, max_value=10), max_size=4)"));
+  });
+
+  it("should support constant generators for canary validation", () => {
+    const { content } = generateHypothesisTest(
+      [makeProp({
+        generators: {
+          items: { type: "constant", constraints: { value: [1, 2] } },
+          flag: { type: "constant", constraints: { value: false } },
+        },
+      })],
+      "/tmp/example.py",
+      "/tmp/.propcheck/tests",
+      config,
+    );
+
+    assert.ok(content.includes("def approx_equal("));
+    assert.ok(content.includes("items=st.just([1, 2])"));
+    assert.ok(content.includes("flag=st.just(False)"));
   });
 });

@@ -24,7 +24,7 @@ import {
   RUN_MODE_ITERATIONS,
   getChangedFiles,
 } from "@propcheck/common";
-import type { RunConfig, PropertySet } from "@propcheck/common";
+import type { PropertySkip, RunConfig, PropertySet } from "@propcheck/common";
 
 interface RunOptions {
   quick?: boolean;
@@ -32,6 +32,18 @@ interface RunOptions {
   seed?: string;
   json?: boolean;
   changed?: boolean;
+  skip?: string;
+  only?: string;
+  includeQuarantined?: boolean;
+}
+
+function parseIdList(input: string | undefined): ReadonlySet<string> {
+  return new Set(
+    (input ?? "")
+      .split(",")
+      .map((part) => part.trim())
+      .filter(Boolean),
+  );
 }
 
 export async function runCommand(
@@ -94,7 +106,11 @@ export async function runCommand(
     }
   }
 
+  const skipIds = parseIdList(options.skip);
+  const onlyIds = parseIdList(options.only);
+  const hasOnlyFilter = onlyIds.size > 0;
   let exitCode = 0;
+  let ranAnyProperties = false;
 
   for (const ps of propertySets) {
     const filePath = path.resolve(projectRoot, ps.filePath);
@@ -111,6 +127,58 @@ export async function runCommand(
       console.error(`\n  Warning: Cannot read ${ps.filePath} — file may have been moved.\n`);
     }
 
+    const explicitSkipped = ps.properties.filter((prop) => {
+      if (skipIds.has(prop.id)) return true;
+      return hasOnlyFilter && !onlyIds.has(prop.id);
+    });
+    const droppedSkipped = ps.properties.filter((prop) => (
+      !explicitSkipped.includes(prop) &&
+      prop.status === "dropped"
+    ));
+    const quarantinedSkipped = ps.properties.filter((prop) => (
+      !explicitSkipped.includes(prop) &&
+      !droppedSkipped.includes(prop) &&
+      prop.status === "quarantined" &&
+      !options.includeQuarantined
+    ));
+    const skipped: PropertySkip[] = [
+      ...explicitSkipped.map((prop) => ({ propertyId: prop.id, reason: "filter" as const, propertyStatus: prop.status })),
+      ...droppedSkipped.map((prop) => ({ propertyId: prop.id, reason: "dropped" as const, propertyStatus: prop.status })),
+      ...quarantinedSkipped.map((prop) => ({ propertyId: prop.id, reason: "quarantined" as const, propertyStatus: prop.status })),
+    ];
+    const runnableProperties = ps.properties.filter((prop) => (
+      !explicitSkipped.includes(prop) &&
+      !droppedSkipped.includes(prop) &&
+      !(prop.status === "quarantined" && !options.includeQuarantined)
+    ));
+
+    if (!options.json && quarantinedSkipped.length > 0) {
+      console.log(`  Skipping ${quarantinedSkipped.length} quarantined propert${quarantinedSkipped.length === 1 ? "y" : "ies"} in ${ps.filePath}. Use --include-quarantined to run them.`);
+    }
+    if (!options.json && droppedSkipped.length > 0) {
+      console.log(`  Skipping ${droppedSkipped.length} dropped propert${droppedSkipped.length === 1 ? "y" : "ies"} in ${ps.filePath}.`);
+    }
+    if (!options.json && explicitSkipped.length > 0) {
+      console.log(`  Skipping ${explicitSkipped.length} propert${explicitSkipped.length === 1 ? "y" : "ies"} in ${ps.filePath} due to --skip/--only filters.`);
+    }
+
+    if (runnableProperties.length === 0) {
+      if (options.json) {
+        console.log(reportAsJson({
+          passed: [],
+          failed: [],
+          errors: [],
+          skipped,
+          duration: 0,
+          totalIterations: 0,
+          properties: [],
+        }));
+      }
+      continue;
+    }
+
+    ranAnyProperties = true;
+
     // Generate test file — select engine based on file extension
     const testsDir = path.join(storeDir, "tests");
     await fs.mkdir(testsDir, { recursive: true });
@@ -118,27 +186,35 @@ export async function runCommand(
     const isPython = ps.filePath.endsWith(".py");
 
     const generated = isPython
-      ? generateHypothesisTest(ps.properties, filePath, testsDir, runConfig)
-      : generateFastCheckTest(ps.properties, filePath, testsDir, runConfig);
+      ? generateHypothesisTest(runnableProperties, filePath, testsDir, runConfig)
+      : generateFastCheckTest(runnableProperties, filePath, testsDir, runConfig);
 
     const testFilePath = path.join(testsDir, generated.fileName);
     await fs.writeFile(testFilePath, generated.content, "utf8");
 
     // Run tests
     const result = isPython
-      ? await runHypothesisTest(testFilePath, ps.properties, runConfig)
-      : await runFastCheckTest(testFilePath, ps.properties, runConfig);
+      ? await runHypothesisTest(testFilePath, runnableProperties, runConfig)
+      : await runFastCheckTest(testFilePath, runnableProperties, runConfig);
+    const enrichedResult = {
+      ...result,
+      skipped,
+    };
 
     // Report
     if (options.json) {
-      console.log(reportAsJson(result));
+      console.log(reportAsJson(enrichedResult));
     } else {
-      reportRunSummary(result, ps.filePath);
+      reportRunSummary(enrichedResult, ps.filePath);
     }
 
     if (result.failed.length > 0 || result.errors.length > 0) {
       exitCode = 1;
     }
+  }
+
+  if (!ranAnyProperties && !options.json) {
+    console.log("\n  No runnable properties remain after applying status and CLI filters.\n");
   }
 
   process.exit(exitCode);

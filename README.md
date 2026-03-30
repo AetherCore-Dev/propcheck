@@ -114,6 +114,8 @@ npx propcheck infer --mock --refine examples/price-utils.ts
 - **Mutation testing** — `propcheck quality` measures how strong your properties are
 - **Real-world validated** — Claude Opus 4.6 via an OpenAI-compatible proxy currently passes **15/15** inferred properties on `examples/price-utils.ts`
 - **Self-repair** — Trial-run validation auto-repairs generated test code for compile/runtime failures up to 3 rounds before persistence
+- **Risk-aware persistence** — properties now carry `status`, `riskTags`, `riskScore`, and validation evidence in `.propcheck/properties.json`
+- **Canary validation + auto-weakening** — risky numeric properties are canary-checked before persistence and fragile float assertions can be refined into tolerant checks automatically
 - **Refinement loop** — `--refine` strengthens weak properties via iterative LLM feedback and re-validation
 - **PR Bot** — Auto-comments propcheck results on every Pull Request *(coming soon)*
 
@@ -126,8 +128,29 @@ propcheck run --thorough                          # 10,000 iterations — pre-re
 propcheck run --changed                           # Only test files changed in git diff
 propcheck run --seed 42                           # Reproducible runs
 propcheck run --json                              # Machine-readable output for CI
+propcheck run --skip prop_001,prop_002            # Skip specific property IDs
+propcheck run --only prop_009                     # Run only selected property IDs
+propcheck run --include-quarantined               # Include quarantined properties in a run
 propcheck quality examples/price-utils.ts         # Mutation testing — measure property strength
 ```
+
+## Property lifecycle
+
+Inferred properties are no longer treated as a flat list. propcheck now persists review metadata per property in `.propcheck/properties.json`:
+
+- `accepted` — normal property, safe to run
+- `risky` — kept, but tagged as fragile or domain-sensitive
+- `refined` — automatically weakened from an over-strong assertion into a more stable one
+- `quarantined` — excluded from normal `run` output unless you pass `--include-quarantined`
+- `dropped` — removed from execution after validation / repair could not make it runnable
+
+Additional metadata now includes:
+
+- `riskTags` — exact float equality, tiny tolerances, missing preconditions, wide numeric domains, and related heuristics
+- `riskScore` — risk-adjusted score used alongside the normal quality score
+- `validation` — smoke/canary evidence recorded at inference time
+
+This reduces CI noise: fragile properties are filtered or refined before they start failing every run.
 
 ## CI/CD — Auto-review every PR
 

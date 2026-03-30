@@ -4,7 +4,7 @@
  * Filters out tautologies, redundant, and low-quality properties.
  */
 
-import type { PropertyDefinition } from "@propcheck/common";
+import type { PropertyDefinition, PropertyRiskTag } from "@propcheck/common";
 
 const TAUTOLOGY_PATTERNS = [
   /^true$/i,
@@ -26,33 +26,105 @@ function hasFloatLikeGenerator(property: PropertyDefinition): boolean {
   });
 }
 
-function detectFragility(property: PropertyDefinition): number {
-  const assertion = property.assertion.trim();
-  let penalty = 0;
+const FRAGILITY_PENALTIES: Readonly<Record<PropertyRiskTag, number>> = {
+  float_exact_equality: 2,
+  tiny_abs_tolerance: 1,
+  missing_precondition: 0,
+  wide_numeric_domain: 0,
+  doc_domain_mismatch: 0,
+  roundtrip_numeric_fragility: 2,
+  metamorphic_scale_risk: 0,
+};
 
-  // Exact equality on float-like generators is often too strict.
+const RISK_PENALTIES: Readonly<Record<PropertyRiskTag, number>> = {
+  float_exact_equality: 3,
+  tiny_abs_tolerance: 2,
+  missing_precondition: 1,
+  wide_numeric_domain: 2,
+  doc_domain_mismatch: 2,
+  roundtrip_numeric_fragility: 3,
+  metamorphic_scale_risk: 1,
+};
+
+function hasWideNumericDomain(property: PropertyDefinition): boolean {
+  return Object.values(property.generators).some((spec) => {
+    const c = spec.constraints ?? {};
+    if (spec.type === "float" || spec.type === "number" || spec.type === "integer" || spec.type === "int") {
+      if (c.min === undefined && c.max === undefined) return true;
+      if (typeof c.min === "number" && typeof c.max === "number") {
+        return Math.abs(c.max - c.min) > 1_000_000;
+      }
+      return false;
+    }
+    if (spec.type === "array") {
+      const elementType = c.element ?? c.elementType;
+      const min = c.elementMin ?? c.min;
+      const max = c.elementMax ?? c.max;
+      if (elementType === "float" || elementType === "number" || elementType === "integer" || elementType === "int") {
+        if (min === undefined && max === undefined) return true;
+        if (typeof min === "number" && typeof max === "number") {
+          return Math.abs(max - min) > 1_000_000;
+        }
+      }
+    }
+    return false;
+  });
+}
+
+export function detectRiskTags(property: PropertyDefinition): readonly PropertyRiskTag[] {
+  const assertion = property.assertion.trim();
+  const tags = new Set<PropertyRiskTag>();
+
   if (
     hasFloatLikeGenerator(property) &&
     /(===|!==)/.test(assertion) &&
-    !assertion.includes("Math.abs(")
+    !assertion.includes("Math.abs(") &&
+    !assertion.includes("approxEqual(")
   ) {
-    penalty += 2;
+    tags.add("float_exact_equality");
   }
 
-  // Tiny tolerances are usually brittle under JS floating-point arithmetic.
   if (/(<|<=)\s*1e-(9|[1-9]\d+)/i.test(assertion)) {
-    penalty += 1;
+    tags.add("tiny_abs_tolerance");
   }
 
-  // Exact parse/format or JSON roundtrip equality is often fragile.
   if (
     /(parseFloat|parseInt|JSON\.parse)\s*\(/.test(assertion) &&
     /(===|!==)/.test(assertion)
   ) {
-    penalty += 2;
+    tags.add("roundtrip_numeric_fragility");
   }
 
-  return penalty;
+  if (hasWideNumericDomain(property)) {
+    tags.add("wide_numeric_domain");
+  }
+
+  if (
+    property.category === "boundary" &&
+    /(>=\s*0|>\s*0|<=\s*0|<\s*0|between|within)/i.test(assertion) &&
+    !/(requires|precondition|assume|if\s*\()/i.test(assertion)
+  ) {
+    tags.add("missing_precondition");
+  }
+
+  if (
+    property.category === "metamorphic" &&
+    hasFloatLikeGenerator(property) &&
+    !/(Math\.abs|approx|tolerance|epsilon)/i.test(assertion)
+  ) {
+    tags.add("metamorphic_scale_risk");
+  }
+
+  return [...tags];
+}
+
+function detectFragility(property: PropertyDefinition): number {
+  return detectRiskTags(property).reduce((sum, tag) => sum + FRAGILITY_PENALTIES[tag], 0);
+}
+
+export function computeRiskScore(property: PropertyDefinition, score: number, riskTags: readonly PropertyRiskTag[]): number {
+  const penalty = riskTags.reduce((sum, tag) => sum + RISK_PENALTIES[tag], 0);
+  return Math.max(0, score - penalty);
 }
 
 /**
@@ -149,7 +221,13 @@ export function scoreAndFilter(
 
   for (const prop of properties) {
     const score = scoreProperty(prop);
-    const withScore: PropertyDefinition = { ...prop, score };
+    const riskTags = detectRiskTags(prop);
+    const withScore: PropertyDefinition = {
+      ...prop,
+      score,
+      riskTags,
+      riskScore: computeRiskScore(prop, score, riskTags),
+    };
     scored.push(withScore);
   }
 

@@ -27,7 +27,12 @@ Rules:
 4. Include seed inputs: one normal case, one boundary, one extreme
 5. Generators must cover the function's parameter types
 6. Assertions must reference the target function's return value
-7. Do NOT generate tautologies (always-true) or trivial type checks`;
+7. Do NOT generate tautologies (always-true) or trivial type checks
+8. Avoid fragile assertions:
+   - Do NOT use exact equality (===) for floating-point comparisons; use tolerance-based checks
+   - Do NOT use tiny absolute tolerances (< 1e-9) for sums or scaled values
+   - If a property depends on business constraints (e.g. price >= 0), make the precondition explicit
+   - Prefer metamorphic or relation-style properties over arbitrary free-form assertions`;
 
 function formatFunction(fn: FunctionSignature): string {
   const params = fn.parameters

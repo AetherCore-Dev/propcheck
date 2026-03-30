@@ -12,14 +12,17 @@ AI-powered Property-Based Testing CLI. LLM infers code properties → determinis
 - Bundler: tsup (~180KB single-file bundle)
 - Test runner: Node.js `--experimental-strip-types` for direct .ts import
 
-## Project Status (2026-03-29)
-**Phase 1 MVP: COMPLETE + Real LLM Validated** — 63 files, ~6,800 lines, real provider path passing end-to-end.
+## Project Status (2026-03-30)
+**Phase 1 MVP: COMPLETE + Hardening pass landed** — real provider path passing end-to-end, with risk-aware property persistence, canary validation, and execution filtering now implemented.
 
 ### What's Done
 - Full CLI: `init`, `infer`, `run`, `badge`, `quality` commands
 - Trial-run validation: infer → quick 100x run → filter false positives
+- Property lifecycle metadata: `accepted` / `risky` / `refined` / `quarantined` / `dropped`
+- Risk-aware persistence: `riskTags`, `riskScore`, validation evidence stored in `.propcheck/properties.json`
+- Canary validation + auto-weakening for fragile numeric properties before persistence
 - `--changed` mode: git diff → only test changed files
-- `--quick` / `--thorough` / `--seed` / `--json` flags
+- `--quick` / `--thorough` / `--seed` / `--json` / `--skip` / `--only` / `--include-quarantined` flags
 - tsup bundling: ~191KB single-file bundle
 - Multi-language: TypeScript/JavaScript (fast-check) + Python (Hypothesis)
 - Multi-provider: Anthropic direct API + OpenAI-compatible (OpenRouter, one-api, etc.)
@@ -45,9 +48,9 @@ AI-powered Property-Based Testing CLI. LLM infers code properties → determinis
 - Full E2E verified: infer --mock → trial-run → persist → run → report
 
 ### What's NOT Done (Phase 2)
-- npm publish (package ready, needs `npm publish` from cli/)
-- Self-repair with real LLM (code scaffolded, mock validated)
-- Refinement loop (FUEL-style: infer → run → analyze → re-infer)
+- npm publish follow-up / release automation polish
+- Stronger canary coverage for multi-parameter interactions
+- Explicit human workflows for promote / quarantine / drop
 - PR Comment Bot (auto-comment propcheck results on PRs)
 - VS Code extension
 - Community property templates
@@ -102,4 +105,6 @@ cd packages/cli && npm publish
 
 ## Next Priority
 1. `cd packages/cli && npm publish`
-2. Phase 2: self-repair (real LLM validation), refinement loop, PR Bot, VS Code extension
+2. Improve canary coverage for multi-parameter edge interactions
+3. Add explicit human verification / promote / quarantine / drop workflows
+4. Phase 2 distribution work: PR Bot, VS Code extension

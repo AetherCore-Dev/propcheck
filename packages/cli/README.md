@@ -37,10 +37,25 @@ PROPCHECK_API_KEY=sk-... \
 - TypeScript / JavaScript + Python support
 - Anthropic direct API + OpenAI-compatible `/v1` providers
 - Trial-run validation with up to 3 rounds of self-repair before persistence
+- Risk-aware persistence with `status`, `riskTags`, `riskScore`, and validation metadata
+- Canary validation + auto-weakening for fragile numeric properties
 - `--refine` strengthens weak properties using execution feedback
 - `propcheck run --changed` for git-modified files only
+- `propcheck run --skip`, `--only`, and `--include-quarantined` for execution control
 - Mutation testing via `propcheck quality`
 - Real validation: Claude Opus 4.6 currently passes **15/15** inferred properties on `examples/price-utils.ts`
+
+## Property status model
+
+`infer` persists properties with lifecycle metadata in `.propcheck/properties.json`:
+
+- `accepted` — default runnable property
+- `risky` — potentially fragile, but still kept
+- `refined` — auto-weakened into a more stable assertion
+- `quarantined` — skipped by default during `run`
+- `dropped` — excluded from execution entirely
+
+`propcheck run --json` now reports skipped properties explicitly, including quarantined and dropped entries, so CI can distinguish “all passed” from “some were intentionally skipped”.
 
 ## Links
 

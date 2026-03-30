@@ -27,6 +27,8 @@ This release hardens property inference and execution for Anthropic direct API a
     - exact float equality
     - tiny tolerances like `< 1e-9`
     - brittle parse/format roundtrip equality
+  - Risky properties now persist explicit lifecycle metadata: `status`, `riskTags`, `riskScore`, and validation evidence
+  - Risky properties go through canary validation before persistence and may be auto-weakened into `refined` properties instead of being stored as noisy failures
 
 ## New and Improved
 
@@ -42,6 +44,10 @@ This release hardens property inference and execution for Anthropic direct API a
 - Hypothesis codegen translation for JS-style assertions (`===`, `&&`, `.length`, `Math.abs`, `parseFloat`, `parseInt`)
 - Python properties now go through the same trial-run validation path instead of bypassing validation
 - User-friendly LLM API error messages
+- `approxEqual`-based refined assertions are no longer misclassified as exact float equality risk
+- tiny absolute tolerances now weaken to stable tolerant comparisons instead of carrying the original brittle threshold forward
+- legacy `riskScore` migration now recomputes from `riskTags` when old store data is missing the field
+- `run --json` now includes skipped/quarantined/dropped property reporting for CI
 
 ### Changed
 - Real validation status upgraded from partial pass to **15/15 pass**

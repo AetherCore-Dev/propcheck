@@ -23,6 +23,8 @@ import {
   buildFeedbackSummary,
   mockRefineProperties,
   refineProperties,
+  computeRiskScore,
+  detectRiskTags,
 } from "@propcheck/llm";
 import type { LlmClient } from "@propcheck/llm";
 import { setProperties, initStore } from "@propcheck/store";
@@ -40,6 +42,9 @@ import type {
   AnalysisContext,
   RunConfig,
   ExecutionResult,
+  GeneratorSpec,
+  PropertyRiskTag,
+  ValidationEvidence,
 } from "@propcheck/common";
 
 interface InferOptions {
@@ -65,6 +70,449 @@ type TrialRunLanguage = "typescript" | "javascript" | "python";
  *   ERROR (compile/runtime) → REPAIR up to 3 rounds → KEEP if fixed, DROP if not
  */
 const MAX_REPAIR_ROUNDS = 3;
+const MAX_CANARY_CASES = 8;
+
+function isNumericSpec(spec: GeneratorSpec): boolean {
+  return spec.type === "float" || spec.type === "number" || spec.type === "integer" || spec.type === "int";
+}
+
+function getNumericBounds(spec: GeneratorSpec): { readonly min?: number; readonly max?: number } {
+  const c = spec.constraints ?? {};
+  const min = typeof c.min === "number" ? c.min : undefined;
+  const max = typeof c.max === "number" ? c.max : undefined;
+  return { ...(min !== undefined ? { min } : {}), ...(max !== undefined ? { max } : {}) };
+}
+
+function buildValidationEvidence(smokePasses: number, canaryPasses: number): ValidationEvidence {
+  return {
+    smokePasses,
+    canaryPasses,
+    seedsTested: [],
+    lastValidatedAt: new Date().toISOString(),
+  };
+}
+
+function buildCandidateValues(spec: GeneratorSpec): readonly unknown[] {
+  const c = spec.constraints ?? {};
+
+  if (spec.type === "boolean") {
+    return [false, true];
+  }
+
+  if (spec.type === "string") {
+    const maxSize = typeof c.maxLength === "number" ? Math.max(1, c.maxLength) : 1;
+    return ["", "x", "0".slice(0, maxSize)];
+  }
+
+  if (isNumericSpec(spec)) {
+    const defaults = spec.type === "integer" || spec.type === "int"
+      ? [0, 1, -1, 42, -42, Number.MAX_SAFE_INTEGER - 1]
+      : [0, Number.EPSILON, 0.1, 0.2, 0.3, 1e-12, 1e6];
+    const { min, max } = getNumericBounds(spec);
+    const filtered = defaults.filter((value) => {
+      if (!Number.isFinite(value)) return false;
+      if (min !== undefined && value < min) return false;
+      if (max !== undefined && value > max) return false;
+      return true;
+    });
+    if (filtered.length > 0) {
+      return [...new Set(filtered.map((value) => (spec.type === "integer" || spec.type === "int") ? Math.trunc(value) : value))];
+    }
+    const fallback: number[] = [];
+    if (min !== undefined) fallback.push(spec.type === "integer" || spec.type === "int" ? Math.trunc(min) : min);
+    if (max !== undefined) fallback.push(spec.type === "integer" || spec.type === "int" ? Math.trunc(max) : max);
+    return fallback.length > 0 ? [...new Set(fallback)] : [spec.type === "integer" || spec.type === "int" ? 0 : 0.0];
+  }
+
+  if (spec.type === "array") {
+    const elementType = c.element ?? c.elementType;
+    const nestedSpec: GeneratorSpec = {
+      type: typeof elementType === "string" ? elementType : "integer",
+      constraints: {
+        ...((c.elementMin ?? c.min) !== undefined ? { min: c.elementMin ?? c.min } : {}),
+        ...((c.elementMax ?? c.max) !== undefined ? { max: c.elementMax ?? c.max } : {}),
+        ...(c.elementMaxLength !== undefined ? { maxLength: c.elementMaxLength } : {}),
+      },
+    };
+    const elementValues = buildCandidateValues(nestedSpec);
+    const singleton = elementValues[0] ?? 0;
+    const second = elementValues[1] ?? singleton;
+    const maxLength = typeof c.maxLength === "number" ? c.maxLength : undefined;
+    const arrays: unknown[] = [];
+    if (maxLength === undefined || maxLength >= 0) arrays.push([]);
+    if (maxLength === undefined || maxLength >= 1) arrays.push([singleton]);
+    if (maxLength === undefined || maxLength >= 2) arrays.push([singleton, singleton]);
+    if (maxLength === undefined || maxLength >= 2) arrays.push([singleton, second]);
+    return arrays;
+  }
+
+  return [];
+}
+
+function buildCanaryCases(property: PropertyDefinition): readonly Record<string, unknown>[] {
+  const entries = Object.entries(property.generators);
+  if (entries.length === 0) {
+    return [{}];
+  }
+
+  const candidates = entries.map(([name, spec]) => [name, buildCandidateValues(spec)] as const);
+  if (candidates.some(([, values]) => values.length === 0)) {
+    return [];
+  }
+
+  const baseline = Object.fromEntries(candidates.map(([name, values]) => [name, values[0]]));
+  const cases: Record<string, unknown>[] = [baseline];
+  const seen = new Set([JSON.stringify(baseline)]);
+
+  for (const [name, values] of candidates) {
+    for (const value of values.slice(1)) {
+      const nextCase = { ...baseline, [name]: value };
+      const key = JSON.stringify(nextCase);
+      if (!seen.has(key)) {
+        seen.add(key);
+        cases.push(nextCase);
+      }
+      if (cases.length >= MAX_CANARY_CASES) {
+        return cases;
+      }
+    }
+  }
+
+  return cases;
+}
+
+function buildConstantGenerators(input: Readonly<Record<string, unknown>>): Readonly<Record<string, GeneratorSpec>> {
+  return Object.freeze(
+    Object.fromEntries(
+      Object.entries(input).map(([name, value]) => [name, { type: "constant", constraints: { value } }]),
+    ),
+  );
+}
+
+function findTopLevelOperator(expression: string, operators: readonly string[]): { readonly left: string; readonly operator: string; readonly right: string } | null {
+  let depth = 0;
+  let quote: '"' | "'" | "`" | null = null;
+  let escaped = false;
+
+  for (let i = 0; i < expression.length; i++) {
+    const ch = expression[i];
+
+    if (quote) {
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      if (ch === "\\") {
+        escaped = true;
+        continue;
+      }
+      if (ch === quote) {
+        quote = null;
+      }
+      continue;
+    }
+
+    if (ch === '"' || ch === "'" || ch === "`") {
+      quote = ch;
+      continue;
+    }
+    if (ch === "(" || ch === "[" || ch === "{") {
+      depth++;
+      continue;
+    }
+    if (ch === ")" || ch === "]" || ch === "}") {
+      depth = Math.max(0, depth - 1);
+      continue;
+    }
+
+    if (depth === 0) {
+      for (const operator of operators) {
+        if (expression.startsWith(operator, i)) {
+          return {
+            left: expression.slice(0, i).trim(),
+            operator,
+            right: expression.slice(i + operator.length).trim(),
+          };
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
+function weakenExactEquality(assertion: string): string | null {
+  const match = findTopLevelOperator(assertion.trim(), ["!==", "==="]);
+  if (!match || !match.left || !match.right) {
+    return null;
+  }
+  return match.operator === "!=="
+    ? `!approxEqual(${match.left}, ${match.right})`
+    : `approxEqual(${match.left}, ${match.right})`;
+}
+
+function parseTinyTolerance(assertion: string): { readonly left: string; readonly right: string } | null {
+  const trimmed = assertion.trim();
+  if (!trimmed.startsWith("Math.abs(")) {
+    return null;
+  }
+  const start = "Math.abs(".length;
+  let depth = 0;
+  let closeIndex = -1;
+  for (let i = start; i < trimmed.length; i++) {
+    const ch = trimmed[i];
+    if (ch === "(") depth++;
+    if (ch === ")") {
+      if (depth === 0) {
+        closeIndex = i;
+        break;
+      }
+      depth--;
+    }
+  }
+  if (closeIndex === -1) {
+    return null;
+  }
+
+  const body = trimmed.slice(start, closeIndex).trim();
+  const remainder = trimmed.slice(closeIndex + 1).trim();
+  const toleranceMatch = remainder.match(/^(?:<|<=)\s*1e-(?:9|[1-9]\d+)$/i);
+  if (!toleranceMatch) {
+    return null;
+  }
+
+  const diff = findTopLevelOperator(body, ["-"]);
+  if (!diff || !diff.left || !diff.right) {
+    return null;
+  }
+
+  return {
+    left: diff.left,
+    right: diff.right,
+  };
+}
+
+function weakenTinyTolerance(assertion: string): string | null {
+  const parsed = parseTinyTolerance(assertion);
+  if (!parsed) {
+    return null;
+  }
+  return `approxEqual(${parsed.left}, ${parsed.right}, 1e-6, 1e-6)`;
+}
+
+function tightenWideNumericGenerators(generators: Readonly<Record<string, GeneratorSpec>>): Readonly<Record<string, GeneratorSpec>> {
+  const next = Object.fromEntries(Object.entries(generators).map(([name, spec]) => {
+    if (isNumericSpec(spec)) {
+      const { min, max } = getNumericBounds(spec);
+      if (min === undefined && max === undefined) {
+        return [name, { ...spec, constraints: { ...(spec.constraints ?? {}), min: 0, max: 1_000_000 } }];
+      }
+      if (min !== undefined && max !== undefined && Math.abs(max - min) > 1_000_000) {
+        return [name, { ...spec, constraints: { ...(spec.constraints ?? {}), min: Math.max(min, 0), max: Math.min(max, 1_000_000) } }];
+      }
+    }
+
+    if (spec.type === "array") {
+      const c = spec.constraints ?? {};
+      const elementType = c.element ?? c.elementType;
+      if (elementType === "float" || elementType === "number" || elementType === "integer" || elementType === "int") {
+        const min = typeof (c.elementMin ?? c.min) === "number" ? Number(c.elementMin ?? c.min) : undefined;
+        const max = typeof (c.elementMax ?? c.max) === "number" ? Number(c.elementMax ?? c.max) : undefined;
+        if (min === undefined && max === undefined) {
+          return [name, { ...spec, constraints: { ...c, elementMin: 0, elementMax: 1_000_000 } }];
+        }
+        if (min !== undefined && max !== undefined && Math.abs(max - min) > 1_000_000) {
+          return [name, { ...spec, constraints: { ...c, elementMin: Math.max(min, 0), elementMax: Math.min(max, 1_000_000) } }];
+        }
+      }
+    }
+
+    return [name, spec];
+  }));
+  return Object.freeze(next);
+}
+
+function refreshRiskMetadata(property: PropertyDefinition): PropertyDefinition {
+  const preservedTags = property.riskTags.filter((tag) => tag === "doc_domain_mismatch" || tag === "missing_precondition");
+  const riskTags = [...new Set([...detectRiskTags(property), ...preservedTags])];
+  return {
+    ...property,
+    riskTags,
+    riskScore: computeRiskScore(property, property.score, riskTags),
+  };
+}
+
+function autoWeakenProperty(property: PropertyDefinition): PropertyDefinition | null {
+  if (property.status === "refined") {
+    return null;
+  }
+
+  let assertion = property.assertion;
+  let generators = property.generators;
+  let changed = false;
+
+  if (property.riskTags.includes("float_exact_equality")) {
+    const weakened = weakenExactEquality(assertion);
+    if (weakened && weakened !== assertion) {
+      assertion = weakened;
+      changed = true;
+    }
+  }
+
+  if (property.riskTags.includes("tiny_abs_tolerance")) {
+    const weakened = weakenTinyTolerance(assertion);
+    if (weakened && weakened !== assertion) {
+      assertion = weakened;
+      changed = true;
+    }
+  }
+
+  if (property.riskTags.includes("wide_numeric_domain")) {
+    const tightened = tightenWideNumericGenerators(generators);
+    if (JSON.stringify(tightened) !== JSON.stringify(generators)) {
+      generators = tightened;
+      changed = true;
+    }
+  }
+
+  if (!changed) {
+    return null;
+  }
+
+  return refreshRiskMetadata({
+    ...property,
+    assertion,
+    generators,
+    status: "refined",
+  });
+}
+
+function detectDocDomainRiskTags(property: PropertyDefinition, context: AnalysisContext): readonly PropertyRiskTag[] {
+  const functionName = property.targetFunction.split(".").pop() ?? property.targetFunction;
+  const doc = context.signals.doc.find((entry) => entry.functionName === property.targetFunction || entry.functionName === functionName);
+  if (!doc) {
+    return [];
+  }
+
+  for (const [paramName, spec] of Object.entries(property.generators)) {
+    const docText = doc.paramDocs[paramName]?.toLowerCase();
+    if (!docText || !isNumericSpec(spec)) continue;
+    const { min, max } = getNumericBounds(spec);
+    const mentionsPercentageRange = /0\s*(?:-|to)\s*100|0-100|0 to 100|percentage|percent/.test(docText);
+    const mentionsNonNegative = /non-negative|nonnegative|>=\s*0|positive/.test(docText);
+    if (mentionsPercentageRange && (min !== 0 || max !== 100)) {
+      return ["doc_domain_mismatch"];
+    }
+    if (mentionsNonNegative && min === undefined) {
+      return ["doc_domain_mismatch"];
+    }
+  }
+
+  return [];
+}
+
+function applyRiskMetadata(properties: readonly PropertyDefinition[], context: AnalysisContext): readonly PropertyDefinition[] {
+  return properties.map((property) => {
+    const riskTags = [...new Set([...property.riskTags, ...detectDocDomainRiskTags(property, context)])];
+    return {
+      ...property,
+      riskTags,
+      riskScore: computeRiskScore(property, property.score, riskTags),
+      status: riskTags.length > 0 ? "risky" : "accepted",
+    };
+  });
+}
+
+export async function canaryValidateProperties(
+  properties: readonly PropertyDefinition[],
+  targetPath: string,
+  storeDir: string,
+  language: TrialRunLanguage,
+): Promise<{ readonly validated: readonly PropertyDefinition[]; readonly quarantined: readonly { prop: PropertyDefinition; reason: string }[] }> {
+  const testsDir = path.join(storeDir, "tests");
+  await fs.mkdir(testsDir, { recursive: true });
+
+  const canaryConfig: RunConfig = {
+    mode: "quick",
+    iterations: 1,
+    timeout: 15_000,
+    verbose: false,
+  };
+
+  const validated: PropertyDefinition[] = [];
+  const quarantined: { prop: PropertyDefinition; reason: string }[] = [];
+
+  for (const property of properties) {
+    if (property.riskTags.length === 0) {
+      validated.push({
+        ...property,
+        validation: buildValidationEvidence(100, 0),
+      });
+      continue;
+    }
+
+    const canaryCases = buildCanaryCases(property);
+    if (canaryCases.length === 0) {
+      validated.push({
+        ...property,
+        status: property.status === "refined" ? "refined" : "risky",
+        validation: buildValidationEvidence(100, 0),
+      });
+      continue;
+    }
+
+    let canaryPasses = 0;
+    let failureReason: string | null = null;
+
+    for (const input of canaryCases) {
+      const canaryProperty: PropertyDefinition = {
+        ...property,
+        generators: buildConstantGenerators(input),
+      };
+      const result = await executeTrialRun([canaryProperty], targetPath, testsDir, canaryConfig, language);
+      const failed = result.failed[0];
+      const error = result.errors[0];
+      if (failed || error) {
+        failureReason = failed?.errorMessage ?? error?.errorMessage ?? `canary failed for ${JSON.stringify(input)}`;
+        break;
+      }
+      canaryPasses++;
+    }
+
+    if (failureReason) {
+      const weakened = autoWeakenProperty(property);
+      if (weakened) {
+        const rerun = await canaryValidateProperties([weakened], targetPath, storeDir, language);
+        if (rerun.validated.length > 0) {
+          validated.push(rerun.validated[0]);
+          continue;
+        }
+        if (rerun.quarantined.length > 0) {
+          quarantined.push(rerun.quarantined[0]);
+          continue;
+        }
+      }
+
+      quarantined.push({
+        prop: {
+          ...property,
+          status: "quarantined",
+          validation: buildValidationEvidence(100, canaryPasses),
+        },
+        reason: failureReason,
+      });
+      continue;
+    }
+
+    validated.push({
+      ...property,
+      status: property.status === "refined" ? "refined" : "risky",
+      validation: buildValidationEvidence(100, canaryPasses),
+    });
+  }
+
+  return { validated, quarantined };
+}
 
 async function executeTrialRun(
   properties: readonly PropertyDefinition[],
@@ -140,6 +588,15 @@ async function trialRunValidation(
       if (passedIds.has(prop.id)) {
         validated.push(prop);
       } else if (failedIds.has(prop.id)) {
+        if (round < MAX_REPAIR_ROUNDS) {
+          const weakened = autoWeakenProperty(prop);
+          if (weakened) {
+            needsRepair.push(weakened);
+            totalRepaired++;
+            console.log(`    ↻ Weakening: ${prop.targetFunction}: ${prop.description} (round ${round + 1})`);
+            continue;
+          }
+        }
         // Found a real bug — keep it
         validated.push(prop);
       } else if (errorIds.has(prop.id)) {
@@ -277,6 +734,11 @@ export async function inferCommand(
     process.exit(1);
   }
 
+  result = {
+    ...result,
+    properties: applyRiskMetadata(result.properties, context),
+  };
+
   if (result.properties.length === 0) {
     console.log("  No properties inferred (all filtered out by quality scoring).\n");
     return;
@@ -318,21 +780,37 @@ export async function inferCommand(
       }
     }
 
-    finalProperties = validated;
+    const { validated: canaryValidated, quarantined } = await canaryValidateProperties(
+      validated,
+      targetPath,
+      storeDir,
+      language as TrialRunLanguage,
+    );
+
+    if (quarantined.length > 0) {
+      console.log(`  Quarantined ${quarantined.length} risky properties after canary validation:`);
+      for (const { prop, reason } of quarantined) {
+        console.log(`    - ${prop.targetFunction}: ${prop.description} [${reason.slice(0, 80)}]`);
+      }
+    }
+
+    finalProperties = [...canaryValidated, ...quarantined.map(({ prop }) => prop)];
 
     if (finalProperties.length === 0) {
       console.log("  No properties survived validation.\n");
       return;
     }
 
+    const activeProperties = finalProperties.filter((property) => property.status !== "quarantined");
+
     // Refinement loop (Round 2) — strengthen weak properties, explore bug areas
-    if (options.refine && finalProperties.length > 0) {
-      console.log(`\n  Refinement Round 2: analyzing ${finalProperties.length} properties...`);
+    if (options.refine && activeProperties.length > 0) {
+      console.log(`\n  Refinement Round 2: analyzing ${activeProperties.length} properties...`);
 
       // Run a full execution to classify
       const fullConfig: RunConfig = { mode: "quick", iterations: 100, timeout: 15_000, verbose: false };
       const execResult = await executeTrialRun(
-        finalProperties,
+        activeProperties,
         targetPath,
         testsDir,
         fullConfig,
@@ -340,7 +818,7 @@ export async function inferCommand(
       );
 
       // Classify results
-      const classifications = classifyProperties(finalProperties, execResult);
+      const classifications = classifyProperties(activeProperties, execResult);
       const functionNames = context.functions.map((f) => f.qualifiedName);
       const feedback = buildFeedbackSummary(classifications, functionNames);
 
@@ -355,7 +833,7 @@ export async function inferCommand(
         let improvedProperties: readonly PropertyDefinition[];
 
         if (config.mock) {
-          improvedProperties = mockRefineProperties(classifications);
+          improvedProperties = applyRiskMetadata(mockRefineProperties(classifications), context);
         } else if (llmClient) {
           const refineResult = await refineProperties(config.apiKey, config.model, context, feedback, {
             maxProperties,
@@ -364,7 +842,7 @@ export async function inferCommand(
             provider: config.provider,
             baseURL: config.baseURL,
           });
-          improvedProperties = refineResult.properties;
+          improvedProperties = applyRiskMetadata(refineResult.properties, context);
         } else {
           improvedProperties = [];
         }
@@ -382,17 +860,26 @@ export async function inferCommand(
             config.mock,
             language as TrialRunLanguage,
           );
+          const { validated: improvedCanaryValidated, quarantined: improvedQuarantined } = await canaryValidateProperties(
+            improvedValidated,
+            targetPath,
+            storeDir,
+            language as TrialRunLanguage,
+          );
 
           // Merge: keep strong originals + replace weak with improved + keep bug-finders
           const strongProps = classifications
             .filter((c) => c.kind === "strong" || c.kind === "bug_found")
             .map((c) => c.property);
 
+          const quarantinedProps = finalProperties.filter((property) => property.status === "quarantined");
+
           // Deduplicate by assertion
           const existingAssertions = new Set(strongProps.map((p) => p.assertion));
-          const newUnique = improvedValidated.filter((p) => !existingAssertions.has(p.assertion));
+          const improvedCombined = [...improvedCanaryValidated, ...improvedQuarantined.map(({ prop }) => prop)];
+          const newUnique = improvedCombined.filter((p) => !existingAssertions.has(p.assertion));
 
-          finalProperties = [...strongProps, ...newUnique];
+          finalProperties = [...strongProps, ...newUnique, ...quarantinedProps];
           console.log(`    Final: ${finalProperties.length} properties after refinement`);
         }
       } else {
@@ -404,6 +891,7 @@ export async function inferCommand(
   // Persist to .propcheck/
   const moduleKey = toForwardSlash(path.relative(projectRoot, targetPath));
   const propertySet: PropertySet = {
+    schemaVersion: 2,
     module: moduleKey,
     filePath: moduleKey,
     properties: finalProperties,

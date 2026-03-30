@@ -16,7 +16,13 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import * as crypto from "node:crypto";
-import type { PropertySet } from "@propcheck/common";
+import type {
+  PropertyDefinition,
+  PropertySet,
+  PropertyStatus,
+  PropertyRiskTag,
+  ValidationEvidence,
+} from "@propcheck/common";
 
 /** On-disk format of properties.json */
 interface PropertiesFile {
@@ -24,18 +30,82 @@ interface PropertiesFile {
   readonly modules: Readonly<Record<string, PropertySet>>;
 }
 
+interface LegacyPropertyDefinition extends Omit<PropertyDefinition, "riskScore" | "riskTags" | "status" | "validation" | "humanVerified"> {
+  readonly riskScore?: number;
+  readonly riskTags?: readonly PropertyRiskTag[];
+  readonly status?: PropertyStatus;
+  readonly validation?: ValidationEvidence;
+  readonly humanVerified?: boolean;
+}
+
+interface LegacyPropertySet extends Omit<PropertySet, "schemaVersion" | "properties"> {
+  readonly schemaVersion?: number;
+  readonly properties: readonly LegacyPropertyDefinition[];
+}
+
 const PROPERTIES_FILE = "properties.json";
-const FILE_VERSION = 1;
+const FILE_VERSION = 2;
+const LEGACY_RISK_PENALTIES: Readonly<Record<PropertyRiskTag, number>> = {
+  float_exact_equality: 3,
+  tiny_abs_tolerance: 2,
+  missing_precondition: 1,
+  wide_numeric_domain: 2,
+  doc_domain_mismatch: 2,
+  roundtrip_numeric_fragility: 3,
+  metamorphic_scale_risk: 1,
+};
 
 function propertiesPath(storeDir: string): string {
   return path.join(storeDir, PROPERTIES_FILE);
+}
+
+function computeLegacyRiskScore(score: number, riskTags: readonly PropertyRiskTag[]): number {
+  const penalty = riskTags.reduce((sum, tag) => sum + LEGACY_RISK_PENALTIES[tag], 0);
+  return Math.max(0, score - penalty);
+}
+
+function normalizeProperty(property: LegacyPropertyDefinition): PropertyDefinition {
+  const riskTags = Object.freeze([...(property.riskTags ?? [])]);
+  return {
+    ...property,
+    riskScore: property.riskScore ?? computeLegacyRiskScore(property.score, riskTags),
+    riskTags,
+    status: property.status ?? "accepted",
+    ...(property.validation ? { validation: property.validation } : {}),
+    ...(property.humanVerified !== undefined ? { humanVerified: property.humanVerified } : {}),
+  };
+}
+
+function normalizePropertySet(propertySet: LegacyPropertySet): PropertySet {
+  return {
+    schemaVersion: 2,
+    module: propertySet.module,
+    filePath: propertySet.filePath,
+    properties: Object.freeze(propertySet.properties.map(normalizeProperty)),
+    sourceHash: propertySet.sourceHash,
+    inferredAt: propertySet.inferredAt,
+  };
+}
+
+function normalizePropertiesFile(file: { readonly version?: number; readonly modules?: Readonly<Record<string, LegacyPropertySet>> }): PropertiesFile {
+  const version = file.version ?? 1;
+  if (version > FILE_VERSION) {
+    throw new Error(`Unsupported properties file version ${version}. Current CLI supports up to ${FILE_VERSION}.`);
+  }
+
+  return {
+    version: FILE_VERSION,
+    modules: Object.fromEntries(
+      Object.entries(file.modules ?? {}).map(([module, propertySet]) => [module, normalizePropertySet(propertySet)]),
+    ),
+  };
 }
 
 async function readPropertiesFile(storeDir: string): Promise<PropertiesFile> {
   const filePath = propertiesPath(storeDir);
   try {
     const content = await fs.readFile(filePath, "utf8");
-    return JSON.parse(content) as PropertiesFile;
+    return normalizePropertiesFile(JSON.parse(content) as { readonly version?: number; readonly modules?: Readonly<Record<string, LegacyPropertySet>> });
   } catch (err: unknown) {
     // Only return empty state for missing file; re-throw for corruption/permission errors
     if (err instanceof Error && "code" in err && (err as NodeJS.ErrnoException).code === "ENOENT") {

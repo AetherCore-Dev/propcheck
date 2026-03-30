@@ -8,11 +8,13 @@ export interface JsonReport {
   readonly passed: readonly { propertyId: string; iterations: number; duration: number }[];
   readonly failed: readonly { propertyId: string; counterexample: unknown; errorMessage: string; seed: number }[];
   readonly errors: readonly { propertyId: string; errorMessage: string }[];
+  readonly skipped: readonly { propertyId: string; reason: string; propertyStatus: string }[];
   readonly summary: {
     readonly total: number;
     readonly passed: number;
     readonly failed: number;
     readonly errors: number;
+    readonly skipped: number;
     readonly duration: number;
   };
 }
@@ -34,11 +36,17 @@ export function reportAsJson(result: ExecutionResult): string {
       propertyId: e.propertyId,
       errorMessage: e.errorMessage,
     })),
+    skipped: result.skipped.map((s) => ({
+      propertyId: s.propertyId,
+      reason: s.reason,
+      propertyStatus: s.propertyStatus,
+    })),
     summary: {
       total: result.passed.length + result.failed.length + result.errors.length,
       passed: result.passed.length,
       failed: result.failed.length,
       errors: result.errors.length,
+      skipped: result.skipped.length,
       duration: result.duration,
     },
   };
