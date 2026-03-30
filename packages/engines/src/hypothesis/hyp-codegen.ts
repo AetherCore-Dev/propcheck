@@ -50,7 +50,21 @@ function mapStrategy(spec: GeneratorSpec): string {
 
     case "array":
     case "list": {
-      const element = c.element ? mapStrategy({ type: String(c.element).replace(/[^a-zA-Z0-9_]/g, "") }) : "st.integers()";
+      const elementType = c.element ?? c.elementType;
+      const nestedConstraints = c.elementConstraints && typeof c.elementConstraints === "object"
+        ? (c.elementConstraints as Record<string, unknown>)
+        : {
+            ...((c.elementMin ?? c.min) !== undefined ? { min: c.elementMin ?? c.min } : {}),
+            ...((c.elementMax ?? c.max) !== undefined ? { max: c.elementMax ?? c.max } : {}),
+            ...(c.elementMaxLength !== undefined ? { maxLength: c.elementMaxLength } : {}),
+          };
+
+      const element = elementType
+        ? mapStrategy({
+            type: String(elementType).replace(/[^a-zA-Z0-9_]/g, ""),
+            ...(Object.keys(nestedConstraints).length > 0 ? { constraints: nestedConstraints } : {}),
+          })
+        : "st.integers()";
       const maxLen = c.maxLength ? `, max_size=${Number(c.maxLength)}` : "";
       return `st.lists(${element}${maxLen})`;
     }
@@ -62,6 +76,27 @@ function mapStrategy(spec: GeneratorSpec): string {
     default:
       return "st.integers()";
   }
+}
+
+function translateAssertionToPython(assertion: string): string {
+  let translated = assertion;
+
+  translated = translated.replace(/!==/g, "!=");
+  translated = translated.replace(/===/g, "==");
+  translated = translated.replace(/\btrue\b/g, "True");
+  translated = translated.replace(/\bfalse\b/g, "False");
+  translated = translated.replace(/\bnull\b/g, "None");
+  translated = translated.replace(/\bundefined\b/g, "None");
+  translated = translated.replace(/\bMath\.abs\s*\(/g, "abs(");
+  translated = translated.replace(/\bparseFloat\s*\(/g, "float(");
+  translated = translated.replace(/\bparseInt\s*\(/g, "int(");
+  translated = translated.replace(/\s*&&\s*/g, " and ");
+  translated = translated.replace(/\s*\|\|\s*/g, " or ");
+  translated = translated.replace(/!\s*(?!=)\(/g, "not (");
+  translated = translated.replace(/!\s*(?!=)([A-Za-z_][\w.]*(?:\([^()\n]*\))?)/g, "not $1");
+  translated = translated.replace(/([A-Za-z_][\w.]*(?:\([^()\n]*\))?)\.length\b/g, "len($1)");
+
+  return translated;
 }
 
 /**
@@ -88,14 +123,13 @@ export function generateHypothesisTest(
   lines.push(`# Generated: ${new Date().toISOString()}`);
   lines.push(``);
   lines.push(`import sys`);
-  lines.push(`import os`);
   lines.push(`import json`);
   lines.push(`from pathlib import Path`);
   lines.push(``);
   lines.push(`# Add target directory to Python path`);
-  lines.push(`sys.path.insert(0, str(Path(__file__).parent / "${relTargetDir}"))`);
+  lines.push(`sys.path.insert(0, str(Path(__file__).parent / ${JSON.stringify(relTargetDir)}))`);
   lines.push(``);
-  lines.push(`from hypothesis import given, settings, assume`);
+  lines.push(`from hypothesis import given, settings`);
   lines.push(`from hypothesis import strategies as st`);
   lines.push(`import ${moduleName} as target`);
   lines.push(``);
@@ -120,14 +154,8 @@ export function generateHypothesisTest(
       `target.${funcName}(`,
     );
 
-    // Translate JavaScript syntax to Python
-    assertion = assertion.replace(/===/g, "==");   // strict equality → Python equality
-    assertion = assertion.replace(/!==/g, "!=");   // strict inequality
-    assertion = assertion.replace(/\btrue\b/g, "True");
-    assertion = assertion.replace(/\bfalse\b/g, "False");
-    assertion = assertion.replace(/\bnull\b/g, "None");
-    assertion = assertion.replace(/\bundefined\b/g, "None");
-    assertion = assertion.replace(/\.length\b/g, ".__len__()");  // arr.length → len(arr)
+    // Translate JavaScript-flavored syntax that LLMs commonly emit into Python.
+    assertion = translateAssertionToPython(assertion);
 
     lines.push(`# ${prop.id}: ${toSafeComment(prop.description)}`);
     lines.push(`# Category: ${toSafeComment(prop.category)}`);

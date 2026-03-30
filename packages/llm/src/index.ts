@@ -7,10 +7,11 @@
 import type { AnalysisContext, PropertyDefinition } from "@propcheck/common";
 import { hashContent } from "@propcheck/common";
 import { createLlmClient } from "./client";
-import type { LlmClient } from "./client";
+import type { LlmClient, ApiResponse } from "./client";
 import { createOpenAIClient } from "./openai-client";
 import { createMockClient } from "./mock-client";
 import { buildInferPrompt, getSystemPrompt, getInferTool } from "./prompts/infer-properties";
+import { buildRefinementPrompt } from "./prompts/refinement";
 import { parseInferResponse } from "./response-parser";
 import { scoreAndFilter } from "./scoring";
 
@@ -44,6 +45,48 @@ function estimateCost(inputTokens: number, outputTokens: number): number {
     (inputTokens / 1_000_000) * INPUT_COST_PER_1M +
     (outputTokens / 1_000_000) * OUTPUT_COST_PER_1M
   );
+}
+
+function limitPropertiesPerFunction(
+  properties: readonly PropertyDefinition[],
+  maxProperties: number,
+): readonly PropertyDefinition[] {
+  const functionGroups = new Map<string, PropertyDefinition[]>();
+  for (const prop of properties) {
+    const group = functionGroups.get(prop.targetFunction) ?? [];
+    group.push(prop);
+    functionGroups.set(prop.targetFunction, group);
+  }
+
+  const limited: PropertyDefinition[] = [];
+  for (const [_fn, props] of functionGroups) {
+    limited.push(...props.slice(0, maxProperties));
+  }
+
+  return limited;
+}
+
+function toInferResult(
+  response: ApiResponse,
+  context: AnalysisContext,
+  opts: InferOptions,
+  startedAt: number,
+): InferResult {
+  const sourceHash = hashContent(context.sourceCode);
+  const rawProperties = parseInferResponse(response.content, {
+    sourceHash,
+    modelId: response.model,
+  });
+
+  const filtered = scoreAndFilter(rawProperties, opts.minScore);
+  const limited = limitPropertiesPerFunction(filtered, opts.maxProperties);
+
+  return {
+    properties: limited,
+    tokensUsed: response.inputTokens + response.outputTokens,
+    cost: estimateCost(response.inputTokens, response.outputTokens),
+    duration: Date.now() - startedAt,
+  };
 }
 
 /**
@@ -86,38 +129,34 @@ export async function inferProperties(
   // Call LLM
   const response = await client.call(systemPrompt, userPrompt, [tool]);
 
-  // Parse response
-  const sourceHash = hashContent(context.sourceCode);
-  const rawProperties = parseInferResponse(response.content, {
-    sourceHash,
-    modelId: response.model,
-  });
+  return toInferResult(response, context, opts, startTime);
+}
 
-  // Score and filter
-  const filtered = scoreAndFilter(rawProperties, opts.minScore);
+/**
+ * Refine properties using execution feedback from a prior round.
+ */
+export async function refineProperties(
+  apiKey: string | null,
+  model: string,
+  context: AnalysisContext,
+  feedbackSummary: string,
+  options: Partial<InferOptions> = {},
+): Promise<InferResult> {
+  const opts: InferOptions = { ...DEFAULT_OPTIONS, ...options };
+  const startTime = Date.now();
 
-  // Limit to maxProperties per function
-  const functionGroups = new Map<string, PropertyDefinition[]>();
-  for (const prop of filtered) {
-    const group = functionGroups.get(prop.targetFunction) ?? [];
-    group.push(prop);
-    functionGroups.set(prop.targetFunction, group);
-  }
+  const client = opts.mock
+    ? createMockClient()
+    : createClient(apiKey!, model, opts.provider, opts.baseURL);
 
-  const limited: PropertyDefinition[] = [];
-  for (const [_fn, props] of functionGroups) {
-    limited.push(...props.slice(0, opts.maxProperties));
-  }
+  const systemPrompt = getSystemPrompt();
+  const originalPrompt = buildInferPrompt(context);
+  const userPrompt = buildRefinementPrompt(originalPrompt, feedbackSummary);
+  const tool = getInferTool();
 
-  const duration = Date.now() - startTime;
-  const cost = estimateCost(response.inputTokens, response.outputTokens);
+  const response = await client.call(systemPrompt, userPrompt, [tool]);
 
-  return {
-    properties: limited,
-    tokensUsed: response.inputTokens + response.outputTokens,
-    cost,
-    duration,
-  };
+  return toInferResult(response, context, opts, startTime);
 }
 
 // Re-exports

@@ -1663,7 +1663,7 @@ var require_mock_client = __commonJS({
   "../llm/dist/mock-client.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.createMockClient = createMockClient2;
+    exports2.createMockClient = createMockClient;
     var FUNCTION_PROPERTIES = {
       // ═══════════════════════════════════════
       // cart-buggy.ts
@@ -2214,7 +2214,7 @@ var require_mock_client = __commonJS({
         }
       ]
     };
-    function createMockClient2() {
+    function createMockClient() {
       return {
         async call(_systemPrompt, userPrompt, _tools, _options) {
           const funcNameRegex = /^### (\w+)/gm;
@@ -2452,6 +2452,109 @@ Rules:
           required: ["properties"]
         }
       };
+    }
+  }
+});
+
+// ../llm/dist/prompts/refinement.js
+var require_refinement = __commonJS({
+  "../llm/dist/prompts/refinement.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.classifyProperties = classifyProperties2;
+    exports2.buildFeedbackSummary = buildFeedbackSummary2;
+    exports2.buildRefinementPrompt = buildRefinementPrompt;
+    function classifyProperties2(properties, result) {
+      const passedIds = new Map(result.passed.map((p) => [p.propertyId, p]));
+      const failedIds = new Map(result.failed.map((f) => [f.propertyId, f]));
+      const errorIds = new Map(result.errors.map((e) => [e.propertyId, e]));
+      return properties.map((prop) => {
+        const passed = passedIds.get(prop.id);
+        if (passed) {
+          if (prop.score < 12 || prop.confidence < 0.7) {
+            return { kind: "weak", property: prop, reason: `low score (${prop.score}/15) or confidence (${prop.confidence})` };
+          }
+          return { kind: "strong", property: prop };
+        }
+        const failed = failedIds.get(prop.id);
+        if (failed) {
+          return { kind: "bug_found", property: prop, counterexample: failed.counterexample };
+        }
+        const error = errorIds.get(prop.id);
+        if (error) {
+          return { kind: "failed", property: prop, error: error.errorMessage };
+        }
+        return { kind: "failed", property: prop, error: "no result" };
+      });
+    }
+    function buildFeedbackSummary2(classifications, functionNames) {
+      const lines = [];
+      lines.push("## Round 1 Results\n");
+      const byFunction = /* @__PURE__ */ new Map();
+      for (const c of classifications) {
+        const fn = c.property.targetFunction;
+        const list = byFunction.get(fn) ?? [];
+        list.push(c);
+        byFunction.set(fn, list);
+      }
+      for (const [fn, cls] of byFunction) {
+        lines.push(`### ${fn}`);
+        for (const c of cls) {
+          switch (c.kind) {
+            case "strong":
+              lines.push(`  \u2713 STRONG: "${c.property.description}" \u2014 passed, high quality`);
+              break;
+            case "weak":
+              lines.push(`  \u26A0 WEAK: "${c.property.description}" \u2014 ${c.reason}`);
+              lines.push(`    \u2192 Please generate a STRONGER version that tests deeper behavior`);
+              break;
+            case "bug_found":
+              lines.push(`  \u{1F41B} BUG FOUND: "${c.property.description}" \u2014 counterexample: ${JSON.stringify(c.counterexample)}`);
+              lines.push(`    \u2192 Explore SIMILAR properties around this bug area`);
+              break;
+            case "failed":
+              lines.push(`  \u2717 FAILED: "${c.property.description}" \u2014 ${c.error}`);
+              break;
+          }
+        }
+        lines.push("");
+      }
+      const coveredFunctions = /* @__PURE__ */ new Set();
+      for (const c of classifications) {
+        if (c.kind === "strong" || c.kind === "bug_found") {
+          coveredFunctions.add(c.property.targetFunction);
+        }
+      }
+      const uncovered = functionNames.filter((fn) => !coveredFunctions.has(fn));
+      if (uncovered.length > 0) {
+        lines.push("## Coverage Gaps");
+        lines.push(`These functions have no strong properties yet: ${uncovered.join(", ")}`);
+        lines.push("\u2192 Try different property categories (roundtrip, conservation, metamorphic)");
+        lines.push("");
+      }
+      const strong = classifications.filter((c) => c.kind === "strong").length;
+      const weak = classifications.filter((c) => c.kind === "weak").length;
+      const bugs = classifications.filter((c) => c.kind === "bug_found").length;
+      const failed = classifications.filter((c) => c.kind === "failed").length;
+      lines.push("## Summary");
+      lines.push(`Strong: ${strong} | Weak: ${weak} | Bugs found: ${bugs} | Failed: ${failed}`);
+      lines.push("");
+      lines.push("## Instructions for Round 2");
+      lines.push("1. Keep all STRONG properties as-is (do not regenerate them)");
+      lines.push("2. For each WEAK property, generate a stronger replacement");
+      lines.push("3. For each BUG FOUND, generate 1-2 related properties exploring the same area");
+      lines.push("4. For coverage gaps, try completely different property categories");
+      lines.push("5. Do NOT duplicate existing strong properties");
+      return lines.join("\n");
+    }
+    function buildRefinementPrompt(originalPrompt, feedbackSummary) {
+      return `${originalPrompt}
+
+---
+
+${feedbackSummary}
+
+Generate ONLY new or improved properties. Do NOT repeat the strong properties from Round 1.`;
     }
   }
 });
@@ -2727,6 +2830,32 @@ var require_scoring = __commonJS({
       /^result\s*===?\s*result$/,
       /^typeof\s+\w+\s*(!==?|===?)\s*['"]undefined['"]\s*$/
     ];
+    function hasFloatLikeGenerator(property) {
+      return Object.values(property.generators).some((spec) => {
+        if (spec.type === "float" || spec.type === "number") {
+          return true;
+        }
+        if (spec.type === "array") {
+          const c = spec.constraints ?? {};
+          return c.element === "float" || c.element === "number" || c.elementType === "float" || c.elementType === "number";
+        }
+        return false;
+      });
+    }
+    function detectFragility(property) {
+      const assertion = property.assertion.trim();
+      let penalty = 0;
+      if (hasFloatLikeGenerator(property) && /(===|!==)/.test(assertion) && !assertion.includes("Math.abs(")) {
+        penalty += 2;
+      }
+      if (/(<|<=)\s*1e-(9|[1-9]\d+)/i.test(assertion)) {
+        penalty += 1;
+      }
+      if (/(parseFloat|parseInt|JSON\.parse)\s*\(/.test(assertion) && /(===|!==)/.test(assertion)) {
+        penalty += 2;
+      }
+      return penalty;
+    }
     function scoreProperty(property) {
       let score = 0;
       const funcName = property.targetFunction.split(".").pop() ?? "";
@@ -2754,7 +2883,8 @@ var require_scoring = __commonJS({
       if (property.seedInputs.length >= 3) {
         score += 1;
       }
-      return Math.min(score, 13);
+      score -= detectFragility(property);
+      return Math.max(0, Math.min(score, 13));
     }
     function isRedundant(property, existing) {
       const normalized = property.assertion.replace(/\s+/g, " ").trim();
@@ -3002,109 +3132,6 @@ var require_mock_repair = __commonJS({
   }
 });
 
-// ../llm/dist/prompts/refinement.js
-var require_refinement = __commonJS({
-  "../llm/dist/prompts/refinement.js"(exports2) {
-    "use strict";
-    Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.classifyProperties = classifyProperties2;
-    exports2.buildFeedbackSummary = buildFeedbackSummary2;
-    exports2.buildRefinementPrompt = buildRefinementPrompt;
-    function classifyProperties2(properties, result) {
-      const passedIds = new Map(result.passed.map((p) => [p.propertyId, p]));
-      const failedIds = new Map(result.failed.map((f) => [f.propertyId, f]));
-      const errorIds = new Map(result.errors.map((e) => [e.propertyId, e]));
-      return properties.map((prop) => {
-        const passed = passedIds.get(prop.id);
-        if (passed) {
-          if (prop.score < 12 || prop.confidence < 0.7) {
-            return { kind: "weak", property: prop, reason: `low score (${prop.score}/15) or confidence (${prop.confidence})` };
-          }
-          return { kind: "strong", property: prop };
-        }
-        const failed = failedIds.get(prop.id);
-        if (failed) {
-          return { kind: "bug_found", property: prop, counterexample: failed.counterexample };
-        }
-        const error = errorIds.get(prop.id);
-        if (error) {
-          return { kind: "failed", property: prop, error: error.errorMessage };
-        }
-        return { kind: "failed", property: prop, error: "no result" };
-      });
-    }
-    function buildFeedbackSummary2(classifications, functionNames) {
-      const lines = [];
-      lines.push("## Round 1 Results\n");
-      const byFunction = /* @__PURE__ */ new Map();
-      for (const c of classifications) {
-        const fn = c.property.targetFunction;
-        const list = byFunction.get(fn) ?? [];
-        list.push(c);
-        byFunction.set(fn, list);
-      }
-      for (const [fn, cls] of byFunction) {
-        lines.push(`### ${fn}`);
-        for (const c of cls) {
-          switch (c.kind) {
-            case "strong":
-              lines.push(`  \u2713 STRONG: "${c.property.description}" \u2014 passed, high quality`);
-              break;
-            case "weak":
-              lines.push(`  \u26A0 WEAK: "${c.property.description}" \u2014 ${c.reason}`);
-              lines.push(`    \u2192 Please generate a STRONGER version that tests deeper behavior`);
-              break;
-            case "bug_found":
-              lines.push(`  \u{1F41B} BUG FOUND: "${c.property.description}" \u2014 counterexample: ${JSON.stringify(c.counterexample)}`);
-              lines.push(`    \u2192 Explore SIMILAR properties around this bug area`);
-              break;
-            case "failed":
-              lines.push(`  \u2717 FAILED: "${c.property.description}" \u2014 ${c.error}`);
-              break;
-          }
-        }
-        lines.push("");
-      }
-      const coveredFunctions = /* @__PURE__ */ new Set();
-      for (const c of classifications) {
-        if (c.kind === "strong" || c.kind === "bug_found") {
-          coveredFunctions.add(c.property.targetFunction);
-        }
-      }
-      const uncovered = functionNames.filter((fn) => !coveredFunctions.has(fn));
-      if (uncovered.length > 0) {
-        lines.push("## Coverage Gaps");
-        lines.push(`These functions have no strong properties yet: ${uncovered.join(", ")}`);
-        lines.push("\u2192 Try different property categories (roundtrip, conservation, metamorphic)");
-        lines.push("");
-      }
-      const strong = classifications.filter((c) => c.kind === "strong").length;
-      const weak = classifications.filter((c) => c.kind === "weak").length;
-      const bugs = classifications.filter((c) => c.kind === "bug_found").length;
-      const failed = classifications.filter((c) => c.kind === "failed").length;
-      lines.push("## Summary");
-      lines.push(`Strong: ${strong} | Weak: ${weak} | Bugs found: ${bugs} | Failed: ${failed}`);
-      lines.push("");
-      lines.push("## Instructions for Round 2");
-      lines.push("1. Keep all STRONG properties as-is (do not regenerate them)");
-      lines.push("2. For each WEAK property, generate a stronger replacement");
-      lines.push("3. For each BUG FOUND, generate 1-2 related properties exploring the same area");
-      lines.push("4. For coverage gaps, try completely different property categories");
-      lines.push("5. Do NOT duplicate existing strong properties");
-      return lines.join("\n");
-    }
-    function buildRefinementPrompt(originalPrompt, feedbackSummary) {
-      return `${originalPrompt}
-
----
-
-${feedbackSummary}
-
-Generate ONLY new or improved properties. Do NOT repeat the strong properties from Round 1.`;
-    }
-  }
-});
-
 // ../llm/dist/mock-refinement.js
 var require_mock_refinement = __commonJS({
   "../llm/dist/mock-refinement.js"(exports2) {
@@ -3160,11 +3187,13 @@ var require_dist5 = __commonJS({
     exports2.mockRefineProperties = exports2.buildRefinementPrompt = exports2.buildFeedbackSummary = exports2.classifyProperties = exports2.mockRepairProperty = exports2.repairProperty = exports2.getInferTool = exports2.getSystemPrompt = exports2.buildInferPrompt = exports2.isRedundant = exports2.scoreAndFilter = exports2.scoreProperty = exports2.parseInferResponse = exports2.createMockClient = exports2.createOpenAIClient = exports2.createLlmClient = void 0;
     exports2.createClient = createClient2;
     exports2.inferProperties = inferProperties2;
+    exports2.refineProperties = refineProperties2;
     var common_1 = require_dist4();
     var client_1 = require_client();
     var openai_client_1 = require_openai_client();
     var mock_client_1 = require_mock_client();
     var infer_properties_1 = require_infer_properties();
+    var refinement_1 = require_refinement();
     var response_parser_1 = require_response_parser();
     var scoring_1 = require_scoring();
     var DEFAULT_OPTIONS = {
@@ -3176,6 +3205,34 @@ var require_dist5 = __commonJS({
     var OUTPUT_COST_PER_1M = 15;
     function estimateCost(inputTokens, outputTokens) {
       return inputTokens / 1e6 * INPUT_COST_PER_1M + outputTokens / 1e6 * OUTPUT_COST_PER_1M;
+    }
+    function limitPropertiesPerFunction(properties, maxProperties) {
+      const functionGroups = /* @__PURE__ */ new Map();
+      for (const prop of properties) {
+        const group = functionGroups.get(prop.targetFunction) ?? [];
+        group.push(prop);
+        functionGroups.set(prop.targetFunction, group);
+      }
+      const limited = [];
+      for (const [_fn, props] of functionGroups) {
+        limited.push(...props.slice(0, maxProperties));
+      }
+      return limited;
+    }
+    function toInferResult(response, context, opts, startedAt) {
+      const sourceHash = (0, common_1.hashContent)(context.sourceCode);
+      const rawProperties = (0, response_parser_1.parseInferResponse)(response.content, {
+        sourceHash,
+        modelId: response.model
+      });
+      const filtered = (0, scoring_1.scoreAndFilter)(rawProperties, opts.minScore);
+      const limited = limitPropertiesPerFunction(filtered, opts.maxProperties);
+      return {
+        properties: limited,
+        tokensUsed: response.inputTokens + response.outputTokens,
+        cost: estimateCost(response.inputTokens, response.outputTokens),
+        duration: Date.now() - startedAt
+      };
     }
     function createClient2(apiKey, model, provider = "anthropic", baseURL) {
       if (provider === "openai-compatible") {
@@ -3191,30 +3248,18 @@ var require_dist5 = __commonJS({
       const userPrompt = (0, infer_properties_1.buildInferPrompt)(context);
       const tool = (0, infer_properties_1.getInferTool)();
       const response = await client.call(systemPrompt, userPrompt, [tool]);
-      const sourceHash = (0, common_1.hashContent)(context.sourceCode);
-      const rawProperties = (0, response_parser_1.parseInferResponse)(response.content, {
-        sourceHash,
-        modelId: response.model
-      });
-      const filtered = (0, scoring_1.scoreAndFilter)(rawProperties, opts.minScore);
-      const functionGroups = /* @__PURE__ */ new Map();
-      for (const prop of filtered) {
-        const group = functionGroups.get(prop.targetFunction) ?? [];
-        group.push(prop);
-        functionGroups.set(prop.targetFunction, group);
-      }
-      const limited = [];
-      for (const [_fn, props] of functionGroups) {
-        limited.push(...props.slice(0, opts.maxProperties));
-      }
-      const duration = Date.now() - startTime;
-      const cost = estimateCost(response.inputTokens, response.outputTokens);
-      return {
-        properties: limited,
-        tokensUsed: response.inputTokens + response.outputTokens,
-        cost,
-        duration
-      };
+      return toInferResult(response, context, opts, startTime);
+    }
+    async function refineProperties2(apiKey, model, context, feedbackSummary, options = {}) {
+      const opts = { ...DEFAULT_OPTIONS, ...options };
+      const startTime = Date.now();
+      const client = opts.mock ? (0, mock_client_1.createMockClient)() : createClient2(apiKey, model, opts.provider, opts.baseURL);
+      const systemPrompt = (0, infer_properties_1.getSystemPrompt)();
+      const originalPrompt = (0, infer_properties_1.buildInferPrompt)(context);
+      const userPrompt = (0, refinement_1.buildRefinementPrompt)(originalPrompt, feedbackSummary);
+      const tool = (0, infer_properties_1.getInferTool)();
+      const response = await client.call(systemPrompt, userPrompt, [tool]);
+      return toInferResult(response, context, opts, startTime);
     }
     var client_2 = require_client();
     Object.defineProperty(exports2, "createLlmClient", { enumerable: true, get: function() {
@@ -3260,15 +3305,15 @@ var require_dist5 = __commonJS({
     Object.defineProperty(exports2, "mockRepairProperty", { enumerable: true, get: function() {
       return mock_repair_1.mockRepairProperty;
     } });
-    var refinement_1 = require_refinement();
+    var refinement_2 = require_refinement();
     Object.defineProperty(exports2, "classifyProperties", { enumerable: true, get: function() {
-      return refinement_1.classifyProperties;
+      return refinement_2.classifyProperties;
     } });
     Object.defineProperty(exports2, "buildFeedbackSummary", { enumerable: true, get: function() {
-      return refinement_1.buildFeedbackSummary;
+      return refinement_2.buildFeedbackSummary;
     } });
     Object.defineProperty(exports2, "buildRefinementPrompt", { enumerable: true, get: function() {
-      return refinement_1.buildRefinementPrompt;
+      return refinement_2.buildRefinementPrompt;
     } });
     var mock_refinement_1 = require_mock_refinement();
     Object.defineProperty(exports2, "mockRefineProperties", { enumerable: true, get: function() {
@@ -3359,6 +3404,7 @@ var require_fc_codegen = __commonJS({
       const c = spec.constraints ?? {};
       switch (spec.type) {
         case "integer":
+        case "int":
           if (c.min !== void 0 || c.max !== void 0) {
             const parts = [];
             if (c.min !== void 0)
@@ -3821,7 +3867,7 @@ var require_hyp_codegen = __commonJS({
       };
     })();
     Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.generateHypothesisTest = generateHypothesisTest2;
+    exports2.generateHypothesisTest = generateHypothesisTest3;
     var common_1 = require_dist4();
     var path6 = __importStar(require("path"));
     function toSafeComment(s) {
@@ -3860,7 +3906,16 @@ var require_hyp_codegen = __commonJS({
           return "st.booleans()";
         case "array":
         case "list": {
-          const element = c.element ? mapStrategy({ type: String(c.element).replace(/[^a-zA-Z0-9_]/g, "") }) : "st.integers()";
+          const elementType = c.element ?? c.elementType;
+          const nestedConstraints = c.elementConstraints && typeof c.elementConstraints === "object" ? c.elementConstraints : {
+            ...(c.elementMin ?? c.min) !== void 0 ? { min: c.elementMin ?? c.min } : {},
+            ...(c.elementMax ?? c.max) !== void 0 ? { max: c.elementMax ?? c.max } : {},
+            ...c.elementMaxLength !== void 0 ? { maxLength: c.elementMaxLength } : {}
+          };
+          const element = elementType ? mapStrategy({
+            type: String(elementType).replace(/[^a-zA-Z0-9_]/g, ""),
+            ...Object.keys(nestedConstraints).length > 0 ? { constraints: nestedConstraints } : {}
+          }) : "st.integers()";
           const maxLen = c.maxLength ? `, max_size=${Number(c.maxLength)}` : "";
           return `st.lists(${element}${maxLen})`;
         }
@@ -3871,7 +3926,25 @@ var require_hyp_codegen = __commonJS({
           return "st.integers()";
       }
     }
-    function generateHypothesisTest2(properties, targetFile, testsDir, config) {
+    function translateAssertionToPython(assertion) {
+      let translated = assertion;
+      translated = translated.replace(/!==/g, "!=");
+      translated = translated.replace(/===/g, "==");
+      translated = translated.replace(/\btrue\b/g, "True");
+      translated = translated.replace(/\bfalse\b/g, "False");
+      translated = translated.replace(/\bnull\b/g, "None");
+      translated = translated.replace(/\bundefined\b/g, "None");
+      translated = translated.replace(/\bMath\.abs\s*\(/g, "abs(");
+      translated = translated.replace(/\bparseFloat\s*\(/g, "float(");
+      translated = translated.replace(/\bparseInt\s*\(/g, "int(");
+      translated = translated.replace(/\s*&&\s*/g, " and ");
+      translated = translated.replace(/\s*\|\|\s*/g, " or ");
+      translated = translated.replace(/!\s*(?!=)\(/g, "not (");
+      translated = translated.replace(/!\s*(?!=)([A-Za-z_][\w.]*(?:\([^()\n]*\))?)/g, "not $1");
+      translated = translated.replace(/([A-Za-z_][\w.]*(?:\([^()\n]*\))?)\.length\b/g, "len($1)");
+      return translated;
+    }
+    function generateHypothesisTest3(properties, targetFile, testsDir, config) {
       const targetDir = path6.dirname(targetFile);
       const moduleName = path6.basename(targetFile, path6.extname(targetFile));
       const relTargetDir = (0, common_1.toForwardSlash)(path6.relative(testsDir, targetDir));
@@ -3881,14 +3954,13 @@ var require_hyp_codegen = __commonJS({
       lines.push(`# Generated: ${(/* @__PURE__ */ new Date()).toISOString()}`);
       lines.push(``);
       lines.push(`import sys`);
-      lines.push(`import os`);
       lines.push(`import json`);
       lines.push(`from pathlib import Path`);
       lines.push(``);
       lines.push(`# Add target directory to Python path`);
-      lines.push(`sys.path.insert(0, str(Path(__file__).parent / "${relTargetDir}"))`);
+      lines.push(`sys.path.insert(0, str(Path(__file__).parent / ${JSON.stringify(relTargetDir)}))`);
       lines.push(``);
-      lines.push(`from hypothesis import given, settings, assume`);
+      lines.push(`from hypothesis import given, settings`);
       lines.push(`from hypothesis import strategies as st`);
       lines.push(`import ${moduleName} as target`);
       lines.push(``);
@@ -3900,13 +3972,7 @@ var require_hyp_codegen = __commonJS({
         const givenArgs = generators.map(([name, spec]) => `${name}=${mapStrategy(spec)}`).join(", ");
         const paramNames = generators.map(([name]) => name).join(", ");
         let assertion = prop.assertion.replace(new RegExp(`\\b${funcName}\\(`, "g"), `target.${funcName}(`);
-        assertion = assertion.replace(/===/g, "==");
-        assertion = assertion.replace(/!==/g, "!=");
-        assertion = assertion.replace(/\btrue\b/g, "True");
-        assertion = assertion.replace(/\bfalse\b/g, "False");
-        assertion = assertion.replace(/\bnull\b/g, "None");
-        assertion = assertion.replace(/\bundefined\b/g, "None");
-        assertion = assertion.replace(/\.length\b/g, ".__len__()");
+        assertion = translateAssertionToPython(assertion);
         lines.push(`# ${prop.id}: ${toSafeComment(prop.description)}`);
         lines.push(`# Category: ${toSafeComment(prop.category)}`);
         lines.push(`# Evidence: ${toSafeComment(prop.evidence)}`);
@@ -3984,7 +4050,7 @@ var require_hyp_runner = __commonJS({
       };
     })();
     Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.runHypothesisTest = runHypothesisTest2;
+    exports2.runHypothesisTest = runHypothesisTest3;
     var path6 = __importStar(require("path"));
     var process_runner_1 = require_process_runner();
     var result_parser_1 = require_result_parser();
@@ -4004,7 +4070,7 @@ var require_hyp_runner = __commonJS({
       }
       throw new Error("Python not found. Install Python 3.8+ to use Hypothesis engine.");
     }
-    async function runHypothesisTest2(testFilePath, properties, config) {
+    async function runHypothesisTest3(testFilePath, properties, config) {
       const startTime = Date.now();
       const python = await findPython();
       const result = await (0, process_runner_1.runProcess)(python, [testFilePath], {
@@ -4548,7 +4614,20 @@ var import_engines = __toESM(require_dist6());
 var import_reporter = __toESM(require_dist7());
 var import_common = __toESM(require_dist4());
 var MAX_REPAIR_ROUNDS = 3;
-async function trialRunValidation(properties, targetPath, storeDir, sourceCode, llmClient, isMock) {
+async function executeTrialRun(properties, targetPath, testsDir, config, language) {
+  const generated = language === "python" ? (0, import_engines.generateHypothesisTest)(properties, targetPath, testsDir, config) : (0, import_engines.generateFastCheckTest)(properties, targetPath, testsDir, config);
+  const testFilePath = path2.join(testsDir, generated.fileName);
+  await fs.writeFile(testFilePath, generated.content, "utf8");
+  try {
+    return language === "python" ? await (0, import_engines.runHypothesisTest)(testFilePath, properties, config) : await (0, import_engines.runFastCheckTest)(testFilePath, properties, config);
+  } finally {
+    try {
+      await fs.unlink(testFilePath);
+    } catch {
+    }
+  }
+}
+async function trialRunValidation(properties, targetPath, storeDir, sourceCode, llmClient, isMock, language) {
   const testsDir = path2.join(storeDir, "tests");
   await fs.mkdir(testsDir, { recursive: true });
   const trialConfig = {
@@ -4563,14 +4642,13 @@ async function trialRunValidation(properties, targetPath, storeDir, sourceCode, 
   let totalRepaired = 0;
   for (let round = 0; round <= MAX_REPAIR_ROUNDS; round++) {
     if (currentProperties.length === 0) break;
-    const generated = (0, import_engines.generateFastCheckTest)(currentProperties, targetPath, testsDir, trialConfig);
-    const testFilePath = path2.join(testsDir, generated.fileName);
-    await fs.writeFile(testFilePath, generated.content, "utf8");
-    const result = await (0, import_engines.runFastCheckTest)(testFilePath, currentProperties, trialConfig);
-    try {
-      await fs.unlink(testFilePath);
-    } catch {
-    }
+    const result = await executeTrialRun(
+      currentProperties,
+      targetPath,
+      testsDir,
+      trialConfig,
+      language
+    );
     const passedIds = new Set(result.passed.map((p) => p.propertyId));
     const failedIds = new Set(result.failed.map((f) => f.propertyId));
     const errorIds = new Set(result.errors.map((e) => e.propertyId));
@@ -4697,7 +4775,7 @@ async function inferCommand(target, options) {
     return;
   }
   let finalProperties = result.properties;
-  if (!options.skipValidation && language !== "python") {
+  if (!options.skipValidation) {
     const testsDir = path2.join(storeDir, "tests");
     await fs.mkdir(testsDir, { recursive: true });
     console.log(`  Validating ${result.properties.length} properties (trial run, 100 iterations)...`);
@@ -4708,7 +4786,8 @@ async function inferCommand(target, options) {
       storeDir,
       source,
       llmClient,
-      config.mock
+      config.mock,
+      language
     );
     if (repaired > 0) {
       console.log(`  Self-repaired ${repaired} properties.`);
@@ -4728,14 +4807,13 @@ async function inferCommand(target, options) {
       console.log(`
   Refinement Round 2: analyzing ${finalProperties.length} properties...`);
       const fullConfig = { mode: "quick", iterations: 100, timeout: 15e3, verbose: false };
-      const execGenerated = (0, import_engines.generateFastCheckTest)(finalProperties, targetPath, testsDir, fullConfig);
-      const execTestPath = path2.join(testsDir, execGenerated.fileName);
-      await fs.writeFile(execTestPath, execGenerated.content, "utf8");
-      const execResult = await (0, import_engines.runFastCheckTest)(execTestPath, finalProperties, fullConfig);
-      try {
-        await fs.unlink(execTestPath);
-      } catch {
-      }
+      const execResult = await executeTrialRun(
+        finalProperties,
+        targetPath,
+        testsDir,
+        fullConfig,
+        language
+      );
       const classifications = (0, import_llm.classifyProperties)(finalProperties, execResult);
       const functionNames = context.functions.map((f) => f.qualifiedName);
       const feedback = (0, import_llm.buildFeedbackSummary)(classifications, functionNames);
@@ -4748,7 +4826,7 @@ async function inferCommand(target, options) {
         if (config.mock) {
           improvedProperties = (0, import_llm.mockRefineProperties)(classifications);
         } else if (llmClient) {
-          const refineResult = await (0, import_llm.inferProperties)(config.apiKey, config.model, context, {
+          const refineResult = await (0, import_llm.refineProperties)(config.apiKey, config.model, context, feedback, {
             maxProperties,
             minScore,
             mock: false,
@@ -4767,7 +4845,8 @@ async function inferCommand(target, options) {
             storeDir,
             source,
             llmClient,
-            config.mock
+            config.mock,
+            language
           );
           const strongProps = classifications.filter((c) => c.kind === "strong" || c.kind === "bug_found").map((c) => c.property);
           const existingAssertions = new Set(strongProps.map((p) => p.assertion));

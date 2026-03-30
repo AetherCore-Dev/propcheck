@@ -94,6 +94,7 @@ describe("fc-codegen", () => {
   it("should map generator types correctly", () => {
     const prop = makeProp({
       generators: {
+        i: { type: "int", constraints: { min: 1, max: 3 } },
         s: { type: "string" },
         b: { type: "boolean" },
         f: { type: "float", constraints: { min: 0, max: 1 } },
@@ -115,6 +116,7 @@ describe("fc-codegen", () => {
       defaultConfig,
     );
 
+    assert.ok(result.content.includes("fc.integer({ min: 1, max: 3 })"), "Should support int alias");
     assert.ok(result.content.includes("fc.string()"));
     assert.ok(result.content.includes("fc.boolean()"));
     assert.ok(result.content.includes("fc.double("));

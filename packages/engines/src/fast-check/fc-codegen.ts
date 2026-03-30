@@ -31,6 +31,7 @@ function mapGenerator(spec: GeneratorSpec): string {
 
   switch (spec.type) {
     case "integer":
+    case "int":
       if (c.min !== undefined || c.max !== undefined) {
         const parts: string[] = [];
         if (c.min !== undefined) parts.push(`min: ${Number(c.min)}`);

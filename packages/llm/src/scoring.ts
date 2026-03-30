@@ -13,6 +13,48 @@ const TAUTOLOGY_PATTERNS = [
   /^typeof\s+\w+\s*(!==?|===?)\s*['"]undefined['"]\s*$/,
 ];
 
+function hasFloatLikeGenerator(property: PropertyDefinition): boolean {
+  return Object.values(property.generators).some((spec) => {
+    if (spec.type === "float" || spec.type === "number") {
+      return true;
+    }
+    if (spec.type === "array") {
+      const c = spec.constraints ?? {};
+      return c.element === "float" || c.element === "number" || c.elementType === "float" || c.elementType === "number";
+    }
+    return false;
+  });
+}
+
+function detectFragility(property: PropertyDefinition): number {
+  const assertion = property.assertion.trim();
+  let penalty = 0;
+
+  // Exact equality on float-like generators is often too strict.
+  if (
+    hasFloatLikeGenerator(property) &&
+    /(===|!==)/.test(assertion) &&
+    !assertion.includes("Math.abs(")
+  ) {
+    penalty += 2;
+  }
+
+  // Tiny tolerances are usually brittle under JS floating-point arithmetic.
+  if (/(<|<=)\s*1e-(9|[1-9]\d+)/i.test(assertion)) {
+    penalty += 1;
+  }
+
+  // Exact parse/format or JSON roundtrip equality is often fragile.
+  if (
+    /(parseFloat|parseInt|JSON\.parse)\s*\(/.test(assertion) &&
+    /(===|!==)/.test(assertion)
+  ) {
+    penalty += 2;
+  }
+
+  return penalty;
+}
+
 /**
  * Score a property from 0-13.
  *
@@ -24,6 +66,7 @@ const TAUTOLOGY_PATTERNS = [
  * - (2 pts) NOT a tautology
  * - (2 pts) NOT trivial (not just a typeof check)
  * - (1 pt) Has 3 seed inputs
+ * - (-1 to -5 pts) Penalize fragile float/roundtrip assertions likely to cause false positives
  */
 export function scoreProperty(property: PropertyDefinition): number {
   let score = 0;
@@ -74,8 +117,11 @@ export function scoreProperty(property: PropertyDefinition): number {
     score += 1;
   }
 
-  // Clamp to 13
-  return Math.min(score, 13);
+  // Penalize likely-fragile assertions.
+  score -= detectFragility(property);
+
+  // Clamp to 0-13
+  return Math.max(0, Math.min(score, 13));
 }
 
 /**

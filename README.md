@@ -92,6 +92,7 @@ PROPCHECK_API_KEY=sk-... \
 No API key? Try the demo:
 ```bash
 npx propcheck infer --mock examples/price-utils.ts && npx propcheck run examples/price-utils.ts
+npx propcheck infer --mock --refine examples/price-utils.ts
 ```
 
 ## What propcheck discovers
@@ -112,8 +113,8 @@ npx propcheck infer --mock examples/price-utils.ts && npx propcheck run examples
 - **Zero-config CI** — `propcheck run --changed` only tests git-modified files
 - **Mutation testing** — `propcheck quality` measures how strong your properties are
 - **Real-world validated** — Claude Opus 4.6 via an OpenAI-compatible proxy currently passes **15/15** inferred properties on `examples/price-utils.ts`
-- **Self-repair** — Auto-fixes generated test code that fails to compile *(coming soon)*
-- **Refinement loop** — `--refine` strengthens weak properties via iterative LLM feedback *(coming soon)*
+- **Self-repair** — Trial-run validation auto-repairs generated test code for compile/runtime failures up to 3 rounds before persistence
+- **Refinement loop** — `--refine` strengthens weak properties via iterative LLM feedback and re-validation
 - **PR Bot** — Auto-comments propcheck results on every Pull Request *(coming soon)*
 
 ## Run Modes

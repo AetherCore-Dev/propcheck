@@ -14,13 +14,33 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { loadConfig, validateConfig } from "@propcheck/config";
 import { analyzeFile, detectLanguage, analyzePythonFile } from "@propcheck/parser";
-import { inferProperties, createClient, createMockClient, repairProperty, mockRepairProperty, classifyProperties, buildFeedbackSummary, mockRefineProperties } from "@propcheck/llm";
+import {
+  inferProperties,
+  createClient,
+  repairProperty,
+  mockRepairProperty,
+  classifyProperties,
+  buildFeedbackSummary,
+  mockRefineProperties,
+  refineProperties,
+} from "@propcheck/llm";
 import type { LlmClient } from "@propcheck/llm";
 import { setProperties, initStore } from "@propcheck/store";
-import { generateFastCheckTest, runFastCheckTest } from "@propcheck/engines";
+import {
+  generateFastCheckTest,
+  runFastCheckTest,
+  generateHypothesisTest,
+  runHypothesisTest,
+} from "@propcheck/engines";
 import { reportInferResult } from "@propcheck/reporter";
 import { hashContent, toForwardSlash } from "@propcheck/common";
-import type { PropertyDefinition, PropertySet, AnalysisContext, RunConfig } from "@propcheck/common";
+import type {
+  PropertyDefinition,
+  PropertySet,
+  AnalysisContext,
+  RunConfig,
+  ExecutionResult,
+} from "@propcheck/common";
 
 interface InferOptions {
   mock?: boolean;
@@ -33,6 +53,8 @@ interface InferOptions {
   refine?: boolean;
 }
 
+type TrialRunLanguage = "typescript" | "javascript" | "python";
+
 /**
  * Trial-run validation with self-repair: quick-execute inferred properties,
  * and attempt to fix compile/runtime errors up to 3 times.
@@ -44,6 +66,33 @@ interface InferOptions {
  */
 const MAX_REPAIR_ROUNDS = 3;
 
+async function executeTrialRun(
+  properties: readonly PropertyDefinition[],
+  targetPath: string,
+  testsDir: string,
+  config: RunConfig,
+  language: TrialRunLanguage,
+): Promise<ExecutionResult> {
+  const generated = language === "python"
+    ? generateHypothesisTest(properties, targetPath, testsDir, config)
+    : generateFastCheckTest(properties, targetPath, testsDir, config);
+
+  const testFilePath = path.join(testsDir, generated.fileName);
+  await fs.writeFile(testFilePath, generated.content, "utf8");
+
+  try {
+    return language === "python"
+      ? await runHypothesisTest(testFilePath, properties, config)
+      : await runFastCheckTest(testFilePath, properties, config);
+  } finally {
+    try {
+      await fs.unlink(testFilePath);
+    } catch {
+      // ignore cleanup failures
+    }
+  }
+}
+
 async function trialRunValidation(
   properties: readonly PropertyDefinition[],
   targetPath: string,
@@ -51,6 +100,7 @@ async function trialRunValidation(
   sourceCode: string,
   llmClient: LlmClient | null,
   isMock: boolean,
+  language: TrialRunLanguage,
 ): Promise<{ readonly validated: readonly PropertyDefinition[]; readonly dropped: readonly { prop: PropertyDefinition; reason: string }[]; readonly repaired: number }> {
   const testsDir = path.join(storeDir, "tests");
   await fs.mkdir(testsDir, { recursive: true });
@@ -71,15 +121,13 @@ async function trialRunValidation(
   for (let round = 0; round <= MAX_REPAIR_ROUNDS; round++) {
     if (currentProperties.length === 0) break;
 
-    // Generate and run tests for current batch
-    const generated = generateFastCheckTest(currentProperties, targetPath, testsDir, trialConfig);
-    const testFilePath = path.join(testsDir, generated.fileName);
-    await fs.writeFile(testFilePath, generated.content, "utf8");
-
-    const result = await runFastCheckTest(testFilePath, currentProperties, trialConfig);
-
-    // Clean up trial test file
-    try { await fs.unlink(testFilePath); } catch { /* ignore */ }
+    const result = await executeTrialRun(
+      currentProperties,
+      targetPath,
+      testsDir,
+      trialConfig,
+      language,
+    );
 
     // Classify results
     const passedIds = new Set(result.passed.map((p) => p.propertyId));
@@ -234,9 +282,9 @@ export async function inferCommand(
     return;
   }
 
-  // Trial-run validation with self-repair (skip for Python until Hypothesis adapter is integrated)
+  // Trial-run validation with self-repair
   let finalProperties = result.properties;
-  if (!options.skipValidation && language !== "python") {
+  if (!options.skipValidation) {
     const testsDir = path.join(storeDir, "tests");
     await fs.mkdir(testsDir, { recursive: true });
 
@@ -256,6 +304,7 @@ export async function inferCommand(
       source,
       llmClient,
       config.mock,
+      language as TrialRunLanguage,
     );
 
     if (repaired > 0) {
@@ -282,11 +331,13 @@ export async function inferCommand(
 
       // Run a full execution to classify
       const fullConfig: RunConfig = { mode: "quick", iterations: 100, timeout: 15_000, verbose: false };
-      const execGenerated = generateFastCheckTest(finalProperties, targetPath, testsDir, fullConfig);
-      const execTestPath = path.join(testsDir, execGenerated.fileName);
-      await fs.writeFile(execTestPath, execGenerated.content, "utf8");
-      const execResult = await runFastCheckTest(execTestPath, finalProperties, fullConfig);
-      try { await fs.unlink(execTestPath); } catch { /* ignore */ }
+      const execResult = await executeTrialRun(
+        finalProperties,
+        targetPath,
+        testsDir,
+        fullConfig,
+        language as TrialRunLanguage,
+      );
 
       // Classify results
       const classifications = classifyProperties(finalProperties, execResult);
@@ -306,8 +357,7 @@ export async function inferCommand(
         if (config.mock) {
           improvedProperties = mockRefineProperties(classifications);
         } else if (llmClient) {
-          // Real LLM refinement: re-infer with feedback context
-          const refineResult = await inferProperties(config.apiKey, config.model, context, {
+          const refineResult = await refineProperties(config.apiKey, config.model, context, feedback, {
             maxProperties,
             minScore,
             mock: false,
@@ -330,6 +380,7 @@ export async function inferCommand(
             source,
             llmClient,
             config.mock,
+            language as TrialRunLanguage,
           );
 
           // Merge: keep strong originals + replace weak with improved + keep bug-finders
