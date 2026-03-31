@@ -12,11 +12,12 @@ AI-powered Property-Based Testing CLI. LLM infers code properties → determinis
 - Bundler: tsup (~180KB single-file bundle)
 - Test runner: Node.js `--experimental-strip-types` for direct .ts import
 
-## Project Status (2026-03-30)
-**Phase 1 MVP: COMPLETE + Hardening pass landed** — real provider path passing end-to-end, with risk-aware property persistence, canary validation, and execution filtering now implemented.
+## Project Status (2026-03-31)
+**Phase 1 MVP: COMPLETE + Hardening pass + Property Workflow MVP landed** — real provider path passing end-to-end, with risk-aware property persistence, canary validation, execution filtering, and human-in-the-loop property management now implemented.
 
 ### What's Done
-- Full CLI: `init`, `infer`, `run`, `badge`, `quality` commands
+- Full CLI: `init`, `infer`, `run`, `badge`, `quality`, `props`, `property` commands
+- Property workflow: `propcheck props` lists inventory, `propcheck property` inspects/updates status with `humanVerified` tracking
 - Trial-run validation: infer → quick 100x run → filter false positives
 - Property lifecycle metadata: `accepted` / `risky` / `refined` / `quarantined` / `dropped`
 - Risk-aware persistence: `riskTags`, `riskScore`, validation evidence stored in `.propcheck/properties.json`
@@ -50,7 +51,7 @@ AI-powered Property-Based Testing CLI. LLM infers code properties → determinis
 ### What's NOT Done (Phase 2)
 - npm publish follow-up / release automation polish
 - Stronger canary coverage for multi-parameter interactions
-- Explicit human workflows for promote / quarantine / drop
+- Interactive confirmation mode for property review (`propcheck infer --confirm`)
 - PR Comment Bot (auto-comment propcheck results on PRs)
 - VS Code extension
 - Community property templates
@@ -80,6 +81,11 @@ node packages/cli/dist/index.js run --changed
 node packages/cli/dist/index.js run --quick <file>
 node packages/cli/dist/index.js run --json <file>
 node packages/cli/dist/index.js badge
+node packages/cli/dist/index.js props                          # List all properties
+node packages/cli/dist/index.js props --status risky           # Filter by status
+node packages/cli/dist/index.js props --json                   # JSON output
+node packages/cli/dist/index.js property <file> <id>           # Inspect a property
+node packages/cli/dist/index.js property <file> <id> --status quarantined  # Update status
 
 # Real LLM inference (OpenAI-compatible provider)
 PROPCHECK_API_KEY=sk-xxx node packages/cli/dist/index.js infer \
@@ -104,7 +110,7 @@ cd packages/cli && npm publish
 ```
 
 ## Next Priority
-1. `cd packages/cli && npm publish`
+1. `cd packages/cli && npm publish` (version bump for new commands)
 2. Improve canary coverage for multi-parameter edge interactions
-3. Add explicit human verification / promote / quarantine / drop workflows
+3. Interactive confirmation mode (`propcheck infer --confirm`)
 4. Phase 2 distribution work: PR Bot, VS Code extension

@@ -1,7 +1,8 @@
 {
-  "version": 1,
+  "version": 2,
   "modules": {
     "test-fixtures/typescript/cart-buggy.ts": {
+      "schemaVersion": 2,
       "module": "test-fixtures/typescript/cart-buggy.ts",
       "filePath": "test-fixtures/typescript/cart-buggy.ts",
       "properties": [
@@ -55,7 +56,10 @@
           "evidence": "@param discount - Discount percentage (0-100); prices should not go negative",
           "sourceHash": "b06bb2dd5c55b3ec31ce469896b2cf8ee84a375b72551e08f192b908fec7b6a9",
           "inferredAt": "2026-03-27T05:45:59.772Z",
-          "modelId": "claude-opus-4-20250514-mock"
+          "modelId": "claude-opus-4-20250514-mock",
+          "riskScore": 13,
+          "riskTags": [],
+          "status": "accepted"
         },
         {
           "id": "prop_002",
@@ -107,7 +111,10 @@
           "evidence": "Discount reduces price; @param discount - Discount percentage (0-100)",
           "sourceHash": "b06bb2dd5c55b3ec31ce469896b2cf8ee84a375b72551e08f192b908fec7b6a9",
           "inferredAt": "2026-03-27T05:45:59.773Z",
-          "modelId": "claude-opus-4-20250514-mock"
+          "modelId": "claude-opus-4-20250514-mock",
+          "riskScore": 13,
+          "riskTags": [],
+          "status": "accepted"
         },
         {
           "id": "prop_003",
@@ -149,7 +156,10 @@
           "evidence": "Zero discount means no change to price",
           "sourceHash": "b06bb2dd5c55b3ec31ce469896b2cf8ee84a375b72551e08f192b908fec7b6a9",
           "inferredAt": "2026-03-27T05:45:59.773Z",
-          "modelId": "claude-opus-4-20250514-mock"
+          "modelId": "claude-opus-4-20250514-mock",
+          "riskScore": 13,
+          "riskTags": [],
+          "status": "accepted"
         },
         {
           "id": "prop_004",
@@ -191,7 +201,10 @@
           "evidence": "100% discount = free; price * (1 - 100/100) = 0",
           "sourceHash": "b06bb2dd5c55b3ec31ce469896b2cf8ee84a375b72551e08f192b908fec7b6a9",
           "inferredAt": "2026-03-27T05:45:59.773Z",
-          "modelId": "claude-opus-4-20250514-mock"
+          "modelId": "claude-opus-4-20250514-mock",
+          "riskScore": 13,
+          "riskTags": [],
+          "status": "accepted"
         },
         {
           "id": "prop_005",
@@ -211,7 +224,10 @@
           "evidence": "@param prices - Array of item prices; empty cart costs nothing",
           "sourceHash": "b06bb2dd5c55b3ec31ce469896b2cf8ee84a375b72551e08f192b908fec7b6a9",
           "inferredAt": "2026-03-27T05:45:59.773Z",
-          "modelId": "claude-opus-4-20250514-mock"
+          "modelId": "claude-opus-4-20250514-mock",
+          "riskScore": 10,
+          "riskTags": [],
+          "status": "accepted"
         },
         {
           "id": "prop_006",
@@ -253,7 +269,10 @@
           "evidence": "Single item total = the item itself",
           "sourceHash": "b06bb2dd5c55b3ec31ce469896b2cf8ee84a375b72551e08f192b908fec7b6a9",
           "inferredAt": "2026-03-27T05:45:59.773Z",
-          "modelId": "claude-opus-4-20250514-mock"
+          "modelId": "claude-opus-4-20250514-mock",
+          "riskScore": 13,
+          "riskTags": [],
+          "status": "accepted"
         },
         {
           "id": "prop_007",
@@ -301,7 +320,10 @@
           "evidence": "@returns Total sum; sum of non-negative numbers is non-negative",
           "sourceHash": "b06bb2dd5c55b3ec31ce469896b2cf8ee84a375b72551e08f192b908fec7b6a9",
           "inferredAt": "2026-03-27T05:45:59.773Z",
-          "modelId": "claude-opus-4-20250514-mock"
+          "modelId": "claude-opus-4-20250514-mock",
+          "riskScore": 13,
+          "riskTags": [],
+          "status": "accepted"
         },
         {
           "id": "prop_008",
@@ -343,7 +365,10 @@
           "evidence": "@returns Formatted string like \"99.99\"; toFixed(2) always gives 2 decimals",
           "sourceHash": "b06bb2dd5c55b3ec31ce469896b2cf8ee84a375b72551e08f192b908fec7b6a9",
           "inferredAt": "2026-03-27T05:45:59.773Z",
-          "modelId": "claude-opus-4-20250514-mock"
+          "modelId": "claude-opus-4-20250514-mock",
+          "riskScore": 13,
+          "riskTags": [],
+          "status": "accepted"
         },
         {
           "id": "prop_009",
@@ -385,13 +410,17 @@
           "evidence": "Formatted price should round-trip within rounding tolerance",
           "sourceHash": "b06bb2dd5c55b3ec31ce469896b2cf8ee84a375b72551e08f192b908fec7b6a9",
           "inferredAt": "2026-03-27T05:45:59.773Z",
-          "modelId": "claude-opus-4-20250514-mock"
+          "modelId": "claude-opus-4-20250514-mock",
+          "riskScore": 13,
+          "riskTags": [],
+          "status": "accepted"
         }
       ],
       "sourceHash": "b06bb2dd5c55b3ec31ce469896b2cf8ee84a375b72551e08f192b908fec7b6a9",
       "inferredAt": "2026-03-27T05:45:59.773Z"
     },
     "examples/price-utils.ts": {
+      "schemaVersion": 2,
       "module": "examples/price-utils.ts",
       "filePath": "examples/price-utils.ts",
       "properties": [
@@ -438,7 +467,10 @@
           "evidence": "applyDiscount returns price * (1 - discount / 100). When discount=0, this is price * 1 = price.",
           "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
           "inferredAt": "2026-03-29T09:02:43.114Z",
-          "modelId": "claude-opus-4-6"
+          "modelId": "claude-opus-4-6",
+          "riskScore": 13,
+          "riskTags": [],
+          "status": "accepted"
         },
         {
           "id": "prop_002",
@@ -483,7 +515,10 @@
           "evidence": "applyDiscount returns price * (1 - 100/100) = price * 0 = 0.",
           "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
           "inferredAt": "2026-03-29T09:02:43.115Z",
-          "modelId": "claude-opus-4-6"
+          "modelId": "claude-opus-4-6",
+          "riskScore": 13,
+          "riskTags": [],
+          "status": "accepted"
         },
         {
           "id": "prop_003",
@@ -535,7 +570,10 @@
           "evidence": "For price >= 0 and 0 <= discount <= 100, the factor (1 - discount/100) is in [0, 1], so result is in [0, price].",
           "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
           "inferredAt": "2026-03-29T09:02:43.115Z",
-          "modelId": "claude-opus-4-6"
+          "modelId": "claude-opus-4-6",
+          "riskScore": 13,
+          "riskTags": [],
+          "status": "accepted"
         },
         {
           "id": "prop_004",
@@ -597,7 +635,10 @@
           "evidence": "applyDiscount = price * (1 - discount/100). Since price >= 0, increasing discount decreases the result.",
           "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
           "inferredAt": "2026-03-29T09:02:43.115Z",
-          "modelId": "claude-opus-4-6"
+          "modelId": "claude-opus-4-6",
+          "riskScore": 13,
+          "riskTags": [],
+          "status": "accepted"
         },
         {
           "id": "prop_005",
@@ -649,7 +690,10 @@
           "evidence": "price * (1 - discount/100) is algebraically equivalent to price - price * discount / 100.",
           "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
           "inferredAt": "2026-03-29T09:02:43.115Z",
-          "modelId": "claude-opus-4-6"
+          "modelId": "claude-opus-4-6",
+          "riskScore": 13,
+          "riskTags": [],
+          "status": "accepted"
         },
         {
           "id": "prop_006",
@@ -671,7 +715,10 @@
           "evidence": "reduce with initial value 0 on an empty array returns 0.",
           "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
           "inferredAt": "2026-03-29T09:02:43.115Z",
-          "modelId": "claude-opus-4-6"
+          "modelId": "claude-opus-4-6",
+          "riskScore": 10,
+          "riskTags": [],
+          "status": "accepted"
         },
         {
           "id": "prop_007",
@@ -713,7 +760,10 @@
           "evidence": "reduce over a single element with initial 0 returns 0 + element = element.",
           "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
           "inferredAt": "2026-03-29T09:02:43.115Z",
-          "modelId": "claude-opus-4-6"
+          "modelId": "claude-opus-4-6",
+          "riskScore": 13,
+          "riskTags": [],
+          "status": "accepted"
         },
         {
           "id": "prop_008",
@@ -786,7 +836,10 @@
           "evidence": "Sum is additive: sum(a ++ b) = sum(a) + sum(b). The reduce-based implementation preserves this.",
           "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
           "inferredAt": "2026-03-29T09:02:43.115Z",
-          "modelId": "claude-opus-4-6"
+          "modelId": "claude-opus-4-6",
+          "riskScore": 13,
+          "riskTags": [],
+          "status": "accepted"
         },
         {
           "id": "prop_009",
@@ -841,7 +894,10 @@
           "evidence": "Addition is commutative, so reversing the array should not change the sum.",
           "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
           "inferredAt": "2026-03-29T09:02:43.115Z",
-          "modelId": "claude-opus-4-6"
+          "modelId": "claude-opus-4-6",
+          "riskScore": 13,
+          "riskTags": [],
+          "status": "accepted"
         },
         {
           "id": "prop_010",
@@ -898,7 +954,10 @@
           "evidence": "Sum of non-negative numbers is non-negative. Doc says prices are item prices (non-negative).",
           "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
           "inferredAt": "2026-03-29T09:02:43.115Z",
-          "modelId": "claude-opus-4-6"
+          "modelId": "claude-opus-4-6",
+          "riskScore": 13,
+          "riskTags": [],
+          "status": "accepted"
         },
         {
           "id": "prop_011",
@@ -940,7 +999,10 @@
           "evidence": "toFixed(2) always produces a string with exactly 2 decimal places, which includes exactly one '.' character.",
           "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
           "inferredAt": "2026-03-29T09:02:43.115Z",
-          "modelId": "claude-opus-4-6"
+          "modelId": "claude-opus-4-6",
+          "riskScore": 13,
+          "riskTags": [],
+          "status": "accepted"
         },
         {
           "id": "prop_012",
@@ -982,7 +1044,10 @@
           "evidence": "toFixed(2) guarantees exactly 2 decimal digits in the output string.",
           "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
           "inferredAt": "2026-03-29T09:02:43.115Z",
-          "modelId": "claude-opus-4-6"
+          "modelId": "claude-opus-4-6",
+          "riskScore": 13,
+          "riskTags": [],
+          "status": "accepted"
         },
         {
           "id": "prop_013",
@@ -1024,7 +1089,10 @@
           "evidence": "toFixed(2) rounds to 2 decimal places, so parseFloat(formatPrice(x)) is within 0.005 of x.",
           "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
           "inferredAt": "2026-03-29T09:02:43.115Z",
-          "modelId": "claude-opus-4-6"
+          "modelId": "claude-opus-4-6",
+          "riskScore": 13,
+          "riskTags": [],
+          "status": "accepted"
         },
         {
           "id": "prop_014",
@@ -1066,7 +1134,10 @@
           "evidence": "After toFixed(2) and parseFloat, the value already has at most 2 decimal places, so a second toFixed(2) produces the same string.",
           "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
           "inferredAt": "2026-03-29T09:02:43.115Z",
-          "modelId": "claude-opus-4-6"
+          "modelId": "claude-opus-4-6",
+          "riskScore": 13,
+          "riskTags": [],
+          "status": "accepted"
         },
         {
           "id": "prop_015",
@@ -1108,11 +1179,1620 @@
           "evidence": "toFixed(2) on a finite number produces a valid numeric string that parseFloat can parse back to a finite number.",
           "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
           "inferredAt": "2026-03-29T09:02:43.115Z",
-          "modelId": "claude-opus-4-6"
+          "modelId": "claude-opus-4-6",
+          "riskScore": 13,
+          "riskTags": [],
+          "status": "accepted"
         }
       ],
       "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
       "inferredAt": "2026-03-29T09:02:43.201Z"
+    },
+    "test-fixtures/typescript/sort-utils.ts": {
+      "schemaVersion": 2,
+      "module": "test-fixtures/typescript/sort-utils.ts",
+      "filePath": "test-fixtures/typescript/sort-utils.ts",
+      "properties": [
+        {
+          "id": "prop_001",
+          "targetFunction": "sortNumbers",
+          "description": "Output length equals input length",
+          "category": "conservation",
+          "assertion": "sortNumbers(arr).length === arr.length",
+          "generators": {
+            "arr": {
+              "type": "array",
+              "constraints": {
+                "maxLength": 50,
+                "element": "float"
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "arr": [
+                  3,
+                  1,
+                  2
+                ]
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "arr": []
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "arr": [
+                  1
+                ]
+              }
+            }
+          ],
+          "score": 11,
+          "riskScore": 6,
+          "riskTags": [
+            "float_exact_equality",
+            "wide_numeric_domain"
+          ],
+          "status": "risky",
+          "confidence": 0.99,
+          "evidence": "Sorting should not add or remove elements",
+          "sourceHash": "2d5dcb502c0513bf85eaf5fa9f06dcaff798e6f9d9b29d93bdcc09071b2116a2",
+          "inferredAt": "2026-03-31T02:47:47.249Z",
+          "modelId": "claude-opus-4-20250514-mock",
+          "validation": {
+            "smokePasses": 100,
+            "canaryPasses": 4,
+            "seedsTested": [],
+            "lastValidatedAt": "2026-03-31T02:47:49.162Z"
+          },
+          "humanVerified": true
+        },
+        {
+          "id": "prop_002",
+          "targetFunction": "sortNumbers",
+          "description": "Output is monotonically non-decreasing",
+          "category": "monotonic",
+          "assertion": "sortNumbers(arr).every((v, i, a) => i === 0 || a[i-1] <= v)",
+          "generators": {
+            "arr": {
+              "type": "array",
+              "constraints": {
+                "maxLength": 50,
+                "element": "float"
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "arr": [
+                  5,
+                  2,
+                  8,
+                  1
+                ]
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "arr": [
+                  1,
+                  1,
+                  1
+                ]
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "arr": [
+                  100,
+                  -100,
+                  0
+                ]
+              }
+            }
+          ],
+          "score": 11,
+          "riskScore": 6,
+          "riskTags": [
+            "float_exact_equality",
+            "wide_numeric_domain"
+          ],
+          "status": "risky",
+          "confidence": 0.99,
+          "evidence": "@returns New sorted array; ascending order",
+          "sourceHash": "2d5dcb502c0513bf85eaf5fa9f06dcaff798e6f9d9b29d93bdcc09071b2116a2",
+          "inferredAt": "2026-03-31T02:47:47.250Z",
+          "modelId": "claude-opus-4-20250514-mock",
+          "validation": {
+            "smokePasses": 100,
+            "canaryPasses": 4,
+            "seedsTested": [],
+            "lastValidatedAt": "2026-03-31T02:47:50.624Z"
+          }
+        },
+        {
+          "id": "prop_003",
+          "targetFunction": "sortNumbers",
+          "description": "Sorting is idempotent",
+          "category": "idempotent",
+          "assertion": "JSON.stringify(sortNumbers(sortNumbers(arr))) === JSON.stringify(sortNumbers(arr))",
+          "generators": {
+            "arr": {
+              "type": "array",
+              "constraints": {
+                "maxLength": 30,
+                "element": "float"
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "arr": [
+                  3,
+                  1,
+                  2
+                ]
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "arr": []
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "arr": [
+                  1,
+                  2,
+                  3
+                ]
+              }
+            }
+          ],
+          "score": 11,
+          "riskScore": 6,
+          "riskTags": [
+            "float_exact_equality",
+            "wide_numeric_domain"
+          ],
+          "status": "risky",
+          "confidence": 0.97,
+          "evidence": "Sorting an already sorted array should be a no-op",
+          "sourceHash": "2d5dcb502c0513bf85eaf5fa9f06dcaff798e6f9d9b29d93bdcc09071b2116a2",
+          "inferredAt": "2026-03-31T02:47:47.250Z",
+          "modelId": "claude-opus-4-20250514-mock",
+          "validation": {
+            "smokePasses": 100,
+            "canaryPasses": 4,
+            "seedsTested": [],
+            "lastValidatedAt": "2026-03-31T02:47:52.179Z"
+          }
+        },
+        {
+          "id": "prop_004",
+          "targetFunction": "unique",
+          "description": "Output has no duplicate elements",
+          "category": "boundary",
+          "assertion": "new Set(unique(arr)).size === unique(arr).length",
+          "generators": {
+            "arr": {
+              "type": "array",
+              "constraints": {
+                "maxLength": 50,
+                "element": "integer"
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "arr": [
+                  1,
+                  2,
+                  2,
+                  3
+                ]
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "arr": []
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "arr": [
+                  1,
+                  1,
+                  1,
+                  1
+                ]
+              }
+            }
+          ],
+          "score": 13,
+          "riskScore": 11,
+          "riskTags": [
+            "wide_numeric_domain"
+          ],
+          "status": "risky",
+          "confidence": 0.99,
+          "evidence": "Uses new Set() which removes duplicates",
+          "sourceHash": "2d5dcb502c0513bf85eaf5fa9f06dcaff798e6f9d9b29d93bdcc09071b2116a2",
+          "inferredAt": "2026-03-31T02:47:47.251Z",
+          "modelId": "claude-opus-4-20250514-mock",
+          "validation": {
+            "smokePasses": 100,
+            "canaryPasses": 4,
+            "seedsTested": [],
+            "lastValidatedAt": "2026-03-31T02:47:53.675Z"
+          }
+        },
+        {
+          "id": "prop_005",
+          "targetFunction": "unique",
+          "description": "Output length is at most input length",
+          "category": "conservation",
+          "assertion": "unique(arr).length <= arr.length",
+          "generators": {
+            "arr": {
+              "type": "array",
+              "constraints": {
+                "maxLength": 50,
+                "element": "integer"
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "arr": [
+                  1,
+                  2,
+                  3
+                ]
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "arr": []
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "arr": [
+                  5,
+                  5,
+                  5
+                ]
+              }
+            }
+          ],
+          "score": 13,
+          "riskScore": 11,
+          "riskTags": [
+            "wide_numeric_domain"
+          ],
+          "status": "risky",
+          "confidence": 0.98,
+          "evidence": "Removing duplicates can only reduce or maintain length",
+          "sourceHash": "2d5dcb502c0513bf85eaf5fa9f06dcaff798e6f9d9b29d93bdcc09071b2116a2",
+          "inferredAt": "2026-03-31T02:47:47.251Z",
+          "modelId": "claude-opus-4-20250514-mock",
+          "validation": {
+            "smokePasses": 100,
+            "canaryPasses": 4,
+            "seedsTested": [],
+            "lastValidatedAt": "2026-03-31T02:47:55.198Z"
+          }
+        },
+        {
+          "id": "prop_006",
+          "targetFunction": "unique",
+          "description": "Unique is idempotent",
+          "category": "idempotent",
+          "assertion": "JSON.stringify(unique(unique(arr))) === JSON.stringify(unique(arr))",
+          "generators": {
+            "arr": {
+              "type": "array",
+              "constraints": {
+                "maxLength": 30,
+                "element": "integer"
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "arr": [
+                  1,
+                  2,
+                  2,
+                  3
+                ]
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "arr": []
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "arr": [
+                  1
+                ]
+              }
+            }
+          ],
+          "score": 13,
+          "riskScore": 11,
+          "riskTags": [
+            "wide_numeric_domain"
+          ],
+          "status": "risky",
+          "confidence": 0.96,
+          "evidence": "Applying unique to already-unique array should be a no-op",
+          "sourceHash": "2d5dcb502c0513bf85eaf5fa9f06dcaff798e6f9d9b29d93bdcc09071b2116a2",
+          "inferredAt": "2026-03-31T02:47:47.251Z",
+          "modelId": "claude-opus-4-20250514-mock",
+          "validation": {
+            "smokePasses": 100,
+            "canaryPasses": 4,
+            "seedsTested": [],
+            "lastValidatedAt": "2026-03-31T02:47:57.125Z"
+          }
+        },
+        {
+          "id": "prop_007",
+          "targetFunction": "mergeSorted",
+          "description": "Output length equals sum of input lengths",
+          "category": "conservation",
+          "assertion": "mergeSorted(a, b).length === a.length + b.length",
+          "generators": {
+            "a": {
+              "type": "array",
+              "constraints": {
+                "maxLength": 30,
+                "element": "integer"
+              }
+            },
+            "b": {
+              "type": "array",
+              "constraints": {
+                "maxLength": 30,
+                "element": "integer"
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "a": [
+                  1,
+                  3,
+                  5
+                ],
+                "b": [
+                  2,
+                  4,
+                  6
+                ]
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "a": [],
+                "b": []
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "a": [
+                  1
+                ],
+                "b": []
+              }
+            }
+          ],
+          "score": 13,
+          "riskScore": 11,
+          "riskTags": [
+            "wide_numeric_domain"
+          ],
+          "status": "risky",
+          "confidence": 0.99,
+          "evidence": "Merge should include all elements from both arrays",
+          "sourceHash": "2d5dcb502c0513bf85eaf5fa9f06dcaff798e6f9d9b29d93bdcc09071b2116a2",
+          "inferredAt": "2026-03-31T02:47:47.251Z",
+          "modelId": "claude-opus-4-20250514-mock",
+          "validation": {
+            "smokePasses": 100,
+            "canaryPasses": 7,
+            "seedsTested": [],
+            "lastValidatedAt": "2026-03-31T02:48:00.085Z"
+          }
+        }
+      ],
+      "sourceHash": "2d5dcb502c0513bf85eaf5fa9f06dcaff798e6f9d9b29d93bdcc09071b2116a2",
+      "inferredAt": "2026-03-31T02:48:00.085Z"
+    },
+    "test-fixtures/typescript/string-utils.ts": {
+      "schemaVersion": 2,
+      "module": "test-fixtures/typescript/string-utils.ts",
+      "filePath": "test-fixtures/typescript/string-utils.ts",
+      "properties": [
+        {
+          "id": "prop_001",
+          "targetFunction": "reverseString",
+          "description": "Reversing twice returns original",
+          "category": "roundtrip",
+          "assertion": "reverseString(reverseString(str)) === str",
+          "generators": {
+            "str": {
+              "type": "string",
+              "constraints": {
+                "maxLength": 100
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "str": "hello"
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "str": ""
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "str": "a"
+              }
+            }
+          ],
+          "score": 13,
+          "riskScore": 13,
+          "riskTags": [],
+          "status": "accepted",
+          "confidence": 0.99,
+          "evidence": "Reverse is its own inverse: reverse(reverse(x)) === x",
+          "sourceHash": "23c6f6b6a46643df9474221da9b84951824faebf94d0f336f4b839abeafe1dc5",
+          "inferredAt": "2026-03-31T02:48:29.268Z",
+          "modelId": "claude-opus-4-20250514-mock",
+          "validation": {
+            "smokePasses": 100,
+            "canaryPasses": 0,
+            "seedsTested": [],
+            "lastValidatedAt": "2026-03-31T02:48:29.694Z"
+          }
+        },
+        {
+          "id": "prop_002",
+          "targetFunction": "reverseString",
+          "description": "Length is preserved after reversing",
+          "category": "conservation",
+          "assertion": "reverseString(str).length === str.length",
+          "generators": {
+            "str": {
+              "type": "string",
+              "constraints": {
+                "maxLength": 100
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "str": "test"
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "str": ""
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "str": "x"
+              }
+            }
+          ],
+          "score": 13,
+          "riskScore": 13,
+          "riskTags": [],
+          "status": "accepted",
+          "confidence": 0.99,
+          "evidence": "Reversing characters does not change count",
+          "sourceHash": "23c6f6b6a46643df9474221da9b84951824faebf94d0f336f4b839abeafe1dc5",
+          "inferredAt": "2026-03-31T02:48:29.270Z",
+          "modelId": "claude-opus-4-20250514-mock",
+          "validation": {
+            "smokePasses": 100,
+            "canaryPasses": 0,
+            "seedsTested": [],
+            "lastValidatedAt": "2026-03-31T02:48:29.694Z"
+          }
+        },
+        {
+          "id": "prop_003",
+          "targetFunction": "reverseString",
+          "description": "First character becomes last character",
+          "category": "metamorphic",
+          "assertion": "str.length === 0 || reverseString(str)[str.length - 1] === str[0]",
+          "generators": {
+            "str": {
+              "type": "string",
+              "constraints": {
+                "maxLength": 50
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "str": "abc"
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "str": "x"
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "str": ""
+              }
+            }
+          ],
+          "score": 13,
+          "riskScore": 13,
+          "riskTags": [],
+          "status": "accepted",
+          "confidence": 0.93,
+          "evidence": "Reversing puts first element at the end",
+          "sourceHash": "23c6f6b6a46643df9474221da9b84951824faebf94d0f336f4b839abeafe1dc5",
+          "inferredAt": "2026-03-31T02:48:29.270Z",
+          "modelId": "claude-opus-4-20250514-mock",
+          "validation": {
+            "smokePasses": 100,
+            "canaryPasses": 0,
+            "seedsTested": [],
+            "lastValidatedAt": "2026-03-31T02:48:29.694Z"
+          }
+        },
+        {
+          "id": "prop_004",
+          "targetFunction": "truncate",
+          "description": "Output length never exceeds maxLen",
+          "category": "boundary",
+          "assertion": "truncate(str, maxLen).length <= maxLen",
+          "generators": {
+            "str": {
+              "type": "string",
+              "constraints": {
+                "maxLength": 200
+              }
+            },
+            "maxLen": {
+              "type": "integer",
+              "constraints": {
+                "min": 3,
+                "max": 200
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "str": "hello world",
+                "maxLen": 8
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "str": "hi",
+                "maxLen": 3
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "str": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "maxLen": 3
+              }
+            }
+          ],
+          "score": 13,
+          "riskScore": 13,
+          "riskTags": [],
+          "status": "accepted",
+          "confidence": 0.95,
+          "evidence": "@param maxLen - Maximum length; result should respect this limit",
+          "sourceHash": "23c6f6b6a46643df9474221da9b84951824faebf94d0f336f4b839abeafe1dc5",
+          "inferredAt": "2026-03-31T02:48:29.270Z",
+          "modelId": "claude-opus-4-20250514-mock",
+          "validation": {
+            "smokePasses": 100,
+            "canaryPasses": 0,
+            "seedsTested": [],
+            "lastValidatedAt": "2026-03-31T02:48:29.694Z"
+          }
+        },
+        {
+          "id": "prop_005",
+          "targetFunction": "truncate",
+          "description": "Short strings are returned unchanged",
+          "category": "boundary",
+          "assertion": "str.length <= maxLen ? truncate(str, maxLen) === str : true",
+          "generators": {
+            "str": {
+              "type": "string",
+              "constraints": {
+                "maxLength": 50
+              }
+            },
+            "maxLen": {
+              "type": "integer",
+              "constraints": {
+                "min": 3,
+                "max": 100
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "str": "hi",
+                "maxLen": 10
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "str": "abc",
+                "maxLen": 3
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "str": "",
+                "maxLen": 5
+              }
+            }
+          ],
+          "score": 13,
+          "riskScore": 13,
+          "riskTags": [],
+          "status": "accepted",
+          "confidence": 0.97,
+          "evidence": "if (str.length <= maxLen) return str — code returns unchanged",
+          "sourceHash": "23c6f6b6a46643df9474221da9b84951824faebf94d0f336f4b839abeafe1dc5",
+          "inferredAt": "2026-03-31T02:48:29.270Z",
+          "modelId": "claude-opus-4-20250514-mock",
+          "validation": {
+            "smokePasses": 100,
+            "canaryPasses": 0,
+            "seedsTested": [],
+            "lastValidatedAt": "2026-03-31T02:48:29.694Z"
+          }
+        },
+        {
+          "id": "prop_006",
+          "targetFunction": "truncate",
+          "description": "Truncated strings end with ellipsis",
+          "category": "type-preservation",
+          "assertion": "str.length > maxLen ? truncate(str, maxLen).endsWith('...') : true",
+          "generators": {
+            "str": {
+              "type": "string",
+              "constraints": {
+                "maxLength": 200
+              }
+            },
+            "maxLen": {
+              "type": "integer",
+              "constraints": {
+                "min": 3,
+                "max": 100
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "str": "hello world!",
+                "maxLen": 8
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "str": "abcdef",
+                "maxLen": 3
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "str": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "maxLen": 4
+              }
+            }
+          ],
+          "score": 13,
+          "riskScore": 13,
+          "riskTags": [],
+          "status": "accepted",
+          "confidence": 0.96,
+          "evidence": "return str.slice(0, maxLen - 3) + '...' — adds ellipsis",
+          "sourceHash": "23c6f6b6a46643df9474221da9b84951824faebf94d0f336f4b839abeafe1dc5",
+          "inferredAt": "2026-03-31T02:48:29.270Z",
+          "modelId": "claude-opus-4-20250514-mock",
+          "validation": {
+            "smokePasses": 100,
+            "canaryPasses": 0,
+            "seedsTested": [],
+            "lastValidatedAt": "2026-03-31T02:48:29.694Z"
+          }
+        },
+        {
+          "id": "prop_007",
+          "targetFunction": "isPalindrome",
+          "description": "Empty string is a palindrome",
+          "category": "boundary",
+          "assertion": "isPalindrome('') === true",
+          "generators": {},
+          "seedInputs": [
+            {
+              "label": "boundary",
+              "value": {}
+            }
+          ],
+          "score": 10,
+          "riskScore": 10,
+          "riskTags": [],
+          "status": "accepted",
+          "confidence": 0.95,
+          "evidence": "Empty string reversed equals itself",
+          "sourceHash": "23c6f6b6a46643df9474221da9b84951824faebf94d0f336f4b839abeafe1dc5",
+          "inferredAt": "2026-03-31T02:48:29.270Z",
+          "modelId": "claude-opus-4-20250514-mock",
+          "validation": {
+            "smokePasses": 100,
+            "canaryPasses": 0,
+            "seedsTested": [],
+            "lastValidatedAt": "2026-03-31T02:48:29.694Z"
+          }
+        },
+        {
+          "id": "prop_008",
+          "targetFunction": "isPalindrome",
+          "description": "Single characters are palindromes",
+          "category": "boundary",
+          "assertion": "isPalindrome(str) === true",
+          "generators": {
+            "str": {
+              "type": "string",
+              "constraints": {
+                "maxLength": 1
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "str": "a"
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "str": "Z"
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "str": "5"
+              }
+            }
+          ],
+          "score": 13,
+          "riskScore": 13,
+          "riskTags": [],
+          "status": "accepted",
+          "confidence": 0.95,
+          "evidence": "Any single character reads the same forwards and backwards",
+          "sourceHash": "23c6f6b6a46643df9474221da9b84951824faebf94d0f336f4b839abeafe1dc5",
+          "inferredAt": "2026-03-31T02:48:29.270Z",
+          "modelId": "claude-opus-4-20250514-mock",
+          "validation": {
+            "smokePasses": 100,
+            "canaryPasses": 0,
+            "seedsTested": [],
+            "lastValidatedAt": "2026-03-31T02:48:29.694Z"
+          }
+        },
+        {
+          "id": "prop_009",
+          "targetFunction": "isPalindrome",
+          "description": "Concatenating a string with its reverse is always a palindrome",
+          "category": "metamorphic",
+          "assertion": "isPalindrome(str + str.split('').reverse().join('')) === true",
+          "generators": {
+            "str": {
+              "type": "string",
+              "constraints": {
+                "maxLength": 20
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "str": "abc"
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "str": ""
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "str": "x"
+              }
+            }
+          ],
+          "score": 13,
+          "riskScore": 13,
+          "riskTags": [],
+          "status": "accepted",
+          "confidence": 0.88,
+          "evidence": "str + reverse(str) is always a palindrome by construction",
+          "sourceHash": "23c6f6b6a46643df9474221da9b84951824faebf94d0f336f4b839abeafe1dc5",
+          "inferredAt": "2026-03-31T02:48:29.270Z",
+          "modelId": "claude-opus-4-20250514-mock",
+          "validation": {
+            "smokePasses": 100,
+            "canaryPasses": 0,
+            "seedsTested": [],
+            "lastValidatedAt": "2026-03-31T02:48:29.694Z"
+          }
+        }
+      ],
+      "sourceHash": "23c6f6b6a46643df9474221da9b84951824faebf94d0f336f4b839abeafe1dc5",
+      "inferredAt": "2026-03-31T02:48:29.694Z"
+    },
+    "test-fixtures/python/calculator.py": {
+      "schemaVersion": 2,
+      "module": "test-fixtures/python/calculator.py",
+      "filePath": "test-fixtures/python/calculator.py",
+      "properties": [
+        {
+          "id": "prop_001",
+          "targetFunction": "add",
+          "description": "Addition is commutative",
+          "category": "equivalence",
+          "assertion": "add(a, b) === add(b, a)",
+          "generators": {
+            "a": {
+              "type": "integer",
+              "constraints": {
+                "min": -10000,
+                "max": 10000
+              }
+            },
+            "b": {
+              "type": "integer",
+              "constraints": {
+                "min": -10000,
+                "max": 10000
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "a": 3,
+                "b": 5
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "a": 0,
+                "b": 0
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "a": -9999,
+                "b": 9999
+              }
+            }
+          ],
+          "score": 13,
+          "riskScore": 13,
+          "riskTags": [],
+          "status": "accepted",
+          "confidence": 0.99,
+          "evidence": "Addition: a + b == b + a for all integers",
+          "sourceHash": "0c71969442c51055aae1c85372046a030fa68d61af39d9325d3cfbed6fd0511f",
+          "inferredAt": "2026-03-31T02:49:04.484Z",
+          "modelId": "claude-opus-4-20250514-mock",
+          "validation": {
+            "smokePasses": 100,
+            "canaryPasses": 0,
+            "seedsTested": [],
+            "lastValidatedAt": "2026-03-31T02:49:06.161Z"
+          }
+        },
+        {
+          "id": "prop_002",
+          "targetFunction": "add",
+          "description": "Zero is identity element for addition",
+          "category": "boundary",
+          "assertion": "add(a, 0) === a",
+          "generators": {
+            "a": {
+              "type": "integer",
+              "constraints": {
+                "min": -10000,
+                "max": 10000
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "a": 42
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "a": 0
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "a": -1
+              }
+            }
+          ],
+          "score": 13,
+          "riskScore": 13,
+          "riskTags": [],
+          "status": "accepted",
+          "confidence": 0.99,
+          "evidence": "a + 0 = a; additive identity",
+          "sourceHash": "0c71969442c51055aae1c85372046a030fa68d61af39d9325d3cfbed6fd0511f",
+          "inferredAt": "2026-03-31T02:49:04.486Z",
+          "modelId": "claude-opus-4-20250514-mock",
+          "validation": {
+            "smokePasses": 100,
+            "canaryPasses": 0,
+            "seedsTested": [],
+            "lastValidatedAt": "2026-03-31T02:49:06.161Z"
+          }
+        },
+        {
+          "id": "prop_003",
+          "targetFunction": "add",
+          "description": "Addition is associative",
+          "category": "equivalence",
+          "assertion": "add(add(a, b), c) === add(a, add(b, c))",
+          "generators": {
+            "a": {
+              "type": "integer",
+              "constraints": {
+                "min": -1000,
+                "max": 1000
+              }
+            },
+            "b": {
+              "type": "integer",
+              "constraints": {
+                "min": -1000,
+                "max": 1000
+              }
+            },
+            "c": {
+              "type": "integer",
+              "constraints": {
+                "min": -1000,
+                "max": 1000
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "a": 1,
+                "b": 2,
+                "c": 3
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "a": 0,
+                "b": 0,
+                "c": 0
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "a": -999,
+                "b": 500,
+                "c": 499
+              }
+            }
+          ],
+          "score": 13,
+          "riskScore": 13,
+          "riskTags": [],
+          "status": "accepted",
+          "confidence": 0.97,
+          "evidence": "(a + b) + c == a + (b + c); associativity of addition",
+          "sourceHash": "0c71969442c51055aae1c85372046a030fa68d61af39d9325d3cfbed6fd0511f",
+          "inferredAt": "2026-03-31T02:49:04.486Z",
+          "modelId": "claude-opus-4-20250514-mock",
+          "validation": {
+            "smokePasses": 100,
+            "canaryPasses": 0,
+            "seedsTested": [],
+            "lastValidatedAt": "2026-03-31T02:49:06.161Z"
+          }
+        },
+        {
+          "id": "prop_004",
+          "targetFunction": "divide",
+          "description": "Division by 1 returns the original number",
+          "category": "boundary",
+          "assertion": "divide(a, 1) === a",
+          "generators": {
+            "a": {
+              "type": "float",
+              "constraints": {
+                "min": -10000,
+                "max": 10000
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "a": 42
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "a": 0
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "a": -0.001
+              }
+            }
+          ],
+          "score": 11,
+          "riskScore": 8,
+          "riskTags": [
+            "float_exact_equality"
+          ],
+          "status": "risky",
+          "confidence": 0.98,
+          "evidence": "a / 1 = a; division by unity identity",
+          "sourceHash": "0c71969442c51055aae1c85372046a030fa68d61af39d9325d3cfbed6fd0511f",
+          "inferredAt": "2026-03-31T02:49:04.486Z",
+          "modelId": "claude-opus-4-20250514-mock",
+          "validation": {
+            "smokePasses": 100,
+            "canaryPasses": 6,
+            "seedsTested": [],
+            "lastValidatedAt": "2026-03-31T02:49:11.108Z"
+          }
+        },
+        {
+          "id": "prop_005",
+          "targetFunction": "divide",
+          "description": "Division of zero always returns zero",
+          "category": "boundary",
+          "assertion": "divide(0, b) === 0",
+          "generators": {
+            "b": {
+              "type": "float",
+              "constraints": {
+                "min": 0.001,
+                "max": 10000
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "b": 5
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "b": 1
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "b": 0.001
+              }
+            }
+          ],
+          "score": 11,
+          "riskScore": 8,
+          "riskTags": [
+            "float_exact_equality"
+          ],
+          "status": "risky",
+          "confidence": 0.97,
+          "evidence": "0 / b = 0 for any non-zero b",
+          "sourceHash": "0c71969442c51055aae1c85372046a030fa68d61af39d9325d3cfbed6fd0511f",
+          "inferredAt": "2026-03-31T02:49:04.486Z",
+          "modelId": "claude-opus-4-20250514-mock",
+          "validation": {
+            "smokePasses": 100,
+            "canaryPasses": 3,
+            "seedsTested": [],
+            "lastValidatedAt": "2026-03-31T02:49:14.019Z"
+          }
+        }
+      ],
+      "sourceHash": "0c71969442c51055aae1c85372046a030fa68d61af39d9325d3cfbed6fd0511f",
+      "inferredAt": "2026-03-31T02:49:14.020Z"
+    },
+    "test-fixtures/typescript/cart.ts": {
+      "schemaVersion": 2,
+      "module": "test-fixtures/typescript/cart.ts",
+      "filePath": "test-fixtures/typescript/cart.ts",
+      "properties": [
+        {
+          "id": "prop_001",
+          "targetFunction": "applyDiscount",
+          "description": "Discounted price should be non-negative for valid inputs",
+          "category": "boundary",
+          "assertion": "applyDiscount(price, discount) >= 0",
+          "generators": {
+            "price": {
+              "type": "float",
+              "constraints": {
+                "min": 0,
+                "max": 10000
+              }
+            },
+            "discount": {
+              "type": "float",
+              "constraints": {
+                "min": 0,
+                "max": 200
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "price": 100,
+                "discount": 20
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "price": 0,
+                "discount": 100
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "price": 0.01,
+                "discount": 150
+              }
+            }
+          ],
+          "score": 13,
+          "riskScore": 10,
+          "riskTags": [
+            "missing_precondition",
+            "doc_domain_mismatch"
+          ],
+          "status": "risky",
+          "confidence": 0.92,
+          "evidence": "@param discount - Discount percentage (0-100); prices should not go negative",
+          "sourceHash": "d9d64f51d3671cac08413a39170fa67551231f36afc7af24d20828c9193485a8",
+          "inferredAt": "2026-03-31T02:49:47.187Z",
+          "modelId": "claude-opus-4-20250514-mock",
+          "validation": {
+            "smokePasses": 100,
+            "canaryPasses": 8,
+            "seedsTested": [],
+            "lastValidatedAt": "2026-03-31T02:49:50.686Z"
+          }
+        },
+        {
+          "id": "prop_002",
+          "targetFunction": "applyDiscount",
+          "description": "Discount should not increase the price when discount is positive",
+          "category": "monotonic",
+          "assertion": "discount >= 0 ? applyDiscount(price, discount) <= price : true",
+          "generators": {
+            "price": {
+              "type": "float",
+              "constraints": {
+                "min": 0,
+                "max": 10000
+              }
+            },
+            "discount": {
+              "type": "float",
+              "constraints": {
+                "min": -50,
+                "max": 200
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "price": 100,
+                "discount": 25
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "price": 100,
+                "discount": 0
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "price": 1,
+                "discount": 200
+              }
+            }
+          ],
+          "score": 13,
+          "riskScore": 11,
+          "riskTags": [
+            "doc_domain_mismatch"
+          ],
+          "status": "risky",
+          "confidence": 0.88,
+          "evidence": "Discount reduces price; @param discount - Discount percentage (0-100)",
+          "sourceHash": "d9d64f51d3671cac08413a39170fa67551231f36afc7af24d20828c9193485a8",
+          "inferredAt": "2026-03-31T02:49:47.189Z",
+          "modelId": "claude-opus-4-20250514-mock",
+          "validation": {
+            "smokePasses": 100,
+            "canaryPasses": 8,
+            "seedsTested": [],
+            "lastValidatedAt": "2026-03-31T02:49:53.733Z"
+          }
+        },
+        {
+          "id": "prop_003",
+          "targetFunction": "applyDiscount",
+          "description": "Zero discount returns original price unchanged",
+          "category": "boundary",
+          "assertion": "applyDiscount(price, 0) === price",
+          "generators": {
+            "price": {
+              "type": "float",
+              "constraints": {
+                "min": 0,
+                "max": 10000
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "price": 49.99
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "price": 0
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "price": 99999.99
+              }
+            }
+          ],
+          "score": 11,
+          "riskScore": 8,
+          "riskTags": [
+            "float_exact_equality"
+          ],
+          "status": "risky",
+          "confidence": 0.98,
+          "evidence": "Zero discount means no change to price",
+          "sourceHash": "d9d64f51d3671cac08413a39170fa67551231f36afc7af24d20828c9193485a8",
+          "inferredAt": "2026-03-31T02:49:47.189Z",
+          "modelId": "claude-opus-4-20250514-mock",
+          "validation": {
+            "smokePasses": 100,
+            "canaryPasses": 6,
+            "seedsTested": [],
+            "lastValidatedAt": "2026-03-31T02:49:55.923Z"
+          }
+        },
+        {
+          "id": "prop_004",
+          "targetFunction": "applyDiscount",
+          "description": "100% discount results in zero price",
+          "category": "boundary",
+          "assertion": "applyDiscount(price, 100) === 0",
+          "generators": {
+            "price": {
+              "type": "float",
+              "constraints": {
+                "min": 0,
+                "max": 10000
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "price": 50
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "price": 0
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "price": 0.001
+              }
+            }
+          ],
+          "score": 11,
+          "riskScore": 8,
+          "riskTags": [
+            "float_exact_equality"
+          ],
+          "status": "risky",
+          "confidence": 0.95,
+          "evidence": "100% discount = free; price * (1 - 100/100) = 0",
+          "sourceHash": "d9d64f51d3671cac08413a39170fa67551231f36afc7af24d20828c9193485a8",
+          "inferredAt": "2026-03-31T02:49:47.189Z",
+          "modelId": "claude-opus-4-20250514-mock",
+          "validation": {
+            "smokePasses": 100,
+            "canaryPasses": 6,
+            "seedsTested": [],
+            "lastValidatedAt": "2026-03-31T02:49:58.141Z"
+          }
+        },
+        {
+          "id": "prop_005",
+          "targetFunction": "calculateTotal",
+          "description": "Total of empty array is zero",
+          "category": "boundary",
+          "assertion": "calculateTotal([]) === 0",
+          "generators": {},
+          "seedInputs": [
+            {
+              "label": "boundary",
+              "value": {}
+            }
+          ],
+          "score": 10,
+          "riskScore": 10,
+          "riskTags": [],
+          "status": "accepted",
+          "confidence": 0.95,
+          "evidence": "@param prices - Array of item prices; empty cart costs nothing",
+          "sourceHash": "d9d64f51d3671cac08413a39170fa67551231f36afc7af24d20828c9193485a8",
+          "inferredAt": "2026-03-31T02:49:47.189Z",
+          "modelId": "claude-opus-4-20250514-mock",
+          "validation": {
+            "smokePasses": 100,
+            "canaryPasses": 0,
+            "seedsTested": [],
+            "lastValidatedAt": "2026-03-31T02:49:58.141Z"
+          }
+        },
+        {
+          "id": "prop_006",
+          "targetFunction": "calculateTotal",
+          "description": "Total of single-item array equals the item",
+          "category": "boundary",
+          "assertion": "calculateTotal([price]) === price",
+          "generators": {
+            "price": {
+              "type": "float",
+              "constraints": {
+                "min": 0,
+                "max": 10000
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "price": 42.99
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "price": 0
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "price": 99999
+              }
+            }
+          ],
+          "score": 11,
+          "riskScore": 8,
+          "riskTags": [
+            "float_exact_equality"
+          ],
+          "status": "risky",
+          "confidence": 0.97,
+          "evidence": "Single item total = the item itself",
+          "sourceHash": "d9d64f51d3671cac08413a39170fa67551231f36afc7af24d20828c9193485a8",
+          "inferredAt": "2026-03-31T02:49:47.189Z",
+          "modelId": "claude-opus-4-20250514-mock",
+          "validation": {
+            "smokePasses": 100,
+            "canaryPasses": 6,
+            "seedsTested": [],
+            "lastValidatedAt": "2026-03-31T02:50:00.468Z"
+          }
+        },
+        {
+          "id": "prop_007",
+          "targetFunction": "calculateTotal",
+          "description": "Total is non-negative when all prices are non-negative",
+          "category": "boundary",
+          "assertion": "prices.every(p => p >= 0) ? calculateTotal(prices) >= 0 : true",
+          "generators": {
+            "prices": {
+              "type": "array",
+              "constraints": {
+                "maxLength": 20,
+                "element": "float"
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "prices": [
+                  10,
+                  20,
+                  30
+                ]
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "prices": []
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "prices": [
+                  0.01
+                ]
+              }
+            }
+          ],
+          "score": 13,
+          "riskScore": 10,
+          "riskTags": [
+            "wide_numeric_domain",
+            "missing_precondition"
+          ],
+          "status": "risky",
+          "confidence": 0.85,
+          "evidence": "@returns Total sum; sum of non-negative numbers is non-negative",
+          "sourceHash": "d9d64f51d3671cac08413a39170fa67551231f36afc7af24d20828c9193485a8",
+          "inferredAt": "2026-03-31T02:49:47.189Z",
+          "modelId": "claude-opus-4-20250514-mock",
+          "validation": {
+            "smokePasses": 100,
+            "canaryPasses": 4,
+            "seedsTested": [],
+            "lastValidatedAt": "2026-03-31T02:50:02.467Z"
+          }
+        }
+      ],
+      "sourceHash": "d9d64f51d3671cac08413a39170fa67551231f36afc7af24d20828c9193485a8",
+      "inferredAt": "2026-03-31T02:50:02.468Z"
     }
   }
 }

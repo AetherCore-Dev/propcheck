@@ -117,6 +117,7 @@ npx propcheck infer --mock --refine examples/price-utils.ts
 - **Risk-aware persistence** — properties now carry `status`, `riskTags`, `riskScore`, and validation evidence in `.propcheck/properties.json`
 - **Canary validation + auto-weakening** — risky numeric properties are canary-checked before persistence and fragile float assertions can be refined into tolerant checks automatically
 - **Refinement loop** — `--refine` strengthens weak properties via iterative LLM feedback and re-validation
+- **Property workflow** — `propcheck props` lists inventory, `propcheck property` inspects/updates status with `humanVerified` tracking
 - **PR Bot** — Auto-comments propcheck results on every Pull Request *(coming soon)*
 
 ## Run Modes
@@ -132,6 +133,11 @@ propcheck run --skip prop_001,prop_002            # Skip specific property IDs
 propcheck run --only prop_009                     # Run only selected property IDs
 propcheck run --include-quarantined               # Include quarantined properties in a run
 propcheck quality examples/price-utils.ts         # Mutation testing — measure property strength
+propcheck props                                   # List all properties with status overview
+propcheck props --status risky                    # Filter by status
+propcheck props --json                            # Machine-readable output
+propcheck property src/cart.ts prop_001           # Inspect a single property
+propcheck property src/cart.ts prop_001 --status quarantined  # Update status (marks humanVerified)
 ```
 
 ## Property lifecycle
@@ -151,6 +157,30 @@ Additional metadata now includes:
 - `validation` — smoke/canary evidence recorded at inference time
 
 This reduces CI noise: fragile properties are filtered or refined before they start failing every run.
+
+### Managing properties
+
+```bash
+# List all properties with status summary
+propcheck props
+
+# Filter by status or target file
+propcheck props --status risky
+propcheck props examples/price-utils.ts
+
+# Inspect a single property in detail
+propcheck property examples/price-utils.ts prop_003
+
+# Update status (automatically sets humanVerified = true)
+propcheck property examples/price-utils.ts prop_001 --status quarantined
+propcheck property examples/price-utils.ts prop_001 --status accepted
+
+# Machine-readable output for scripting
+propcheck props --json
+propcheck property examples/price-utils.ts prop_001 --json
+```
+
+The `--status` flag on `propcheck property` sets `humanVerified: true` on the property, distinguishing human-reviewed decisions from LLM-inferred defaults.
 
 ## CI/CD — Auto-review every PR
 

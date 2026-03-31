@@ -6,7 +6,9 @@ import * as os from "node:os";
 import { inferCommand, canaryValidateProperties } from "../commands/infer";
 import { runCommand } from "../commands/run";
 import { badgeCommand } from "../commands/badge";
-import { initStore, setProperties } from "@propcheck/store";
+import { propsCommand } from "../commands/props";
+import { propertyCommand } from "../commands/property";
+import { initStore, setProperties, getProperties } from "@propcheck/store";
 import { hashContent } from "@propcheck/common";
 import type { PropertyDefinition, PropertySet } from "@propcheck/common";
 
@@ -401,6 +403,227 @@ describe("cli commands", () => {
       } finally {
         console.log = originalLog;
       }
+    });
+  });
+
+  it("propcheck props should list all properties grouped by module", async () => {
+    await withTempProject(async (projectDir) => {
+      const logs: string[] = [];
+      const originalLog = console.log;
+      console.log = (...args: unknown[]) => {
+        logs.push(args.map(String).join(" "));
+      };
+
+      try {
+        await initStore(projectDir);
+        await setProperties(path.join(projectDir, ".propcheck"), "math.js", {
+          schemaVersion: 2,
+          module: "math.js",
+          filePath: "math.js",
+          properties: [
+            makeProperty(),
+            makeProperty({ id: "prop_002", description: "zero is identity", status: "risky", riskTags: ["float_exact_equality"], riskScore: 10 }),
+          ],
+          sourceHash: "abc",
+          inferredAt: "2026-03-30T00:00:00.000Z",
+        });
+
+        await propsCommand(undefined, {});
+
+        assert.ok(logs.some((line) => line.includes("math.js")));
+        assert.ok(logs.some((line) => line.includes("prop_001")));
+        assert.ok(logs.some((line) => line.includes("prop_002")));
+        assert.ok(logs.some((line) => line.includes("2 total")));
+      } finally {
+        console.log = originalLog;
+      }
+    });
+  });
+
+  it("propcheck props --status should filter properties", async () => {
+    await withTempProject(async (projectDir) => {
+      const logs: string[] = [];
+      const originalLog = console.log;
+      console.log = (...args: unknown[]) => {
+        logs.push(args.map(String).join(" "));
+      };
+
+      try {
+        await initStore(projectDir);
+        await setProperties(path.join(projectDir, ".propcheck"), "math.js", {
+          schemaVersion: 2,
+          module: "math.js",
+          filePath: "math.js",
+          properties: [
+            makeProperty(),
+            makeProperty({ id: "prop_002", description: "quarantined prop", status: "quarantined" }),
+          ],
+          sourceHash: "abc",
+          inferredAt: "2026-03-30T00:00:00.000Z",
+        });
+
+        await propsCommand(undefined, { status: "quarantined" });
+
+        const allOutput = logs.join("\n");
+        assert.ok(allOutput.includes("prop_002"));
+        assert.ok(!allOutput.includes("prop_001"));
+      } finally {
+        console.log = originalLog;
+      }
+    });
+  });
+
+  it("propcheck props --json should output structured JSON", async () => {
+    await withTempProject(async (projectDir) => {
+      const logs: string[] = [];
+      const originalLog = console.log;
+      console.log = (...args: unknown[]) => {
+        logs.push(args.map(String).join(" "));
+      };
+
+      try {
+        await initStore(projectDir);
+        await setProperties(path.join(projectDir, ".propcheck"), "math.js", {
+          schemaVersion: 2,
+          module: "math.js",
+          filePath: "math.js",
+          properties: [makeProperty()],
+          sourceHash: "abc",
+          inferredAt: "2026-03-30T00:00:00.000Z",
+        });
+
+        await propsCommand(undefined, { json: true });
+
+        const output = JSON.parse(logs[0]) as { modules: Array<{ filePath: string; properties: unknown[] }> };
+        assert.equal(output.modules.length, 1);
+        assert.equal(output.modules[0].filePath, "math.js");
+        assert.equal(output.modules[0].properties.length, 1);
+      } finally {
+        console.log = originalLog;
+      }
+    });
+  });
+
+  it("propcheck property should display property detail", async () => {
+    await withTempProject(async (projectDir) => {
+      const logs: string[] = [];
+      const originalLog = console.log;
+      console.log = (...args: unknown[]) => {
+        logs.push(args.map(String).join(" "));
+      };
+
+      try {
+        await initStore(projectDir);
+        await setProperties(path.join(projectDir, ".propcheck"), "math.js", {
+          schemaVersion: 2,
+          module: "math.js",
+          filePath: "math.js",
+          properties: [makeProperty()],
+          sourceHash: "abc",
+          inferredAt: "2026-03-30T00:00:00.000Z",
+        });
+
+        await propertyCommand("math.js", "prop_001", {});
+
+        const allOutput = logs.join("\n");
+        assert.ok(allOutput.includes("prop_001"));
+        assert.ok(allOutput.includes("add"));
+        assert.ok(allOutput.includes("addition is commutative"));
+        assert.ok(allOutput.includes("add(a, b) === add(b, a)"));
+      } finally {
+        console.log = originalLog;
+      }
+    });
+  });
+
+  it("propcheck property --status should update status and set humanVerified", async () => {
+    await withTempProject(async (projectDir) => {
+      const logs: string[] = [];
+      const originalLog = console.log;
+      console.log = (...args: unknown[]) => {
+        logs.push(args.map(String).join(" "));
+      };
+
+      try {
+        await initStore(projectDir);
+        await setProperties(path.join(projectDir, ".propcheck"), "math.js", {
+          schemaVersion: 2,
+          module: "math.js",
+          filePath: "math.js",
+          properties: [makeProperty({ status: "risky", riskTags: ["float_exact_equality"], riskScore: 10 })],
+          sourceHash: "abc",
+          inferredAt: "2026-03-30T00:00:00.000Z",
+        });
+
+        await propertyCommand("math.js", "prop_001", { status: "quarantined" });
+
+        // Verify console output
+        const allOutput = logs.join("\n");
+        assert.ok(allOutput.includes("risky"));
+        assert.ok(allOutput.includes("quarantined"));
+        assert.ok(allOutput.includes("humanVerified"));
+
+        // Verify persisted state
+        const ps = await getProperties(path.join(projectDir, ".propcheck"), "math.js");
+        assert.ok(ps);
+        const updated = ps.properties.find((p) => p.id === "prop_001");
+        assert.ok(updated);
+        assert.equal(updated.status, "quarantined");
+        assert.equal(updated.humanVerified, true);
+      } finally {
+        console.log = originalLog;
+      }
+    });
+  });
+
+  it("propcheck property --json should output structured JSON", async () => {
+    await withTempProject(async (projectDir) => {
+      const logs: string[] = [];
+      const originalLog = console.log;
+      console.log = (...args: unknown[]) => {
+        logs.push(args.map(String).join(" "));
+      };
+
+      try {
+        await initStore(projectDir);
+        await setProperties(path.join(projectDir, ".propcheck"), "math.js", {
+          schemaVersion: 2,
+          module: "math.js",
+          filePath: "math.js",
+          properties: [makeProperty()],
+          sourceHash: "abc",
+          inferredAt: "2026-03-30T00:00:00.000Z",
+        });
+
+        await propertyCommand("math.js", "prop_001", { json: true });
+
+        const output = JSON.parse(logs[0]) as { filePath: string; property: { id: string; status: string } };
+        assert.equal(output.filePath, "math.js");
+        assert.equal(output.property.id, "prop_001");
+        assert.equal(output.property.status, "accepted");
+      } finally {
+        console.log = originalLog;
+      }
+    });
+  });
+
+  it("propcheck property should exit 2 for non-existent property ID", async () => {
+    await withTempProject(async (projectDir) => {
+      await initStore(projectDir);
+      await setProperties(path.join(projectDir, ".propcheck"), "math.js", {
+        schemaVersion: 2,
+        module: "math.js",
+        filePath: "math.js",
+        properties: [makeProperty()],
+        sourceHash: "abc",
+        inferredAt: "2026-03-30T00:00:00.000Z",
+      });
+
+      const exitCode = await withInterceptedExit(async () => {
+        await propertyCommand("math.js", "prop_999", {});
+      });
+
+      assert.equal(exitCode, 2);
     });
   });
 });

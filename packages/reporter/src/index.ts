@@ -10,3 +10,15 @@ export type { JsonReport } from "./json-reporter";
 export { formatSummary, formatCost } from "./formatters/summary";
 export { formatCounterexample } from "./formatters/counterexample";
 export { formatPropertyLine } from "./formatters/property-table";
+
+export {
+  reportPropertiesOverview,
+  reportPropertiesOverviewAsJson,
+  reportPropertyDetail,
+  reportPropertyDetailAsJson,
+  reportStatusUpdate,
+} from "./property-workflow-reporter";
+export type {
+  PropertiesOverviewJson,
+  PropertyDetailJson,
+} from "./property-workflow-reporter";

@@ -7,6 +7,8 @@
  *   propcheck init                   Initialize .propcheck/ directory
  *   propcheck infer <target>         Infer properties using LLM
  *   propcheck run [target]           Run property tests
+ *   propcheck props [target]         List property inventory
+ *   propcheck property <t> <id>      Inspect / update a property
  */
 
 import { Command } from "commander";
@@ -15,6 +17,8 @@ import { inferCommand } from "./commands/infer";
 import { runCommand } from "./commands/run";
 import { badgeCommand } from "./commands/badge";
 import { qualityCommand } from "./commands/quality";
+import { propsCommand } from "./commands/props";
+import { propertyCommand } from "./commands/property";
 
 const program = new Command();
 
@@ -63,5 +67,19 @@ program
   .command("quality <target>")
   .description("Measure property effectiveness via mutation testing")
   .action(qualityCommand);
+
+program
+  .command("props [target]")
+  .description("List property inventory with status overview")
+  .option("--status <status>", "Filter by status: accepted, risky, refined, quarantined, dropped")
+  .option("--json", "Output as JSON")
+  .action(propsCommand);
+
+program
+  .command("property <target> <propertyId>")
+  .description("Inspect or update a single property")
+  .option("--status <status>", "Set new status (marks as humanVerified)")
+  .option("--json", "Output as JSON")
+  .action(propertyCommand);
 
 program.parse();

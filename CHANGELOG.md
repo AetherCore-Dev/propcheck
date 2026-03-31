@@ -2,6 +2,21 @@
 
 All notable changes to propcheck are documented in this file.
 
+## [Unreleased] - 2026-03-31
+
+### Added
+- **Property workflow commands**: `propcheck props [target]` lists property inventory with status overview; `propcheck property <target> <id>` inspects or updates a single property
+- **Status management**: `propcheck property <target> <id> --status <status>` updates a property's status and sets `humanVerified = true`
+- **JSON output**: both new commands support `--json` for CI/scripting integration
+- **Status filtering**: `propcheck props --status risky` filters the inventory by property status
+
+### Fixed
+- **Assertion qualifier codegen (P0)**: the broad identifier scan in `fc-codegen.ts` was over-qualifying method calls (`.match()`, `.split()`, `.concat()`, `.reverse()`), `Math.abs()`, and globals (`parseFloat`, `isNaN`, `isFinite`) with `target.` prefix — replaced with precise `functionNames`-only loop
+
+### Changed
+- README, CLI README, CLAUDE.md, and BACKLOG now document the property workflow commands and updated project status
+- CLI test suite expanded from 9 to 16 tests covering `props` and `property` commands
+
 ## [Unreleased] - 2026-03-30
 
 ### Added

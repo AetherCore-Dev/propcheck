@@ -1,6 +1,6 @@
 # propcheck — Next Features Backlog (Priority Ordered)
 
-> Generated: 2026-03-27 | Last Updated: 2026-03-27
+> Generated: 2026-03-27 | Last Updated: 2026-03-31
 > Principle: 按 **重要性 × 传播效果 × 用户体验** 排序，不考虑开发工作量
 > 参考: 5 篇顶级论文 + 7 个成功 dev tool 的病毒传播模式 + 业内最新进展
 
@@ -25,11 +25,12 @@
 - AI Coding 流程天然产出 Spec: Cursor/Claude Code 的 plan → 直接作为属性来源
 - 参考: PGS 论文 "属性比代码更容易正确"
 
-### TS-2. 意图确认机制（解决"用户意图违反常规"的问题）
+### TS-2. 意图确认机制（解决“用户意图违反常规”的问题）
 **优先级: ★★★★★ | 重要性: ★★★★★ | 体验: ★★★★**
 
 > 用户故意要负价格（退款场景）但 LLM 推断 "result >= 0" → 假阳性。
 > 需要一个确认环节让人类做最终判断。
+> ✅ **部分完成**: `propcheck property --status` 已支持人工审核状态更新，`humanVerified` 标记区分人工决策与 LLM 推断。交互式确认模式待开发。
 
 - `propcheck infer --confirm src/cart.ts` 交互式确认模式
 - 每个属性展示来源 + 置信度 + 是否有冲突
@@ -354,4 +355,5 @@
 | Semgrep: 社区规则飞轮 | T1-4 Templates + T4-1 市场 | 待开发 |
 | Cursor: 零迁移成本 | ✅ `npx propcheck run` 已实现 | 完成 |
 | Codecov: Badge 传播 | ✅ `propcheck badge` 已实现 | 完成 |
+| Human-in-the-loop: 人工审核 | ✅ `propcheck props` + `propcheck property --status` | 完成 |
 | v0.dev: 寄生平台分发 | T3-1 VS Code Marketplace | 待开发 |
