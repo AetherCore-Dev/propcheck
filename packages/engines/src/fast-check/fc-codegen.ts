@@ -218,7 +218,6 @@ export function generateFastCheckTest(
 
   // Generate test for each property
   for (const prop of properties) {
-    const funcName = prop.targetFunction.split(".").pop()!;
     const generators = Object.entries(prop.generators);
     const arbNames = generators.map(([name]) => name);
     const arbExprs = generators.map(([, spec]) => mapGenerator(spec));
@@ -226,33 +225,14 @@ export function generateFastCheckTest(
     // Normalize non-JS patterns that real LLMs produce.
     let assertion = normalizeAssertionSyntax(prop.assertion);
 
-    // Replace bare function calls with target.funcName in assertion.
+    // Qualify bare calls to functions exported from the target module with `target.`.
+    // ONLY replace identifiers that are known target-module function names.
     // Use negative lookbehind to avoid replacing method calls like `.funcName(`.
-    assertion = assertion.replace(
-      new RegExp(`(?<!\\.)\\b${funcName}\\(`, "g"),
-      `target.${funcName}(`,
-    );
-
-    // Qualify bare function calls from the target module with `target.`.
-    // We must NOT qualify:
-    //   - Method calls (e.g. `.test(`, `.every(`, `.abs(`)
-    //   - Generator parameter names (e.g. `price`, `discount`)
-    //   - JS built-in globals (Math, Number, parseFloat, etc.)
-    //   - Keywords (true, false, null, undefined)
-    for (const varName of assertion.match(/\b[a-zA-Z_]\w*\b/g) ?? []) {
-      if (
-        varName !== funcName &&
-        !JS_BUILTINS.has(varName) &&
-        !arbNames.includes(varName) &&
-        !functionNames.includes(varName)
-      ) {
-        // Only qualify standalone function calls — NOT method calls preceded by `.`
-        // Use negative lookbehind (?<!\.) to skip `.method(` patterns.
-        assertion = assertion.replace(
-          new RegExp(`(?<!\\.)\\b${varName}\\(`, "g"),
-          `target.${varName}(`,
-        );
-      }
+    for (const fn of functionNames) {
+      assertion = assertion.replace(
+        new RegExp(`(?<!\\.)\\b${fn}\\(`, "g"),
+        `target.${fn}(`,
+      );
     }
 
     lines.push(`// ${prop.id}: ${toSafeComment(prop.description)}`);

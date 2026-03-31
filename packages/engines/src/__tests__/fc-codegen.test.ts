@@ -345,4 +345,200 @@ describe("fc-codegen", () => {
       "Should use direct min/max from array constraints as element constraints",
     );
   });
+
+  // --- Real LLM assertion patterns (from Claude Opus 4.6 output) ---
+
+  it("should NOT prefix target. on method calls like .match(), .split(), .concat(), .reverse()", () => {
+    // Simulates real assertions from Claude Opus 4.6 for formatPrice / calculateTotal
+    const props = [
+      makeProp({
+        id: "prop_011",
+        targetFunction: "formatPrice",
+        assertion: "(formatPrice(price).match(/\\\\./g) || []).length === 1",
+        generators: { price: { type: "float", constraints: { min: 0, max: 1000000 } } },
+      }),
+      makeProp({
+        id: "prop_012",
+        targetFunction: "formatPrice",
+        assertion: "formatPrice(price).split('.')[1].length === 2",
+        generators: { price: { type: "float", constraints: { min: 0, max: 1000000 } } },
+      }),
+    ];
+
+    const result = generateFastCheckTest(
+      props,
+      "/project/src/price-utils.ts",
+      "/project/.propcheck/tests",
+      defaultConfig,
+    );
+
+    // .match() and .split() are method calls — must NOT become .target.match() or .target.split()
+    assert.ok(
+      result.content.includes("target.formatPrice(price).match("),
+      "Should qualify formatPrice but not .match()",
+    );
+    assert.ok(
+      !result.content.includes(".target.match("),
+      "Must NOT produce .target.match()",
+    );
+    assert.ok(
+      result.content.includes("target.formatPrice(price).split("),
+      "Should qualify formatPrice but not .split()",
+    );
+    assert.ok(
+      !result.content.includes(".target.split("),
+      "Must NOT produce .target.split()",
+    );
+  });
+
+  it("should NOT prefix target. on Math.abs()", () => {
+    const props = [
+      makeProp({
+        id: "prop_005",
+        targetFunction: "applyDiscount",
+        assertion: "Math.abs(applyDiscount(price, discount) - (price - price * discount / 100)) < 1e-10",
+        generators: {
+          discount: { type: "float", constraints: { min: 0, max: 100 } },
+          price: { type: "float", constraints: { min: 0, max: 100000 } },
+        },
+      }),
+    ];
+
+    const result = generateFastCheckTest(
+      props,
+      "/project/src/price-utils.ts",
+      "/project/.propcheck/tests",
+      defaultConfig,
+    );
+
+    assert.ok(
+      result.content.includes("Math.abs(target.applyDiscount("),
+      "Should qualify applyDiscount but keep Math.abs intact",
+    );
+    assert.ok(
+      !result.content.includes("Math.target.abs("),
+      "Must NOT produce Math.target.abs()",
+    );
+  });
+
+  it("should NOT prefix target. on .concat() and .reverse() in array assertions", () => {
+    const props = [
+      makeProp({
+        id: "prop_008",
+        targetFunction: "calculateTotal",
+        assertion: "Math.abs(calculateTotal(a.concat(b)) - (calculateTotal(a) + calculateTotal(b))) < 1e-6",
+        generators: {
+          a: { type: "array", constraints: { elementType: "float", min: 0, max: 10000, maxLength: 20 } },
+          b: { type: "array", constraints: { elementType: "float", min: 0, max: 10000, maxLength: 20 } },
+        },
+      }),
+      makeProp({
+        id: "prop_009",
+        targetFunction: "calculateTotal",
+        assertion: "Math.abs(calculateTotal(prices) - calculateTotal([...prices].reverse())) < 1e-6",
+        generators: {
+          prices: { type: "array", constraints: { elementType: "float", min: 0, max: 10000, maxLength: 50 } },
+        },
+      }),
+    ];
+
+    const result = generateFastCheckTest(
+      props,
+      "/project/src/price-utils.ts",
+      "/project/.propcheck/tests",
+      defaultConfig,
+    );
+
+    assert.ok(
+      result.content.includes("a.concat(b)"),
+      "Should keep .concat() as method call",
+    );
+    assert.ok(
+      !result.content.includes("a.target.concat("),
+      "Must NOT produce a.target.concat()",
+    );
+    assert.ok(
+      result.content.includes("[...prices].reverse()"),
+      "Should keep .reverse() as method call",
+    );
+    assert.ok(
+      !result.content.includes(".target.reverse("),
+      "Must NOT produce .target.reverse()",
+    );
+  });
+
+  it("should NOT prefix target. on parseFloat/isNaN/isFinite globals", () => {
+    const props = [
+      makeProp({
+        id: "prop_013",
+        targetFunction: "formatPrice",
+        assertion: "Math.abs(parseFloat(formatPrice(price)) - price) < 0.005 + 1e-10",
+        generators: { price: { type: "float", constraints: { min: 0, max: 1000000 } } },
+      }),
+      makeProp({
+        id: "prop_015",
+        targetFunction: "formatPrice",
+        assertion: "!isNaN(parseFloat(formatPrice(price))) && isFinite(parseFloat(formatPrice(price)))",
+        generators: { price: { type: "float", constraints: { min: 0, max: 1000000 } } },
+      }),
+    ];
+
+    const result = generateFastCheckTest(
+      props,
+      "/project/src/price-utils.ts",
+      "/project/.propcheck/tests",
+      defaultConfig,
+    );
+
+    // parseFloat, isNaN, isFinite are JS globals — must NOT be prefixed
+    assert.ok(
+      result.content.includes("parseFloat(target.formatPrice(price))"),
+      "parseFloat should stay global, formatPrice should be qualified",
+    );
+    assert.ok(
+      !result.content.includes("target.parseFloat("),
+      "Must NOT produce target.parseFloat()",
+    );
+    assert.ok(
+      result.content.includes("!isNaN("),
+      "isNaN should stay global",
+    );
+    assert.ok(
+      !result.content.includes("target.isNaN("),
+      "Must NOT produce target.isNaN()",
+    );
+    assert.ok(
+      result.content.includes("isFinite("),
+      "isFinite should stay global",
+    );
+    assert.ok(
+      !result.content.includes("target.isFinite("),
+      "Must NOT produce target.isFinite()",
+    );
+  });
+
+  it("should qualify multiple target functions in cross-function assertions", () => {
+    // formatPrice(parseFloat(formatPrice(price))) — both formatPrice calls should be qualified
+    const props = [
+      makeProp({
+        id: "prop_014",
+        targetFunction: "formatPrice",
+        assertion: "formatPrice(parseFloat(formatPrice(price))) === formatPrice(price)",
+        generators: { price: { type: "float", constraints: { min: 0, max: 1000000 } } },
+      }),
+    ];
+
+    const result = generateFastCheckTest(
+      props,
+      "/project/src/price-utils.ts",
+      "/project/.propcheck/tests",
+      defaultConfig,
+    );
+
+    // All occurrences of formatPrice should be qualified
+    assert.ok(
+      result.content.includes("target.formatPrice(parseFloat(target.formatPrice(price))) === target.formatPrice(price)"),
+      "Should qualify all formatPrice calls but keep parseFloat global",
+    );
+  });
 });
