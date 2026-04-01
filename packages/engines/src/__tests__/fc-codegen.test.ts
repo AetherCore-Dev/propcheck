@@ -325,6 +325,36 @@ describe("fc-codegen", () => {
     assert.ok(result.content.includes("fc.array(fc.double({ min: 0, max: 100, noNaN: true, noDefaultInfinity: true }), { maxLength: 5 })"));
   });
 
+  it("should support array constraints with items as nested generator spec (LLM format)", () => {
+    // Real LLMs (claude-sonnet-4-6 via fucheers proxy) return:
+    //   { type: "array", constraints: { items: { type: "float", constraints: { min: 0, max: 10000 } }, maxLength: 50 } }
+    const prop = makeProp({
+      targetFunction: "calculateTotal",
+      assertion: "calculateTotal(prices) >= 0",
+      generators: {
+        prices: {
+          type: "array",
+          constraints: {
+            items: { type: "float", constraints: { min: 0, max: 10000 } },
+            maxLength: 50,
+          },
+        },
+      },
+    });
+
+    const result = generateFastCheckTest(
+      [prop],
+      "/project/src/cart.ts",
+      "/project/.propcheck/tests",
+      defaultConfig,
+    );
+
+    assert.ok(
+      result.content.includes("fc.array(fc.double({ min: 0, max: 10000, noNaN: true, noDefaultInfinity: true }), { maxLength: 50 })"),
+      "Should extract element type from items.type and items.constraints",
+    );
+  });
+
   it("should not rewrite quoted implies occurrences", () => {
     const prop = makeProp({
       targetFunction: "formatLabel",

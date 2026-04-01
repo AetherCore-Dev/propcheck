@@ -61,6 +61,30 @@ describe("hyp-codegen", () => {
     assert.ok(content.includes("items=st.lists(st.floats(allow_nan=False, allow_infinity=False, min_value=0, max_value=10), max_size=4)"));
   });
 
+  it("should support array constraints with items as nested generator spec (LLM format)", () => {
+    const { content } = generateHypothesisTest(
+      [makeProp({
+        generators: {
+          prices: {
+            type: "array",
+            constraints: {
+              items: { type: "float", constraints: { min: 0, max: 10000 } },
+              maxLength: 50,
+            },
+          },
+        },
+      })],
+      "/tmp/example.py",
+      "/tmp/.propcheck/tests",
+      config,
+    );
+
+    assert.ok(
+      content.includes("prices=st.lists(st.floats(allow_nan=False, allow_infinity=False, min_value=0, max_value=10000), max_size=50)"),
+      "Should extract element type from items.type and items.constraints",
+    );
+  });
+
   it("should support constant generators for canary validation", () => {
     const { content } = generateHypothesisTest(
       [makeProp({

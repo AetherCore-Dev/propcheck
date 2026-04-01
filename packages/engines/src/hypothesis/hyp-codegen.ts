@@ -81,21 +81,30 @@ function mapStrategy(spec: GeneratorSpec, depth = 0): string {
 
     case "array":
     case "list": {
+      // Support "items" as a full nested generator spec (LLM format),
+      // in addition to elementType/element + elementConstraints (legacy format).
+      const items = c.items as { type: string; constraints?: Record<string, unknown> } | undefined;
       const elementType = c.element ?? c.elementType;
-      const nestedConstraints = c.elementConstraints && typeof c.elementConstraints === "object"
-        ? (c.elementConstraints as Record<string, unknown>)
-        : {
-            ...((c.elementMin ?? c.min) !== undefined ? { min: c.elementMin ?? c.min } : {}),
-            ...((c.elementMax ?? c.max) !== undefined ? { max: c.elementMax ?? c.max } : {}),
-            ...(c.elementMaxLength !== undefined ? { maxLength: c.elementMaxLength } : {}),
-          };
 
-      const element = elementType
-        ? mapStrategy({
+      let element: string;
+      if (items && typeof items === "object" && typeof items.type === "string") {
+        // LLM format: { items: { type: "float", constraints: { min: 0, max: 100 } } }
+        element = mapStrategy({ type: items.type, constraints: items.constraints }, depth + 1);
+      } else if (elementType) {
+        const nestedConstraints = c.elementConstraints && typeof c.elementConstraints === "object"
+          ? (c.elementConstraints as Record<string, unknown>)
+          : {
+              ...((c.elementMin ?? c.min) !== undefined ? { min: c.elementMin ?? c.min } : {}),
+              ...((c.elementMax ?? c.max) !== undefined ? { max: c.elementMax ?? c.max } : {}),
+              ...(c.elementMaxLength !== undefined ? { maxLength: c.elementMaxLength } : {}),
+            };
+        element = mapStrategy({
             type: String(elementType).replace(/[^a-zA-Z0-9_]/g, ""),
             ...(Object.keys(nestedConstraints).length > 0 ? { constraints: nestedConstraints } : {}),
-          }, depth + 1)
-        : "st.integers()";
+          }, depth + 1);
+      } else {
+        element = "st.integers()";
+      }
       const maxLen = c.maxLength ? `, max_size=${Number(c.maxLength)}` : "";
       return `st.lists(${element}${maxLen})`;
     }

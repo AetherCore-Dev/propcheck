@@ -16,12 +16,13 @@ All notable changes to propcheck are documented in this file.
 
 ### Fixed
 - **Assertion qualifier codegen (P0)**: the broad identifier scan in `fc-codegen.ts` was over-qualifying method calls (`.match()`, `.split()`, `.concat()`, `.reverse()`), `Math.abs()`, and globals (`parseFloat`, `isNaN`, `isFinite`) with `target.` prefix — replaced with precise `functionNames`-only loop
+- **Array `items` generator mapping**: real LLMs (claude-sonnet-4-6) return `constraints.items: { type, constraints }` for array element specs, but codegen only recognized `elementType`/`element` — now both formats produce correctly typed `fc.array(fc.double(...))` / `st.lists(st.floats(...))` instead of `fc.array(fc.anything())`
 
 ### Changed
 - **Property workflow commands**: `propcheck props [target]` lists property inventory with status overview; `propcheck property <target> <id>` inspects or updates a single property with `--status` and `--json` support
 - `buildCandidateValues()` extended to produce sample values for `object`, `optional`, and `enum` generator types
-- Test suite expanded to 118 tests (was ~90) covering object generators, ESM detection, `--function` flag, and missing_precondition weakening
-- ag402 real-world validation: 3/3 properties PASS (1000/1000) against `@AetherCore-Dev/x-402-client` protocol functions
+- Test suite expanded to 120 tests (was ~90) covering object generators, ESM detection, `--function` flag, array items format, and missing_precondition weakening
+- **Real API end-to-end validation**: price-utils.ts 13/13 PASS, ag402 4 properties inferred (2 PASS, 2 correctly caught missing preconditions in `buildAuthorization`) using `claude-sonnet-4-6` via fucheers proxy at $0.07/run
 
 ## [Unreleased] - 2026-03-30
 

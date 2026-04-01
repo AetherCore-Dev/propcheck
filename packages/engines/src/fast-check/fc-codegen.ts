@@ -105,26 +105,34 @@ function mapGenerator(spec: GeneratorSpec, depth = 0): string {
       return "fc.boolean()";
 
     case "array": {
+      // Support "items" as a full nested generator spec (LLM format),
+      // in addition to elementType/element + elementConstraints (legacy format).
+      const items = c.items as { type: string; constraints?: Record<string, unknown> } | undefined;
       const elementType = c.element ?? c.elementType;
 
-      // Build nested element constraints from multiple possible sources:
-      //   1. Explicit "elementConstraints" object (preferred)
-      //   2. "elementMin"/"elementMax" keys
-      //   3. Direct "min"/"max" keys at same level as elementType (real providers)
-      const nestedConstraints = c.elementConstraints && typeof c.elementConstraints === "object"
-        ? (c.elementConstraints as Record<string, unknown>)
-        : {
-            ...((c.elementMin ?? c.min) !== undefined ? { min: c.elementMin ?? c.min } : {}),
-            ...((c.elementMax ?? c.max) !== undefined ? { max: c.elementMax ?? c.max } : {}),
-            ...(c.elementMaxLength !== undefined ? { maxLength: c.elementMaxLength } : {}),
-          };
-
-      const element = elementType
-        ? mapGenerator({
+      let element: string;
+      if (items && typeof items === "object" && typeof items.type === "string") {
+        // LLM format: { items: { type: "float", constraints: { min: 0, max: 100 } } }
+        element = mapGenerator({ type: items.type, constraints: items.constraints }, depth + 1);
+      } else if (elementType) {
+        // Build nested element constraints from multiple possible sources:
+        //   1. Explicit "elementConstraints" object (preferred)
+        //   2. "elementMin"/"elementMax" keys
+        //   3. Direct "min"/"max" keys at same level as elementType (real providers)
+        const nestedConstraints = c.elementConstraints && typeof c.elementConstraints === "object"
+          ? (c.elementConstraints as Record<string, unknown>)
+          : {
+              ...((c.elementMin ?? c.min) !== undefined ? { min: c.elementMin ?? c.min } : {}),
+              ...((c.elementMax ?? c.max) !== undefined ? { max: c.elementMax ?? c.max } : {}),
+              ...(c.elementMaxLength !== undefined ? { maxLength: c.elementMaxLength } : {}),
+            };
+        element = mapGenerator({
             type: String(elementType).replace(/[^a-zA-Z0-9_]/g, ""),
             ...(Object.keys(nestedConstraints).length > 0 ? { constraints: nestedConstraints } : {}),
-          }, depth + 1)
-        : "fc.anything()";
+          }, depth + 1);
+      } else {
+        element = "fc.anything()";
+      }
       const maxLen = c.maxLength ? `, { maxLength: ${Number(c.maxLength)} }` : "";
       return `fc.array(${element}${maxLen})`;
     }
