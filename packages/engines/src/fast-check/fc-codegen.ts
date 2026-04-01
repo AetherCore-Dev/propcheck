@@ -6,6 +6,7 @@
 
 import type { PropertyDefinition, GeneratorSpec, RunConfig } from "@propcheck/common";
 import { toForwardSlash } from "@propcheck/common";
+import * as fs from "node:fs";
 import * as path from "node:path";
 
 const JS_BUILTINS = new Set([
@@ -24,9 +25,47 @@ function toSafeComment(s: string): string {
 }
 
 /**
- * Map a GeneratorSpec to a fast-check Arbitrary expression.
+ * Detect whether the target project is ESM via nearest package.json type field.
+ * Our generated fast-check file uses CommonJS `require(...)`, so in ESM projects
+ * it must be emitted as `.cjs` instead of `.js`.
  */
-function mapGenerator(spec: GeneratorSpec): string {
+function isTypeModuleProject(targetFile: string): boolean {
+  let dir = path.dirname(targetFile);
+
+  while (true) {
+    const packageJsonPath = path.join(dir, "package.json");
+    if (fs.existsSync(packageJsonPath)) {
+      try {
+        const raw = fs.readFileSync(packageJsonPath, "utf8");
+        const pkg = JSON.parse(raw) as { type?: string };
+        return pkg.type === "module";
+      } catch {
+        return false;
+      }
+    }
+
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+
+  return false;
+}
+
+/** Maximum recursion depth for nested object generators. */
+const MAX_GENERATOR_DEPTH = 10;
+
+/**
+ * Map a GeneratorSpec to a fast-check Arbitrary expression.
+ *
+ * @param spec - The generator specification from the LLM
+ * @param depth - Current recursion depth (for nested object guards)
+ */
+function mapGenerator(spec: GeneratorSpec, depth = 0): string {
+  if (depth > MAX_GENERATOR_DEPTH) {
+    return "fc.anything()";
+  }
+
   const c = spec.constraints ?? {};
 
   switch (spec.type) {
@@ -84,7 +123,7 @@ function mapGenerator(spec: GeneratorSpec): string {
         ? mapGenerator({
             type: String(elementType).replace(/[^a-zA-Z0-9_]/g, ""),
             ...(Object.keys(nestedConstraints).length > 0 ? { constraints: nestedConstraints } : {}),
-          })
+          }, depth + 1)
         : "fc.anything()";
       const maxLen = c.maxLength ? `, { maxLength: ${Number(c.maxLength)} }` : "";
       return `fc.array(${element}${maxLen})`;
@@ -93,8 +132,49 @@ function mapGenerator(spec: GeneratorSpec): string {
     case "record":
       return "fc.dictionary(fc.string(), fc.anything())";
 
-    default:
+    case "object": {
+      const fields = c.fields;
+      if (fields && typeof fields === "object") {
+        const entries = Object.entries(fields as Record<string, unknown>);
+        if (entries.length === 0) {
+          return "fc.record({})";
+        }
+        const fieldExprs = entries.map(([name, fieldSpec]) => {
+          const fs = fieldSpec as { type: string; constraints?: Record<string, unknown> };
+          const safeName = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(name) ? name : JSON.stringify(name);
+          return `${safeName}: ${mapGenerator({ type: fs.type, constraints: fs.constraints }, depth + 1)}`;
+        });
+        return `fc.record({ ${fieldExprs.join(", ")} })`;
+      }
+      // No fields — fall through to generic dictionary
+      return "fc.dictionary(fc.string(), fc.anything())";
+    }
+
+    case "optional": {
+      const inner = c.inner as { type: string; constraints?: Record<string, unknown> } | undefined;
+      if (inner && typeof inner === "object" && typeof inner.type === "string") {
+        return `fc.option(${mapGenerator({ type: inner.type, constraints: inner.constraints }, depth + 1)})`;
+      }
+      return "fc.option(fc.anything())";
+    }
+
+    case "enum": {
+      const values = c.values;
+      if (Array.isArray(values) && values.length > 0) {
+        return `fc.constantFrom(${values.map((v: unknown) => JSON.stringify(v)).join(", ")})`;
+      }
       return "fc.anything()";
+    }
+
+    default: {
+      // Check if constraints contain a "fields" key — treat unknown type names
+      // (e.g. "X402PaymentChallenge") with fields as object generators.
+      const fields = c.fields;
+      if (fields && typeof fields === "object" && Object.keys(fields as object).length > 0) {
+        return mapGenerator({ type: "object", constraints: spec.constraints }, depth);
+      }
+      return "fc.anything()";
+    }
   }
 }
 
@@ -293,7 +373,8 @@ export function generateFastCheckTest(
   }
 
   const baseName = path.basename(targetFile, path.extname(targetFile));
-  const fileName = `${baseName}.fc.js`;
+  const fileExt = isTypeModuleProject(targetFile) ? ".fc.cjs" : ".fc.js";
+  const fileName = `${baseName}${fileExt}`;
 
   return {
     content: lines.join("\n"),

@@ -40,6 +40,8 @@ import type {
   PropertyDefinition,
   PropertySet,
   AnalysisContext,
+  FunctionSignature,
+  TypeDefinition,
   RunConfig,
   ExecutionResult,
   GeneratorSpec,
@@ -56,9 +58,166 @@ interface InferOptions {
   minScore?: string;
   skipValidation?: boolean;
   refine?: boolean;
+  function?: string;
 }
 
 type TrialRunLanguage = "typescript" | "javascript" | "python";
+
+// ---------------------------------------------------------------------------
+// --function helpers: filter AnalysisContext to specific functions
+// ---------------------------------------------------------------------------
+
+/**
+ * Detect which type names are referenced by the given functions
+ * (in parameter types, return type, or docstrings).
+ */
+function findReferencedTypeNames(
+  functions: readonly FunctionSignature[],
+  allTypes: readonly TypeDefinition[],
+): Set<string> {
+  const typeNames = new Set(allTypes.map((t) => t.name));
+  const referenced = new Set<string>();
+
+  for (const fn of functions) {
+    for (const typeName of typeNames) {
+      if (fn.returnType?.includes(typeName)) {
+        referenced.add(typeName);
+      }
+      for (const param of fn.parameters) {
+        if (param.type?.includes(typeName)) {
+          referenced.add(typeName);
+        }
+      }
+      if (fn.docstring?.includes(typeName)) {
+        referenced.add(typeName);
+      }
+    }
+  }
+
+  return referenced;
+}
+
+/**
+ * Trim source code to only include import lines, matched function bodies,
+ * and referenced type definitions. Non-contiguous blocks are separated
+ * by `// ... (trimmed)` markers.
+ */
+function trimSourceCode(
+  fullSource: string,
+  matchedFunctions: readonly FunctionSignature[],
+  referencedTypes: readonly TypeDefinition[],
+): string {
+  const lines = fullSource.split("\n");
+
+  // Collect all line ranges to include (1-indexed)
+  const ranges: Array<[number, number]> = [];
+
+  // Import block: lines from 1 up to the first function/type startLine
+  const allStarts = [
+    ...matchedFunctions.map((f) => f.loc.startLine),
+    ...referencedTypes.map((t) => t.loc.startLine),
+  ];
+  if (allStarts.length > 0) {
+    const firstDeclLine = Math.min(...allStarts);
+    if (firstDeclLine > 1) {
+      ranges.push([1, firstDeclLine - 1]);
+    }
+  }
+
+  // Function bodies
+  for (const fn of matchedFunctions) {
+    ranges.push([fn.loc.startLine, fn.loc.endLine]);
+  }
+
+  // Referenced type definitions
+  for (const t of referencedTypes) {
+    ranges.push([t.loc.startLine, t.loc.endLine]);
+  }
+
+  if (ranges.length === 0) return fullSource;
+
+  // Sort by startLine, merge overlapping/adjacent ranges
+  ranges.sort((a, b) => a[0] - b[0]);
+  const merged: Array<[number, number]> = [ranges[0]];
+  for (let i = 1; i < ranges.length; i++) {
+    const prev = merged[merged.length - 1];
+    const curr = ranges[i];
+    if (curr[0] <= prev[1] + 1) {
+      prev[1] = Math.max(prev[1], curr[1]);
+    } else {
+      merged.push(curr);
+    }
+  }
+
+  // Extract lines and join with separator
+  const parts: string[] = [];
+  for (const [start, end] of merged) {
+    const s = Math.max(0, start - 1); // convert to 0-indexed
+    const e = Math.min(lines.length, end); // exclusive upper bound
+    parts.push(lines.slice(s, e).join("\n"));
+  }
+
+  return parts.join("\n\n// ... (trimmed)\n\n");
+}
+
+/** Match a user-provided function name against a FunctionSignature. */
+function matchesFunctionName(fn: FunctionSignature, name: string): boolean {
+  return (
+    fn.name === name ||
+    fn.qualifiedName === name ||
+    fn.qualifiedName.endsWith("." + name)
+  );
+}
+
+/**
+ * Filter an AnalysisContext to only include the specified functions,
+ * their referenced types, and trimmed source code.
+ */
+function filterContextByFunctions(
+  context: AnalysisContext,
+  functionNames: string[],
+): AnalysisContext {
+  // 1. Match functions
+  const matchedFunctions = context.functions.filter((fn) =>
+    functionNames.some((name) => matchesFunctionName(fn, name)),
+  );
+
+  // 2. Find referenced types
+  const refTypeNames = findReferencedTypeNames(matchedFunctions, context.types);
+  const matchedTypes = context.types.filter((t) => refTypeNames.has(t.name));
+
+  // 3. Trim source code
+  const trimmedSource = trimSourceCode(
+    context.sourceCode,
+    matchedFunctions,
+    matchedTypes,
+  );
+
+  // 4. Filter signals
+  const matchedQualNames = new Set(matchedFunctions.map((f) => f.qualifiedName));
+  const matchedNames = new Set(matchedFunctions.map((f) => f.name));
+
+  const filteredDoc = context.signals.doc.filter(
+    (d) => matchedQualNames.has(d.functionName) || matchedNames.has(d.functionName),
+  );
+  const filteredType = context.signals.type.filter(
+    (t) => matchedQualNames.has(t.functionName) || matchedNames.has(t.functionName),
+  );
+
+  return {
+    filePath: context.filePath,
+    language: context.language,
+    sourceCode: trimmedSource,
+    functions: matchedFunctions,
+    types: matchedTypes,
+    imports: context.imports,
+    signals: {
+      ast: context.signals.ast,
+      type: filteredType,
+      doc: filteredDoc,
+    },
+  };
+}
 
 /**
  * Trial-run validation with self-repair: quick-execute inferred properties,
@@ -144,6 +303,38 @@ function buildCandidateValues(spec: GeneratorSpec): readonly unknown[] {
     if (maxLength === undefined || maxLength >= 2) arrays.push([singleton, singleton]);
     if (maxLength === undefined || maxLength >= 2) arrays.push([singleton, second]);
     return arrays;
+  }
+
+  if (spec.type === "object") {
+    const fields = c.fields;
+    if (fields && typeof fields === "object") {
+      const entries = Object.entries(fields as Record<string, unknown>);
+      const obj: Record<string, unknown> = {};
+      for (const [name, fieldSpec] of entries) {
+        const fs = fieldSpec as { type: string; constraints?: Record<string, unknown> };
+        const vals = buildCandidateValues({ type: fs.type, constraints: fs.constraints });
+        obj[name] = vals[0] ?? null;
+      }
+      return [obj];
+    }
+    return [{}];
+  }
+
+  if (spec.type === "optional") {
+    const inner = c.inner as { type: string; constraints?: Record<string, unknown> } | undefined;
+    if (inner && typeof inner === "object" && typeof inner.type === "string") {
+      const vals = buildCandidateValues({ type: inner.type, constraints: inner.constraints });
+      return [undefined, vals[0] ?? null];
+    }
+    return [undefined, null];
+  }
+
+  if (spec.type === "enum") {
+    const values = c.values;
+    if (Array.isArray(values) && values.length > 0) {
+      return values as readonly unknown[];
+    }
+    return [];
   }
 
   return [];
@@ -300,6 +491,17 @@ function weakenTinyTolerance(assertion: string): string | null {
   return `approxEqual(${parsed.left}, ${parsed.right}, 1e-6, 1e-6)`;
 }
 
+function weakenMissingPrecondition(assertion: string): string | null {
+  const trimmed = assertion.trim();
+  if (!trimmed) {
+    return null;
+  }
+  if (/\btry\b|\bcatch\b/.test(trimmed)) {
+    return null;
+  }
+  return `(() => { try { return ${trimmed}; } catch { return true; } })()`;
+}
+
 function tightenWideNumericGenerators(generators: Readonly<Record<string, GeneratorSpec>>): Readonly<Record<string, GeneratorSpec>> {
   const next = Object.fromEntries(Object.entries(generators).map(([name, spec]) => {
     if (isNumericSpec(spec)) {
@@ -342,7 +544,7 @@ function refreshRiskMetadata(property: PropertyDefinition): PropertyDefinition {
   };
 }
 
-function autoWeakenProperty(property: PropertyDefinition): PropertyDefinition | null {
+export function autoWeakenProperty(property: PropertyDefinition): PropertyDefinition | null {
   if (property.status === "refined") {
     return null;
   }
@@ -371,6 +573,14 @@ function autoWeakenProperty(property: PropertyDefinition): PropertyDefinition | 
     const tightened = tightenWideNumericGenerators(generators);
     if (JSON.stringify(tightened) !== JSON.stringify(generators)) {
       generators = tightened;
+      changed = true;
+    }
+  }
+
+  if (property.riskTags.includes("missing_precondition")) {
+    const weakened = weakenMissingPrecondition(assertion);
+    if (weakened && weakened !== assertion) {
+      assertion = weakened;
       changed = true;
     }
   }
@@ -703,12 +913,31 @@ export async function inferCommand(
     ? analyzePythonFile(targetPath, source)
     : analyzeFile(targetPath, source, language);
 
-  if (context.functions.length === 0) {
+  // Filter to specific functions if --function provided
+  let inferContext = context;
+  if (options.function) {
+    const names = options.function.split(",").map((n) => n.trim()).filter(Boolean);
+
+    // Validate all names exist
+    const missing = names.filter(
+      (name) => !context.functions.some((fn) => matchesFunctionName(fn, name)),
+    );
+    if (missing.length > 0) {
+      const available = context.functions.map((fn) => fn.qualifiedName).join(", ");
+      console.error(`\n  Error: Function(s) not found: ${missing.join(", ")}`);
+      console.error(`  Available: ${available}\n`);
+      process.exit(2);
+    }
+
+    inferContext = filterContextByFunctions(context, names);
+  }
+
+  if (inferContext.functions.length === 0) {
     console.log(`\n  No exported functions found in ${target}\n`);
     return;
   }
 
-  console.log(`\n  Analyzing ${context.functions.length} functions in ${target}...`);
+  console.log(`\n  Analyzing ${inferContext.functions.length} functions in ${target}...`);
 
   // Parse options once with clamped bounds
   const maxProperties = Math.min(Math.max(1, parseInt(options.maxProperties ?? "5", 10) || 5), 20);
@@ -717,7 +946,7 @@ export async function inferCommand(
   // Infer properties
   let result;
   try {
-    result = await inferProperties(config.apiKey, config.model, context, {
+    result = await inferProperties(config.apiKey, config.model, inferContext, {
       maxProperties,
       minScore,
       mock: config.mock,
@@ -736,7 +965,7 @@ export async function inferCommand(
 
   result = {
     ...result,
-    properties: applyRiskMetadata(result.properties, context),
+    properties: applyRiskMetadata(result.properties, inferContext),
   };
 
   if (result.properties.length === 0) {
@@ -819,7 +1048,7 @@ export async function inferCommand(
 
       // Classify results
       const classifications = classifyProperties(activeProperties, execResult);
-      const functionNames = context.functions.map((f) => f.qualifiedName);
+      const functionNames = inferContext.functions.map((f) => f.qualifiedName);
       const feedback = buildFeedbackSummary(classifications, functionNames);
 
       const strong = classifications.filter((c) => c.kind === "strong");
@@ -833,16 +1062,16 @@ export async function inferCommand(
         let improvedProperties: readonly PropertyDefinition[];
 
         if (config.mock) {
-          improvedProperties = applyRiskMetadata(mockRefineProperties(classifications), context);
+          improvedProperties = applyRiskMetadata(mockRefineProperties(classifications), inferContext);
         } else if (llmClient) {
-          const refineResult = await refineProperties(config.apiKey, config.model, context, feedback, {
+          const refineResult = await refineProperties(config.apiKey, config.model, inferContext, feedback, {
             maxProperties,
             minScore,
             mock: false,
             provider: config.provider,
             baseURL: config.baseURL,
           });
-          improvedProperties = applyRiskMetadata(refineResult.properties, context);
+          improvedProperties = applyRiskMetadata(refineResult.properties, inferContext);
         } else {
           improvedProperties = [];
         }

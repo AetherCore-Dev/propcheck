@@ -2,20 +2,26 @@
 
 All notable changes to propcheck are documented in this file.
 
-## [Unreleased] - 2026-03-31
+## [Unreleased] - 2026-04-01
 
 ### Added
-- **Property workflow commands**: `propcheck props [target]` lists property inventory with status overview; `propcheck property <target> <id>` inspects or updates a single property
-- **Status management**: `propcheck property <target> <id> --status <status>` updates a property's status and sets `humanVerified = true`
-- **JSON output**: both new commands support `--json` for CI/scripting integration
-- **Status filtering**: `propcheck props --status risky` filters the inventory by property status
+- **`--function` flag for targeted inference**: `propcheck infer --function parseAmount,buildAuth src/protocol.ts` restricts inference to named functions, trimming source context and filtering types/signals for faster, more focused LLM calls
+- **Custom object generator mapping**: `type: "object"` with `constraints.fields` now generates `fc.record({...})` (fast-check) and `st.fixed_dictionaries({...})` (Hypothesis) instead of falling back to `fc.anything()`/`st.integers()`
+- **Optional generator**: `type: "optional"` with `constraints.inner` maps to `fc.option(...)` / `st.one_of(st.just(None), ...)`
+- **Enum generator**: `type: "enum"` with `constraints.values` maps to `fc.constantFrom(...)` / `st.sampled_from([...])`
+- **ESM `.cjs` compatibility**: generated fast-check test files use `.fc.cjs` extension in `"type": "module"` projects to avoid ESM/CJS conflicts
+- **`missing_precondition` auto-weakening**: properties tagged `missing_precondition` are automatically wrapped in `try { ... } catch { return true; }` during auto-weakening
+- **LLM prompt Rule 9**: guides the LLM to use structured `object`/`optional`/`enum` generator specs for custom types/interfaces
+- **Response-parser normalization**: unknown type names with `fields` constraints are auto-normalized to `type: "object"`
 
 ### Fixed
 - **Assertion qualifier codegen (P0)**: the broad identifier scan in `fc-codegen.ts` was over-qualifying method calls (`.match()`, `.split()`, `.concat()`, `.reverse()`), `Math.abs()`, and globals (`parseFloat`, `isNaN`, `isFinite`) with `target.` prefix — replaced with precise `functionNames`-only loop
 
 ### Changed
-- README, CLI README, CLAUDE.md, and BACKLOG now document the property workflow commands and updated project status
-- CLI test suite expanded from 9 to 16 tests covering `props` and `property` commands
+- **Property workflow commands**: `propcheck props [target]` lists property inventory with status overview; `propcheck property <target> <id>` inspects or updates a single property with `--status` and `--json` support
+- `buildCandidateValues()` extended to produce sample values for `object`, `optional`, and `enum` generator types
+- Test suite expanded to 118 tests (was ~90) covering object generators, ESM detection, `--function` flag, and missing_precondition weakening
+- ag402 real-world validation: 3/3 properties PASS (1000/1000) against `@AetherCore-Dev/x-402-client` protocol functions
 
 ## [Unreleased] - 2026-03-30
 

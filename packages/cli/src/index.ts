@@ -41,6 +41,7 @@ program
   .option("--base-url <url>", "Base URL for LLM API (for proxies / OpenRouter)")
   .option("--max-properties <n>", "Max properties per function", "5")
   .option("--min-score <n>", "Minimum quality score (0-13)", "10")
+  .option("--function <names>", "Infer only specific functions (comma-separated names)")
   .option("--skip-validation", "Skip trial-run validation of inferred properties")
   .option("--refine", "Enable refinement loop (Round 2): strengthen weak properties")
   .action(inferCommand);

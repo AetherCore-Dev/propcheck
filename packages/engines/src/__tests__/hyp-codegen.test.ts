@@ -78,4 +78,127 @@ describe("hyp-codegen", () => {
     assert.ok(content.includes("items=st.just([1, 2])"));
     assert.ok(content.includes("flag=st.just(False)"));
   });
+
+  // --- Object / Optional / Enum strategy tests ---
+
+  it("should generate st.fixed_dictionaries() for object generators with fields", () => {
+    const { content } = generateHypothesisTest(
+      [makeProp({
+        generators: {
+          input: {
+            type: "object",
+            constraints: {
+              fields: {
+                name: { type: "string", constraints: { maxLength: 50 } },
+                age: { type: "integer", constraints: { min: 0, max: 120 } },
+              },
+            },
+          },
+        },
+      })],
+      "/tmp/example.py",
+      "/tmp/.propcheck/tests",
+      config,
+    );
+
+    assert.ok(content.includes('st.fixed_dictionaries({"name": st.text(max_size=50), "age": st.integers(min_value=0, max_value=120)})'),
+      "Should generate st.fixed_dictionaries with typed fields");
+  });
+
+  it("should generate nested st.fixed_dictionaries() for nested objects", () => {
+    const { content } = generateHypothesisTest(
+      [makeProp({
+        generators: {
+          input: {
+            type: "object",
+            constraints: {
+              fields: {
+                address: {
+                  type: "object",
+                  constraints: {
+                    fields: {
+                      street: { type: "string" },
+                      city: { type: "string" },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      })],
+      "/tmp/example.py",
+      "/tmp/.propcheck/tests",
+      config,
+    );
+
+    assert.ok(content.includes('st.fixed_dictionaries({"address": st.fixed_dictionaries({"street": st.text(), "city": st.text()})})'),
+      "Should generate nested st.fixed_dictionaries");
+  });
+
+  it("should generate st.one_of(st.just(None), ...) for optional generators", () => {
+    const { content } = generateHypothesisTest(
+      [makeProp({
+        generators: {
+          input: {
+            type: "optional",
+            constraints: {
+              inner: { type: "string", constraints: { maxLength: 100 } },
+            },
+          },
+        },
+      })],
+      "/tmp/example.py",
+      "/tmp/.propcheck/tests",
+      config,
+    );
+
+    assert.ok(content.includes("st.one_of(st.just(None), st.text(max_size=100))"),
+      "Should generate st.one_of with None and inner type");
+  });
+
+  it("should generate st.sampled_from() for enum generators", () => {
+    const { content } = generateHypothesisTest(
+      [makeProp({
+        generators: {
+          status: {
+            type: "enum",
+            constraints: {
+              values: ["active", "inactive", "pending"],
+            },
+          },
+        },
+      })],
+      "/tmp/example.py",
+      "/tmp/.propcheck/tests",
+      config,
+    );
+
+    assert.ok(content.includes('st.sampled_from(["active", "inactive", "pending"])'),
+      "Should generate st.sampled_from with values");
+  });
+
+  it("should treat unknown type with fields as object generator (fallback)", () => {
+    const { content } = generateHypothesisTest(
+      [makeProp({
+        generators: {
+          challenge: {
+            type: "X402PaymentChallenge",
+            constraints: {
+              fields: {
+                amount: { type: "float", constraints: { min: 0 } },
+                currency: { type: "string" },
+              },
+            },
+          },
+        },
+      })],
+      "/tmp/example.py",
+      "/tmp/.propcheck/tests",
+      config,
+    );
+
+    assert.ok(content.includes('st.fixed_dictionaries({"amount": st.floats(allow_nan=False, allow_infinity=False, min_value=0), "currency": st.text()})'),
+      "Unknown type with fields should produce st.fixed_dictionaries, not st.integers");
+  });
 });

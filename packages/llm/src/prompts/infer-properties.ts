@@ -32,7 +32,13 @@ Rules:
    - Do NOT use exact equality (===) for floating-point comparisons; use tolerance-based checks
    - Do NOT use tiny absolute tolerances (< 1e-9) for sums or scaled values
    - If a property depends on business constraints (e.g. price >= 0), make the precondition explicit
-   - Prefer metamorphic or relation-style properties over arbitrary free-form assertions`;
+   - Prefer metamorphic or relation-style properties over arbitrary free-form assertions
+9. For parameters that are custom types/interfaces, use type "object" with a "fields" constraint:
+   - Each field maps to a generator spec: { type: "string", constraints: { maxLength: 100 } }
+   - For optional fields, use type "optional" with an "inner" constraint: { type: "optional", constraints: { inner: { type: "string" } } }
+   - For enum types, use type "enum" with a "values" constraint: { type: "enum", constraints: { values: ["a", "b"] } }
+   - Nest "object" types for fields that are themselves custom interfaces
+   - Example: { type: "object", constraints: { fields: { name: { type: "string" }, price: { type: "float", constraints: { min: 0 } } } } }`;
 
 function formatFunction(fn: FunctionSignature): string {
   const params = fn.parameters
@@ -158,7 +164,10 @@ export function getInferTool(): LlmToolSchema {
                   type: "object",
                   properties: {
                     type: { type: "string" },
-                    constraints: { type: "object" },
+                    constraints: {
+                      type: "object",
+                      description: "Generator constraints. For 'object' type, include 'fields' mapping field names to nested generator specs. For 'optional', include 'inner' with the wrapped generator spec. For 'enum', include 'values' array.",
+                    },
                   },
                   required: ["type"],
                 },

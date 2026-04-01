@@ -3,7 +3,7 @@ import * as assert from "node:assert/strict";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import * as os from "node:os";
-import { inferCommand, canaryValidateProperties } from "../commands/infer";
+import { inferCommand, canaryValidateProperties, autoWeakenProperty } from "../commands/infer";
 import { runCommand } from "../commands/run";
 import { badgeCommand } from "../commands/badge";
 import { propsCommand } from "../commands/props";
@@ -213,6 +213,37 @@ describe("cli commands", () => {
       assert.equal(result.quarantined[0].prop.status, "quarantined");
       assert.ok(result.quarantined[0].reason.length > 0);
     });
+  });
+
+  it("should auto-weaken missing_precondition properties with generic try/catch wrapper", () => {
+    const weakened = autoWeakenProperty(makeProperty({
+      targetFunction: "validateInput",
+      assertion: "validateInput(input) > 0",
+      generators: { input: { type: "CustomInput" } },
+      riskTags: ["missing_precondition"],
+      riskScore: 12,
+      status: "risky",
+    }));
+
+    assert.ok(weakened);
+    if (!weakened) return;
+    assert.equal(weakened.status, "refined");
+    assert.match(weakened.assertion, /^\(\(\) => \{ try \{ return validateInput\(input\) > 0; \} catch \{ return true; \} \}\)\(\)$/);
+    assert.ok(weakened.riskTags.includes("missing_precondition"));
+  });
+
+  it("should not double-wrap missing_precondition assertions already guarded with try/catch", () => {
+    const originalAssertion = "(() => { try { return validateInput(input) > 0; } catch { return true; } })()";
+    const weakened = autoWeakenProperty(makeProperty({
+      targetFunction: "validateInput",
+      assertion: originalAssertion,
+      generators: { input: { type: "CustomInput" } },
+      riskTags: ["missing_precondition"],
+      riskScore: 12,
+      status: "risky",
+    }));
+
+    assert.equal(weakened, null);
   });
 
   it("should auto-weaken fragile float equality properties during canary validation", async () => {
@@ -624,6 +655,102 @@ describe("cli commands", () => {
       });
 
       assert.equal(exitCode, 2);
+    });
+  });
+
+  it("propcheck infer --function should filter to a single function", async () => {
+    await withTempProject(async (projectDir) => {
+      const source = [
+        "export function add(a: number, b: number): number { return a + b; }",
+        "",
+        "export function multiply(a: number, b: number): number { return a * b; }",
+        "",
+      ].join("\n");
+      await fs.writeFile(path.join(projectDir, "math.ts"), source, "utf8");
+
+      await inferCommand("math.ts", { mock: true, function: "add", skipValidation: true });
+
+      const store = JSON.parse(await fs.readFile(path.join(projectDir, ".propcheck", "properties.json"), "utf8")) as {
+        modules: Record<string, PropertySet>;
+      };
+
+      assert.ok(store.modules["math.ts"]);
+      const props = store.modules["math.ts"].properties;
+      assert.ok(props.length >= 1);
+      // All inferred properties should target "add", not "multiply"
+      for (const p of props) {
+        assert.equal(p.targetFunction, "add");
+      }
+    });
+  });
+
+  it("propcheck infer --function should accept comma-separated names", async () => {
+    await withTempProject(async (projectDir) => {
+      const source = [
+        "export function add(a: number, b: number): number { return a + b; }",
+        "",
+        "export function multiply(a: number, b: number): number { return a * b; }",
+        "",
+        "export function subtract(a: number, b: number): number { return a - b; }",
+        "",
+      ].join("\n");
+      await fs.writeFile(path.join(projectDir, "math.ts"), source, "utf8");
+
+      await inferCommand("math.ts", { mock: true, function: "add,multiply", skipValidation: true });
+
+      const store = JSON.parse(await fs.readFile(path.join(projectDir, ".propcheck", "properties.json"), "utf8")) as {
+        modules: Record<string, PropertySet>;
+      };
+
+      assert.ok(store.modules["math.ts"]);
+      const targetFns = new Set(store.modules["math.ts"].properties.map((p) => p.targetFunction));
+      // Should not include "subtract"
+      assert.ok(!targetFns.has("subtract"));
+    });
+  });
+
+  it("propcheck infer --function should exit 2 for non-existent function name", async () => {
+    await withTempProject(async (projectDir) => {
+      const source = [
+        "export function add(a: number, b: number): number { return a + b; }",
+        "",
+      ].join("\n");
+      await fs.writeFile(path.join(projectDir, "math.ts"), source, "utf8");
+
+      const exitCode = await withInterceptedExit(async () => {
+        await inferCommand("math.ts", { mock: true, function: "nonExistent", skipValidation: true });
+      });
+
+      assert.equal(exitCode, 2);
+    });
+  });
+
+  it("propcheck infer --function should match partial qualified names", async () => {
+    await withTempProject(async (projectDir) => {
+      const logs: string[] = [];
+      const originalLog = console.log;
+      console.log = (...args: unknown[]) => {
+        logs.push(args.map(String).join(" "));
+      };
+
+      try {
+        const source = [
+          "export class Calculator {",
+          "  add(a: number, b: number): number { return a + b; }",
+          "  multiply(a: number, b: number): number { return a * b; }",
+          "}",
+          "",
+        ].join("\n");
+        await fs.writeFile(path.join(projectDir, "calc.ts"), source, "utf8");
+
+        // Use partial name "add" to match "Calculator.add"
+        await inferCommand("calc.ts", { mock: true, function: "add", skipValidation: true });
+
+        const allOutput = logs.join("\n");
+        assert.ok(allOutput.includes("Analyzing 1 functions"));
+      } finally {
+        console.log = originalLog;
+      }
     });
   });
 });

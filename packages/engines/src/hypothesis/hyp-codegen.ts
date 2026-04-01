@@ -32,7 +32,20 @@ function toPythonLiteral(value: unknown): string {
   return JSON.stringify(value);
 }
 
-function mapStrategy(spec: GeneratorSpec): string {
+/** Maximum recursion depth for nested object generators. */
+const MAX_GENERATOR_DEPTH = 10;
+
+/**
+ * Map a GeneratorSpec to a Hypothesis strategy expression.
+ *
+ * @param spec - The generator specification from the LLM
+ * @param depth - Current recursion depth (for nested object guards)
+ */
+function mapStrategy(spec: GeneratorSpec, depth = 0): string {
+  if (depth > MAX_GENERATOR_DEPTH) {
+    return "st.integers()";
+  }
+
   const c = spec.constraints ?? {};
 
   switch (spec.type) {
@@ -81,7 +94,7 @@ function mapStrategy(spec: GeneratorSpec): string {
         ? mapStrategy({
             type: String(elementType).replace(/[^a-zA-Z0-9_]/g, ""),
             ...(Object.keys(nestedConstraints).length > 0 ? { constraints: nestedConstraints } : {}),
-          })
+          }, depth + 1)
         : "st.integers()";
       const maxLen = c.maxLength ? `, max_size=${Number(c.maxLength)}` : "";
       return `st.lists(${element}${maxLen})`;
@@ -91,8 +104,48 @@ function mapStrategy(spec: GeneratorSpec): string {
     case "record":
       return "st.dictionaries(st.text(min_size=1, max_size=10), st.integers())";
 
-    default:
+    case "object": {
+      const fields = c.fields;
+      if (fields && typeof fields === "object") {
+        const entries = Object.entries(fields as Record<string, unknown>);
+        if (entries.length === 0) {
+          return "st.fixed_dictionaries({})";
+        }
+        const fieldExprs = entries.map(([name, fieldSpec]) => {
+          const fs = fieldSpec as { type: string; constraints?: Record<string, unknown> };
+          return `${JSON.stringify(name)}: ${mapStrategy({ type: fs.type, constraints: fs.constraints }, depth + 1)}`;
+        });
+        return `st.fixed_dictionaries({${fieldExprs.join(", ")}})`;
+      }
+      // No fields — fall through to generic dictionary
+      return "st.dictionaries(st.text(min_size=1, max_size=10), st.integers())";
+    }
+
+    case "optional": {
+      const inner = c.inner as { type: string; constraints?: Record<string, unknown> } | undefined;
+      if (inner && typeof inner === "object" && typeof inner.type === "string") {
+        return `st.one_of(st.just(None), ${mapStrategy({ type: inner.type, constraints: inner.constraints }, depth + 1)})`;
+      }
+      return "st.one_of(st.just(None), st.integers())";
+    }
+
+    case "enum": {
+      const values = c.values;
+      if (Array.isArray(values) && values.length > 0) {
+        return `st.sampled_from([${values.map((v: unknown) => toPythonLiteral(v)).join(", ")}])`;
+      }
       return "st.integers()";
+    }
+
+    default: {
+      // Check if constraints contain a "fields" key — treat unknown type names
+      // (e.g. "X402PaymentChallenge") with fields as object generators.
+      const fields = c.fields;
+      if (fields && typeof fields === "object" && Object.keys(fields as object).length > 0) {
+        return mapStrategy({ type: "object", constraints: spec.constraints }, depth);
+      }
+      return "st.integers()";
+    }
   }
 }
 

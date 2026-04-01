@@ -1,5 +1,8 @@
 import { describe, it } from "node:test";
 import * as assert from "node:assert/strict";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 import { generateFastCheckTest } from "../fast-check/fc-codegen";
 import type { PropertyDefinition, RunConfig } from "@propcheck/common";
 
@@ -70,6 +73,33 @@ describe("fc-codegen", () => {
     // Import should use forward slashes and be relative
     assert.ok(result.content.includes("require("));
     assert.ok(!result.content.includes("\\\\"));
+  });
+
+  it("should emit .fc.cjs in type-module projects", () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "propcheck-fc-esm-"));
+    try {
+      const projectDir = path.join(tmpDir, "project");
+      const srcDir = path.join(projectDir, "src");
+      const testsDir = path.join(projectDir, ".propcheck", "tests");
+      fs.mkdirSync(srcDir, { recursive: true });
+      fs.mkdirSync(testsDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(projectDir, "package.json"),
+        JSON.stringify({ type: "module" }, null, 2),
+        "utf8",
+      );
+
+      const result = generateFastCheckTest(
+        [makeProp()],
+        path.join(srcDir, "math.ts"),
+        testsDir,
+        defaultConfig,
+      );
+
+      assert.equal(result.fileName, "math.fc.cjs");
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
   });
 
   it("should handle multiple properties", () => {
@@ -540,5 +570,243 @@ describe("fc-codegen", () => {
       result.content.includes("target.formatPrice(parseFloat(target.formatPrice(price))) === target.formatPrice(price)"),
       "Should qualify all formatPrice calls but keep parseFloat global",
     );
+  });
+
+  // --- Object / Optional / Enum generator tests ---
+
+  it("should generate fc.record() for object generators with fields", () => {
+    const prop = makeProp({
+      generators: {
+        input: {
+          type: "object",
+          constraints: {
+            fields: {
+              name: { type: "string", constraints: { maxLength: 50 } },
+              age: { type: "integer", constraints: { min: 0, max: 120 } },
+            },
+          },
+        },
+      },
+    });
+
+    const result = generateFastCheckTest(
+      [prop],
+      "/project/src/user.ts",
+      "/project/.propcheck/tests",
+      defaultConfig,
+    );
+
+    assert.ok(result.content.includes("fc.record({ name: fc.string({ maxLength: 50 }), age: fc.integer({ min: 0, max: 120 }) })"),
+      "Should generate fc.record with typed fields");
+  });
+
+  it("should generate nested fc.record() for nested object generators", () => {
+    const prop = makeProp({
+      generators: {
+        input: {
+          type: "object",
+          constraints: {
+            fields: {
+              address: {
+                type: "object",
+                constraints: {
+                  fields: {
+                    street: { type: "string" },
+                    city: { type: "string" },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const result = generateFastCheckTest(
+      [prop],
+      "/project/src/user.ts",
+      "/project/.propcheck/tests",
+      defaultConfig,
+    );
+
+    assert.ok(result.content.includes("fc.record({ address: fc.record({ street: fc.string(), city: fc.string() }) })"),
+      "Should generate nested fc.record");
+  });
+
+  it("should generate fc.option() for optional generators", () => {
+    const prop = makeProp({
+      generators: {
+        input: {
+          type: "optional",
+          constraints: {
+            inner: { type: "string", constraints: { maxLength: 100 } },
+          },
+        },
+      },
+    });
+
+    const result = generateFastCheckTest(
+      [prop],
+      "/project/src/test.ts",
+      "/project/.propcheck/tests",
+      defaultConfig,
+    );
+
+    assert.ok(result.content.includes("fc.option(fc.string({ maxLength: 100 }))"),
+      "Should generate fc.option with inner type");
+  });
+
+  it("should generate fc.constantFrom() for enum generators", () => {
+    const prop = makeProp({
+      generators: {
+        status: {
+          type: "enum",
+          constraints: {
+            values: ["active", "inactive", "pending"],
+          },
+        },
+      },
+    });
+
+    const result = generateFastCheckTest(
+      [prop],
+      "/project/src/test.ts",
+      "/project/.propcheck/tests",
+      defaultConfig,
+    );
+
+    assert.ok(result.content.includes('fc.constantFrom("active", "inactive", "pending")'),
+      "Should generate fc.constantFrom with values");
+  });
+
+  it("should generate fc.record({}) for object with empty fields", () => {
+    const prop = makeProp({
+      generators: {
+        input: {
+          type: "object",
+          constraints: { fields: {} },
+        },
+      },
+    });
+
+    const result = generateFastCheckTest(
+      [prop],
+      "/project/src/test.ts",
+      "/project/.propcheck/tests",
+      defaultConfig,
+    );
+
+    assert.ok(result.content.includes("fc.record({})"),
+      "Should generate empty fc.record");
+  });
+
+  it("should treat unknown type with fields as object generator (fallback)", () => {
+    const prop = makeProp({
+      generators: {
+        challenge: {
+          type: "X402PaymentChallenge",
+          constraints: {
+            fields: {
+              amount: { type: "float", constraints: { min: 0 } },
+              currency: { type: "string" },
+            },
+          },
+        },
+      },
+    });
+
+    const result = generateFastCheckTest(
+      [prop],
+      "/project/src/protocol.ts",
+      "/project/.propcheck/tests",
+      defaultConfig,
+    );
+
+    assert.ok(result.content.includes("fc.record({ amount: fc.double({ min: 0, noNaN: true, noDefaultInfinity: true }), currency: fc.string() })"),
+      "Unknown type with fields should produce fc.record, not fc.anything");
+    assert.ok(!result.content.includes("fc.anything()"),
+      "Should NOT fall back to fc.anything");
+  });
+
+  it("should fall back to fc.anything() for unknown type without fields", () => {
+    const prop = makeProp({
+      generators: {
+        challenge: { type: "X402PaymentChallenge" },
+      },
+    });
+
+    const result = generateFastCheckTest(
+      [prop],
+      "/project/src/protocol.ts",
+      "/project/.propcheck/tests",
+      defaultConfig,
+    );
+
+    assert.ok(result.content.includes("fc.anything()"),
+      "Unknown type without fields should still be fc.anything");
+  });
+
+  it("should handle mixed field types in object generators", () => {
+    const prop = makeProp({
+      generators: {
+        config: {
+          type: "object",
+          constraints: {
+            fields: {
+              name: { type: "string" },
+              count: { type: "integer", constraints: { min: 0 } },
+              enabled: { type: "boolean" },
+              tags: { type: "array", constraints: { element: "string", maxLength: 5 } },
+              status: { type: "enum", constraints: { values: ["on", "off"] } },
+              metadata: { type: "optional", constraints: { inner: { type: "string" } } },
+            },
+          },
+        },
+      },
+    });
+
+    const result = generateFastCheckTest(
+      [prop],
+      "/project/src/test.ts",
+      "/project/.propcheck/tests",
+      defaultConfig,
+    );
+
+    assert.ok(result.content.includes("fc.record({"), "Should contain fc.record");
+    assert.ok(result.content.includes("name: fc.string()"), "Should have string field");
+    assert.ok(result.content.includes("count: fc.integer({ min: 0 })"), "Should have integer field");
+    assert.ok(result.content.includes("enabled: fc.boolean()"), "Should have boolean field");
+    assert.ok(result.content.includes("tags: fc.array(fc.string(), { maxLength: 5 })"), "Should have array field");
+    assert.ok(result.content.includes('status: fc.constantFrom("on", "off")'), "Should have enum field");
+    assert.ok(result.content.includes("metadata: fc.option(fc.string())"), "Should have optional field");
+  });
+
+  it("should guard against deeply nested objects (depth > 10)", () => {
+    // Build a deeply nested object spec that exceeds MAX_GENERATOR_DEPTH
+    let innermost: Record<string, unknown> = { type: "string" };
+    for (let i = 0; i < 15; i++) {
+      innermost = {
+        type: "object",
+        constraints: { fields: { nested: innermost } },
+      };
+    }
+
+    const prop = makeProp({
+      generators: {
+        deep: innermost as { type: string; constraints?: Record<string, unknown> },
+      },
+    });
+
+    const result = generateFastCheckTest(
+      [prop],
+      "/project/src/test.ts",
+      "/project/.propcheck/tests",
+      defaultConfig,
+    );
+
+    // Should not throw. The deeply nested parts will resolve to fc.anything()
+    // due to the depth guard, preventing stack overflow.
+    assert.ok(result.content.includes("fc.record("), "Should still generate outer fc.record");
+    assert.ok(result.content.includes("fc.anything()"), "Deep nesting should fall back to fc.anything");
   });
 });

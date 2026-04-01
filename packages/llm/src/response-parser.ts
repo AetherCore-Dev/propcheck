@@ -177,6 +177,25 @@ function normalizeGeneratorObject(raw: Record<string, unknown>): Record<string, 
     }
   }
 
+  // Normalize unknown type names (e.g. "X402PaymentChallenge") with a "fields"
+  // constraint to type "object", so codegen can produce fc.record({...}).
+  const KNOWN_GENERATOR_TYPES = new Set([
+    "constant", "integer", "int", "float", "number", "string",
+    "boolean", "array", "record", "object", "optional", "enum",
+    "dict", "list", "str", "bool", "any",
+  ]);
+  if (
+    !KNOWN_GENERATOR_TYPES.has(type) &&
+    constraints?.fields &&
+    typeof constraints.fields === "object"
+  ) {
+    return {
+      ...raw,
+      type: "object",
+      ...(constraints ? { constraints } : {}),
+    };
+  }
+
   return {
     ...raw,
     type,
