@@ -753,4 +753,62 @@ describe("cli commands", () => {
       }
     });
   });
+
+  // ── Regression tests for bug fixes (0402 audit) ──────────────
+
+  describe("run --only regression", () => {
+    it("should exit 2 when --only filter matches no properties", async () => {
+      await withTempProject(async (projectDir) => {
+        await initStore(projectDir);
+        const source = "exports.add = (a, b) => a + b;\n";
+        await fs.writeFile(path.join(projectDir, "math.js"), source, "utf8");
+        await setProperties(path.join(projectDir, ".propcheck"), "math.js", {
+          schemaVersion: 2,
+          module: "math.js",
+          filePath: "math.js",
+          properties: [makeProperty()],
+          sourceHash: hashContent(source),
+          inferredAt: "2026-03-30T00:00:00.000Z",
+        });
+
+        const logs: string[] = [];
+        const originalLog = console.log;
+        const originalError = console.error;
+        console.log = (...args: unknown[]) => { logs.push(args.map(String).join(" ")); };
+        console.error = (...args: unknown[]) => { logs.push(args.map(String).join(" ")); };
+
+        try {
+          const exitCode = await withInterceptedExit(async () => {
+            await runCommand("math.js", { only: "nonexistent_id" });
+          });
+          assert.equal(exitCode, 2);
+          assert.ok(logs.some((line) => line.includes("No properties matched --only filter")));
+        } finally {
+          console.log = originalLog;
+          console.error = originalError;
+        }
+      });
+    });
+  });
+
+  describe("run --changed regression", () => {
+    it("should exit 2 when git is not available", async () => {
+      await withTempProject(async (projectDir) => {
+        // tmpDir is NOT a git repo
+        const logs: string[] = [];
+        const originalError = console.error;
+        console.error = (...args: unknown[]) => { logs.push(args.map(String).join(" ")); };
+
+        try {
+          const exitCode = await withInterceptedExit(async () => {
+            await runCommand(undefined, { changed: true });
+          });
+          assert.equal(exitCode, 2);
+          assert.ok(logs.some((line) => line.includes("git is not available")));
+        } finally {
+          console.error = originalError;
+        }
+      });
+    });
+  });
 });
