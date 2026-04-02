@@ -11,8 +11,8 @@
 
 import * as fs from "node:fs";
 import * as fsPromises from "node:fs/promises";
+import * as crypto from "node:crypto";
 import * as path from "node:path";
-import * as os from "node:os";
 import { loadConfig, validateConfig } from "@propcheck/config";
 import { getProperties } from "@propcheck/store";
 import {
@@ -256,16 +256,18 @@ export async function fixCommand(
   // Filter to specific property if requested
   let failures = execResult.failed;
   if (options.property) {
+    // First check if the property ID exists at all
+    const propertyExists = activeProperties.some((p) => p.id === options.property);
+    if (!propertyExists) {
+      console.error(`\n  Property ${options.property} not found in ${target}`);
+      console.error(`  Available properties: ${activeProperties.map((p) => p.id).join(", ")}\n`);
+      process.exit(2);
+    }
+
     failures = failures.filter((f) => f.propertyId === options.property);
     if (failures.length === 0) {
-      const allFailedIds = execResult.failed.map((f) => f.propertyId).join(", ");
-      if (execResult.failed.length === 0) {
-        console.log(`\n  All properties pass — nothing to fix.\n`);
-      } else {
-        console.error(`\n  Property ${options.property} is not failing.`);
-        console.error(`  Failing properties: ${allFailedIds}\n`);
-      }
-      process.exit(execResult.failed.length === 0 ? 0 : 2);
+      console.log(`\n  Property ${options.property} is passing — nothing to fix.\n`);
+      process.exit(0);
     }
   }
 
@@ -361,7 +363,7 @@ export async function fixCommand(
     const ext = path.extname(targetPath);                    // e.g. ".ts"
     const base = path.basename(targetPath, ext);             // e.g. "cart-buggy"
     const dir = path.dirname(targetPath);
-    const tmpPath = path.join(dir, `${base}.fix.tmp${ext}`); // e.g. "cart-buggy.fix.tmp.ts"
+    const tmpPath = path.join(dir, `${base}.fix.tmp.${crypto.randomBytes(4).toString("hex")}${ext}`);
     try {
       await fsPromises.writeFile(tmpPath, fix.fixedSource, "utf8");
 
@@ -387,7 +389,7 @@ export async function fixCommand(
       try { await fsPromises.unlink(tmpPath); } catch {}
     }
 
-    if (verificationResult.failed.length === 0 && verificationResult.errors.length === 0) {
+    if (verificationResult && verificationResult.failed.length === 0 && verificationResult.errors.length === 0) {
       console.log(`  Fix verified — all ${activeProperties.length} properties pass.\n`);
       break;
     }

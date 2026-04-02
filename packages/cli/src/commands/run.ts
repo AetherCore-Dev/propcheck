@@ -69,8 +69,15 @@ export async function runCommand(
 
   if (options.changed) {
     // --changed mode: only run properties for git-changed files
-    const changedFiles = getChangedFiles(projectRoot);
-    const changedPaths = new Set(changedFiles.map((f) => toForwardSlash(f.filePath)));
+    const changedResult = getChangedFiles(projectRoot);
+
+    if (changedResult.status === "git_error") {
+      console.error(`\n  Error: git is not available or this is not a git repository.`);
+      console.error("  --changed mode requires a git repository.\n");
+      process.exit(2);
+    }
+
+    const changedPaths = new Set(changedResult.files.map((f) => toForwardSlash(f.filePath)));
 
     if (changedPaths.size === 0) {
       console.log("\n  No changes detected (git diff is clean).\n");
@@ -213,8 +220,19 @@ export async function runCommand(
     }
   }
 
-  if (!ranAnyProperties && !options.json) {
-    console.log("\n  No runnable properties remain after applying status and CLI filters.\n");
+  if (!ranAnyProperties) {
+    if (hasOnlyFilter) {
+      // --only filter matched nothing — likely a typo, exit 2 to signal CI
+      const requested = [...onlyIds].join(", ");
+      if (!options.json) {
+        console.error(`\n  No properties matched --only filter: ${requested}`);
+        console.error("  Check property IDs with: propcheck props\n");
+      }
+      process.exit(2);
+    }
+    if (!options.json) {
+      console.log("\n  No runnable properties remain after applying status and CLI filters.\n");
+    }
   }
 
   process.exit(exitCode);

@@ -64,5 +64,5 @@ export {
   getChangedFiles,
   getChangedFunctions,
 } from "./utils/git";
-export type { ChangedFile } from "./utils/git";
+export type { ChangedFile, ChangedFilesResult } from "./utils/git";
 export { validateAssertion, validateGeneratorKey } from "./utils/assertion-sanitizer";

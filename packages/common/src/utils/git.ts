@@ -14,11 +14,18 @@ export interface ChangedFile {
   readonly changedLines: readonly { start: number; end: number }[];
 }
 
+/** Result of getChangedFiles — distinguishes "no changes" from "git unavailable". */
+export interface ChangedFilesResult {
+  readonly status: "ok" | "git_error";
+  readonly files: readonly ChangedFile[];
+  readonly errorMessage?: string;
+}
+
 /**
  * Get list of changed files from git diff.
  * Compares working tree against HEAD (unstaged + staged changes).
  */
-export function getChangedFiles(cwd: string): readonly ChangedFile[] {
+export function getChangedFiles(cwd: string): ChangedFilesResult {
   let diffOutput: string;
   try {
     const diffResult = spawnSync(
@@ -27,12 +34,20 @@ export function getChangedFiles(cwd: string): readonly ChangedFile[] {
       { cwd, encoding: "utf8", timeout: 10_000 },
     );
     if (diffResult.status !== 0) {
-      return [];
+      return {
+        status: "git_error",
+        files: [],
+        errorMessage: diffResult.stderr?.trim() || `git diff exited with code ${diffResult.status}`,
+      };
     }
     diffOutput = diffResult.stdout;
-  } catch {
+  } catch (err) {
     // Not a git repo or git not available
-    return [];
+    return {
+      status: "git_error",
+      files: [],
+      errorMessage: err instanceof Error ? err.message : "git not available",
+    };
   }
 
   const files = diffOutput.trim().split("\n").filter(Boolean);
@@ -71,7 +86,7 @@ export function getChangedFiles(cwd: string): readonly ChangedFile[] {
     result.push({ filePath, changedLines });
   }
 
-  return result;
+  return { status: "ok", files: result };
 }
 
 /**
