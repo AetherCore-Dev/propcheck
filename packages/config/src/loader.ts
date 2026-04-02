@@ -24,7 +24,7 @@ const PropcheckRcSchema = z.object({
   minScore: z.number().int().min(0).max(13).optional(),
   defaultMode: z.enum(["quick", "default", "thorough"]).optional(),
   timeout: z.number().int().min(1000).max(300_000).optional(),
-  storeDir: z.string().regex(/^[a-zA-Z0-9._-]+(?:\/[a-zA-Z0-9._-]+)*$/, "storeDir must be a relative path without traversal").optional(),
+  storeDir: z.string().regex(/^[a-zA-Z0-9_][a-zA-Z0-9._-]*(?:\/[a-zA-Z0-9_][a-zA-Z0-9._-]*)*$/, "storeDir must be a relative path without traversal (no '..' components)").optional(),
   mock: z.boolean().optional(),
 }).strict();
 
