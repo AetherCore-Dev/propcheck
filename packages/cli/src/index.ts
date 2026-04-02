@@ -19,6 +19,7 @@ import { badgeCommand } from "./commands/badge";
 import { qualityCommand } from "./commands/quality";
 import { propsCommand } from "./commands/props";
 import { propertyCommand } from "./commands/property";
+import { fixCommand } from "./commands/fix";
 
 const program = new Command();
 
@@ -82,5 +83,18 @@ program
   .option("--status <status>", "Set new status (marks as humanVerified)")
   .option("--json", "Output as JSON")
   .action(propertyCommand);
+
+program
+  .command("fix <target>")
+  .description("Generate a fix for property violations found by `propcheck run`")
+  .option("--mock", "Use mock LLM client (no API key needed)")
+  .option("--model <model>", "LLM model to use")
+  .option("--provider <provider>", "LLM provider: anthropic or openai-compatible")
+  .option("--base-url <url>", "Base URL for LLM API")
+  .option("--apply", "Apply the fix directly without review")
+  .option("--property <id>", "Fix only a specific property violation")
+  .option("--max-attempts <n>", "Maximum fix attempts (default: 3)", "3")
+  .option("--json", "Output fix result as JSON")
+  .action(fixCommand);
 
 program.parse();

@@ -132,11 +132,11 @@ export function loadConfig(
  */
 export function validateConfig(
   config: PropcheckConfig,
-  command: "infer" | "run" | "init",
+  command: "infer" | "run" | "init" | "fix",
 ): readonly string[] {
   const errors: string[] = [];
 
-  if (command === "infer" && !config.mock && !config.apiKey) {
+  if ((command === "infer" || command === "fix") && !config.mock && !config.apiKey) {
     errors.push(
       "API key is required for property inference.\n" +
       "Set it via one of:\n" +

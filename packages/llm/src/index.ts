@@ -172,3 +172,6 @@ export { mockRepairProperty } from "./mock-repair";
 export { classifyProperties, buildFeedbackSummary, buildRefinementPrompt } from "./prompts/refinement";
 export type { PropertyClassification } from "./prompts/refinement";
 export { mockRefineProperties } from "./mock-refinement";
+export { diagnoseViolation, generateFix, DIAGNOSE_SYSTEM_PROMPT, DIAGNOSE_TOOL, FIX_SYSTEM_PROMPT, FIX_TOOL, buildDiagnosePrompt, buildFixPrompt } from "./prompts/fix";
+export type { FixResult } from "./prompts/fix";
+export { mockDiagnoseViolation, mockGenerateFix } from "./mock-fix";
