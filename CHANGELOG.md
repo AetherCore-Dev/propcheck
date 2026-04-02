@@ -2,27 +2,29 @@
 
 All notable changes to propcheck are documented in this file.
 
-## [Unreleased] - 2026-04-01
+## [Unreleased] - 2026-04-02
 
 ### Added
-- **`--function` flag for targeted inference**: `propcheck infer --function parseAmount,buildAuth src/protocol.ts` restricts inference to named functions, trimming source context and filtering types/signals for faster, more focused LLM calls
-- **Custom object generator mapping**: `type: "object"` with `constraints.fields` now generates `fc.record({...})` (fast-check) and `st.fixed_dictionaries({...})` (Hypothesis) instead of falling back to `fc.anything()`/`st.integers()`
-- **Optional generator**: `type: "optional"` with `constraints.inner` maps to `fc.option(...)` / `st.one_of(st.just(None), ...)`
-- **Enum generator**: `type: "enum"` with `constraints.values` maps to `fc.constantFrom(...)` / `st.sampled_from([...])`
-- **ESM `.cjs` compatibility**: generated fast-check test files use `.fc.cjs` extension in `"type": "module"` projects to avoid ESM/CJS conflicts
-- **`missing_precondition` auto-weakening**: properties tagged `missing_precondition` are automatically wrapped in `try { ... } catch { return true; }` during auto-weakening
-- **LLM prompt Rule 9**: guides the LLM to use structured `object`/`optional`/`enum` generator specs for custom types/interfaces
-- **Response-parser normalization**: unknown type names with `fields` constraints are auto-normalized to `type: "object"`
+- **`propcheck fix` command**: dual-agent auto-fix for property violations — Tester Agent diagnoses each failure (real bug vs false positive), Generator Agent produces minimal source fix, verification loop re-runs all properties against fixed code
+- **`--function` flag for targeted inference**: `propcheck infer --function parseAmount,buildAuth src/protocol.ts` restricts inference to named functions
+- **Custom object/optional/enum generators**: structured `fc.record()`, `fc.option()`, `fc.constantFrom()` codegen from LLM specs
+- **ESM `.cjs` compatibility**: generated fast-check test files use `.fc.cjs` extension in `"type": "module"` projects
 
-### Fixed
-- **Assertion qualifier codegen (P0)**: the broad identifier scan in `fc-codegen.ts` was over-qualifying method calls (`.match()`, `.split()`, `.concat()`, `.reverse()`), `Math.abs()`, and globals (`parseFloat`, `isNaN`, `isFinite`) with `target.` prefix — replaced with precise `functionNames`-only loop
-- **Array `items` generator mapping**: real LLMs (claude-sonnet-4-6) return `constraints.items: { type, constraints }` for array element specs, but codegen only recognized `elementType`/`element` — now both formats produce correctly typed `fc.array(fc.double(...))` / `st.lists(st.floats(...))` instead of `fc.array(fc.anything())`
+### Fixed (0402 Audit — 6 bugs)
+- **`--only` filter silent success**: `propcheck run --only typo_id` now exits 2 with clear error instead of silent exit 0 — prevents CI false green
+- **`--changed` mode git failure**: `propcheck run --changed` in non-git directories now exits 2 with explicit error instead of reporting "no changes detected"
+- **`fix` command null pointer**: verification result null guard prevents crash when test file generation fails mid-attempt
+- **`fix` command temp file collision**: parallel `propcheck fix` on same file no longer overwrites each other's temp files (random suffix added)
+- **`fix --property` misleading message**: nonexistent property ID now shows "not found" with available IDs instead of "all properties pass"
+- **`storeDir` path traversal (security)**: `.propcheckrc` `storeDir: "../escape"` was accepted by regex — now blocked by requiring non-dot first character in each path segment
+- **Assertion qualifier codegen**: method calls and JS globals no longer incorrectly prefixed with `target.`
+- **Array `items` generator mapping**: both `elementType` and `items: { type, constraints }` formats now produce correctly typed fast-check generators
 
 ### Changed
-- **Property workflow commands**: `propcheck props [target]` lists property inventory with status overview; `propcheck property <target> <id>` inspects or updates a single property with `--status` and `--json` support
-- `buildCandidateValues()` extended to produce sample values for `object`, `optional`, and `enum` generator types
-- Test suite expanded to 120 tests (was ~90) covering object generators, ESM detection, `--function` flag, array items format, and missing_precondition weakening
-- **Real API end-to-end validation**: price-utils.ts 13/13 PASS, ag402 4 properties inferred (2 PASS, 2 correctly caught missing preconditions in `buildAuthorization`) using `claude-sonnet-4-6` via fucheers proxy at $0.07/run
+- Test suite expanded from 98 → **295 tests** across all 8 packages (3x increase)
+- New test suites: assertion-sanitizer (48), config/loader (21), result-parser (10), git utilities (7), reporter (19), autoWeakenProperty (12), scoring edge cases (32), response-parser edge cases (15), store edge cases (9), CLI regression (2)
+- `getChangedFiles()` now returns `{ status, files }` discriminated union instead of bare array — callers can distinguish "no changes" from "git error"
+- tsup bundle size: ~191KB → ~273KB (includes fix command + new generators)
 
 ## [Unreleased] - 2026-03-30
 

@@ -9,22 +9,23 @@ AI-powered Property-Based Testing CLI. LLM infers code properties → determinis
 - LLM: Anthropic Claude API (BYOK) + mock client for offline
 - Engines: fast-check (TS/JS), Hypothesis (Python)
 - CLI: commander.js + chalk v4
-- Bundler: tsup (~180KB single-file bundle)
+- Bundler: tsup (~273KB single-file bundle)
 - Test runner: Node.js `--experimental-strip-types` for direct .ts import
 
-## Project Status (2026-03-31)
-**Phase 1 MVP: COMPLETE + Hardening pass + Property Workflow MVP landed** — real provider path passing end-to-end, with risk-aware property persistence, canary validation, execution filtering, and human-in-the-loop property management now implemented.
+## Project Status (2026-04-02)
+**Phase 1 MVP: COMPLETE + Hardening + Property Workflow + Fix Command + 0402 Audit Pass** — full CLI pipeline verified end-to-end. 295 unit tests across all 8 packages with 0 failures. 6 bugs found and fixed in 0402 audit.
 
 ### What's Done
-- Full CLI: `init`, `infer`, `run`, `badge`, `quality`, `props`, `property` commands
+- Full CLI: `init`, `infer`, `run`, `badge`, `quality`, `props`, `property`, `fix` commands
+- **`propcheck fix`**: dual-agent auto-fix — diagnose violations (Tester Agent) → generate minimal fix (Generator Agent) → verify all properties pass
 - Property workflow: `propcheck props` lists inventory, `propcheck property` inspects/updates status with `humanVerified` tracking
 - Trial-run validation: infer → quick 100x run → filter false positives
 - Property lifecycle metadata: `accepted` / `risky` / `refined` / `quarantined` / `dropped`
 - Risk-aware persistence: `riskTags`, `riskScore`, validation evidence stored in `.propcheck/properties.json`
 - Canary validation + auto-weakening for fragile numeric properties before persistence
 - `--changed` mode: git diff → only test changed files
-- `--quick` / `--thorough` / `--seed` / `--json` / `--skip` / `--only` / `--include-quarantined` flags
-- tsup bundling: ~191KB single-file bundle
+- `--quick` / `--thorough` / `--seed` / `--json` / `--skip` / `--only` / `--include-quarantined` / `--function` flags
+- tsup bundling: ~273KB single-file bundle
 - Multi-language: TypeScript/JavaScript (fast-check) + Python (Hypothesis)
 - Multi-provider: Anthropic direct API + OpenAI-compatible (OpenRouter, one-api, etc.)
 - GitHub Action (composite action in .github/actions/propcheck/)
@@ -32,6 +33,27 @@ AI-powered Property-Based Testing CLI. LLM infers code properties → determinis
 - Security hardening: assertion sanitizer, subprocess env isolation, path traversal protection, Zod config validation
 - Mutation testing: `propcheck quality` command scaffolded
 - GitHub repo: pushed to AetherCore-Dev/propcheck
+
+### 0402 Audit Results
+**Bugs found and fixed:**
+1. `--only` filter: exit 0 on typo → now exit 2 with clear error
+2. `--changed` mode: silent success when git unavailable → now exit 2 with git error
+3. `fix` command: null pointer on verification failure → null guard added
+4. `fix` command: predictable temp file names → random suffix for parallel safety
+5. `fix --property`: misleading "all pass" for nonexistent ID → explicit "not found" error
+6. `storeDir` path traversal: regex allowed `..` components → blocked with stricter regex
+
+**Test coverage expansion (98 → 295 tests):**
+- assertion-sanitizer: 48 tests (all 38 dangerous patterns + edge cases)
+- config/loader: 21 tests (4-layer merge, env vars, Zod validation, path traversal)
+- result-parser: 10 tests (JSON line parsing, result mapping)
+- git utilities: 7 tests (error/ok status discrimination, function overlap)
+- reporter: 19 tests (JSON output, formatters, workflow reporters)
+- autoWeakenProperty: 12 tests (recursion guard, all risk tags, immutability)
+- scoring/risk detection: 32 tests (tautology, all 7 risk tag detectors, redundancy)
+- response-parser edge cases: 15 tests (injection blocking, normalization, limits)
+- property-store edge cases: 9 tests (concurrent writes, legacy hydration, corruption)
+- CLI regression: 2 tests (--only exit code, --changed git error)
 
 ### Real LLM Validation Results (2026-03-29, Claude Opus 4.6 via OpenAI-compatible proxy)
 - 3 functions in `examples/price-utils.ts` → 15 high-quality properties inferred in a single pass
@@ -49,12 +71,12 @@ AI-powered Property-Based Testing CLI. LLM infers code properties → determinis
 - Full E2E verified: infer --mock → trial-run → persist → run → report
 
 ### What's NOT Done (Phase 2)
-- npm publish follow-up / release automation polish
-- Stronger canary coverage for multi-parameter interactions
+- npm publish 0.3.0 (version bump for fix command + all recent features)
 - Interactive confirmation mode for property review (`propcheck infer --confirm`)
 - PR Comment Bot (auto-comment propcheck results on PRs)
 - VS Code extension
 - Community property templates
+- CI coverage reporting (c8/istanbul)
 
 ## Key Architecture Decisions
 1. TypeScript Compiler API over tree-sitter WASM (simpler, better types)
@@ -76,16 +98,20 @@ cd packages/cli && npx tsup                        # Bundle for distribution
 node packages/cli/dist/index.js --help
 node packages/cli/dist/index.js init
 node packages/cli/dist/index.js infer --mock <file>
+node packages/cli/dist/index.js infer --mock --function add,multiply <file>
 node packages/cli/dist/index.js run <file>
 node packages/cli/dist/index.js run --changed
 node packages/cli/dist/index.js run --quick <file>
 node packages/cli/dist/index.js run --json <file>
+node packages/cli/dist/index.js run --only prop_001,prop_002 <file>
 node packages/cli/dist/index.js badge
 node packages/cli/dist/index.js props                          # List all properties
 node packages/cli/dist/index.js props --status risky           # Filter by status
 node packages/cli/dist/index.js props --json                   # JSON output
 node packages/cli/dist/index.js property <file> <id>           # Inspect a property
 node packages/cli/dist/index.js property <file> <id> --status quarantined  # Update status
+node packages/cli/dist/index.js fix --mock <file>              # Auto-fix violations
+node packages/cli/dist/index.js fix --mock --apply <file>      # Fix and apply
 
 # Real LLM inference (OpenAI-compatible provider)
 PROPCHECK_API_KEY=sk-xxx node packages/cli/dist/index.js infer \
@@ -97,10 +123,23 @@ PROPCHECK_API_KEY=sk-xxx node packages/cli/dist/index.js infer \
 # CLI (bundled — same commands via dist-bundle)
 node packages/cli/dist-bundle/index.js --help
 
-# Run unit tests
-for pkg in parser store llm engines; do
-  cd packages/$pkg && node --test dist/**/*.test.js && cd ../..
-done
+# Run unit tests (295 tests across 8 packages)
+node packages/parser/dist/__tests__/parser.test.js                          # 12 tests
+node packages/store/dist/__tests__/store.test.js                            # 14 tests
+node packages/store/dist/__tests__/store-edge.test.js                       # 9 tests
+node packages/llm/dist/__tests__/llm.test.js                               # 23 tests
+node packages/llm/dist/__tests__/scoring-edge.test.js                       # 32 tests
+node packages/llm/dist/__tests__/response-parser-edge.test.js               # 15 tests
+node packages/engines/dist/__tests__/e2e.test.js                            # E2E
+node packages/engines/dist/__tests__/fc-codegen.test.js                     # 30 tests
+node packages/engines/dist/__tests__/hyp-codegen.test.js                    # 9 tests
+node packages/engines/dist/__tests__/result-parser.test.js                  # 10 tests
+node packages/common/dist/__tests__/assertion-sanitizer.test.js             # 48 tests
+node packages/common/dist/__tests__/git.test.js                             # 7 tests
+node packages/config/dist/__tests__/config.test.js                          # 21 tests
+node packages/reporter/dist/__tests__/reporter.test.js                      # 19 tests
+node packages/cli/dist/__tests__/commands.test.js                           # 24 tests
+node packages/cli/dist/__tests__/auto-weaken.test.js                        # 12 tests
 
 # Record demo GIF
 vhs < demo.tape
@@ -110,7 +149,7 @@ cd packages/cli && npm publish
 ```
 
 ## Next Priority
-1. `cd packages/cli && npm publish` (version bump for new commands)
-2. Improve canary coverage for multi-parameter edge interactions
-3. Interactive confirmation mode (`propcheck infer --confirm`)
+1. Rebuild tsup bundle + npm publish 0.3.0 (version bump for fix command + all recent features)
+2. Interactive confirmation mode (`propcheck infer --confirm`)
+3. CI coverage reporting (c8/istanbul) to track actual line coverage
 4. Phase 2 distribution work: PR Bot, VS Code extension
