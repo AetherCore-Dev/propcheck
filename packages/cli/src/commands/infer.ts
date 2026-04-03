@@ -832,11 +832,11 @@ async function trialRunValidation(
             console.log(`    ↻ Repairing: ${prop.targetFunction}: ${prop.description} (round ${round + 1})`);
           } else {
             // Repair failed — drop
-            dropped.push({ prop, reason: `codegen error (repair failed round ${round + 1}): ${errorMsg.slice(0, 60)}` });
+            dropped.push({ prop, reason: `codegen error (repair failed round ${round + 1}): ${errorMsg}` });
           }
         } else {
           // Max rounds reached — drop
-          dropped.push({ prop, reason: `codegen error (max ${MAX_REPAIR_ROUNDS} repairs): ${errorMsg.slice(0, 60)}` });
+          dropped.push({ prop, reason: `codegen error (max ${MAX_REPAIR_ROUNDS} repairs): ${errorMsg}` });
         }
       } else {
         // No result at all
@@ -865,20 +865,8 @@ export async function inferCommand(
     baseURL: options.baseUrl,
   });
 
-  // Validate
-  const errors = validateConfig(config, "infer");
-  if (errors.length > 0) {
-    for (const err of errors) {
-      console.error(`\n  Error: ${err}\n`);
-    }
-    process.exit(2);
-  }
-
-  // Ensure .propcheck/ exists
-  await initStore(projectRoot, config.storeDir);
-  const storeDir = path.join(projectRoot, config.storeDir);
-
-  // Resolve target with path traversal protection
+  // Resolve target with path traversal protection — BEFORE config validation
+  // so "file not found" is shown instead of "API key missing"
   const targetPath = path.resolve(projectRoot, target);
   if (!targetPath.startsWith(projectRoot + path.sep) && targetPath !== projectRoot) {
     console.error(`\n  Error: Target file must be within the project root.\n`);
@@ -892,12 +880,25 @@ export async function inferCommand(
     process.exit(2);
   }
 
-  // Detect language
+  // Detect language early — before config validation
   const language = detectLanguage(targetPath);
   if (!language || !["typescript", "javascript", "python"].includes(language)) {
     console.error(`\n  Error: Unsupported file type. Supported: .ts, .tsx, .js, .jsx, .py\n`);
     process.exit(2);
   }
+
+  // Validate config (API key etc.) — after file checks pass
+  const errors = validateConfig(config, "infer");
+  if (errors.length > 0) {
+    for (const err of errors) {
+      console.error(`\n  Error: ${err}\n`);
+    }
+    process.exit(2);
+  }
+
+  // Ensure .propcheck/ exists
+  await initStore(projectRoot, config.storeDir);
+  const storeDir = path.join(projectRoot, config.storeDir);
 
   // Guard against excessively large files (prevent unbounded API spend)
   const MAX_SOURCE_BYTES = 500_000;
@@ -939,9 +940,20 @@ export async function inferCommand(
 
   console.log(`\n  Analyzing ${inferContext.functions.length} functions in ${target}...`);
 
-  // Parse options once with clamped bounds
-  const maxProperties = Math.min(Math.max(1, parseInt(options.maxProperties ?? "5", 10) || 5), 20);
-  const minScore = Math.min(Math.max(0, parseInt(options.minScore ?? "10", 10) || 10), 15);
+  // Parse and validate numeric options
+  const maxPropsRaw = parseInt(options.maxProperties ?? "5", 10);
+  if (options.maxProperties !== undefined && isNaN(maxPropsRaw)) {
+    console.error(`\n  Error: --max-properties must be a number, got "${options.maxProperties}"\n`);
+    process.exit(2);
+  }
+  const maxProperties = Math.min(Math.max(1, maxPropsRaw || 5), 20);
+
+  const minScoreRaw = parseInt(options.minScore ?? "10", 10);
+  if (options.minScore !== undefined && isNaN(minScoreRaw)) {
+    console.error(`\n  Error: --min-score must be a number, got "${options.minScore}"\n`);
+    process.exit(2);
+  }
+  const minScore = Math.min(Math.max(0, minScoreRaw || 10), 15);
 
   // Infer properties
   let result;
@@ -1019,7 +1031,7 @@ export async function inferCommand(
     if (quarantined.length > 0) {
       console.log(`  Quarantined ${quarantined.length} risky properties after canary validation:`);
       for (const { prop, reason } of quarantined) {
-        console.log(`    - ${prop.targetFunction}: ${prop.description} [${reason.slice(0, 80)}]`);
+        console.log(`    - ${prop.targetFunction}: ${prop.description} [${reason.length > 80 ? reason.slice(0, 77) + "..." : reason}]`);
       }
     }
 

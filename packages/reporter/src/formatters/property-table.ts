@@ -35,6 +35,7 @@ export function formatPropertyLine(
 ): string {
   const desc = `${property.targetFunction}: ${property.description}`;
   const padded = desc.padEnd(50);
+  const id = chalk.dim(`[${property.id}]`);
 
   const meta = formatStatus(property);
 
@@ -49,13 +50,13 @@ export function formatPropertyLine(
     case "passed": {
       const iters = `(${outcome.iterations}/${outcome.iterations})`;
       const dur = `${(outcome.duration / 1000).toFixed(1)}s`;
-      return `  ${chalk.green("\u2713")} ${padded} ${chalk.green("PASS")} ${chalk.dim(iters)}  ${chalk.dim(dur)}${meta}`;
+      return `  ${chalk.green("\u2713")} ${id} ${padded} ${chalk.green("PASS")} ${chalk.dim(iters)}  ${chalk.dim(dur)}${meta}`;
     }
     case "failed": {
-      return `  ${chalk.red("\u2717")} ${padded} ${chalk.red("FAIL")}${meta}`;
+      return `  ${chalk.red("\u2717")} ${id} ${padded} ${chalk.red("FAIL")}${meta}`;
     }
     case "error": {
-      return `  ${chalk.yellow("\u26A0")} ${padded} ${chalk.yellow("ERROR")}${meta}`;
+      return `  ${chalk.yellow("\u26A0")} ${id} ${padded} ${chalk.yellow("ERROR")}${meta}`;
     }
   }
 }

@@ -193,19 +193,19 @@ export async function fixCommand(
     baseURL: options.baseUrl,
   });
 
-  // Validate config
+  // Resolve target — BEFORE config validation so "file not found" is shown first
+  const targetPath = path.resolve(projectRoot, target);
+  if (!fs.existsSync(targetPath)) {
+    console.error(`\n  Error: File not found: ${target}\n`);
+    process.exit(2);
+  }
+
+  // Validate config (API key etc.) — after file check passes
   const errors = validateConfig(config, "fix");
   if (errors.length > 0) {
     for (const err of errors) {
       console.error(`\n  ${err}`);
     }
-    process.exit(2);
-  }
-
-  // Resolve target
-  const targetPath = path.resolve(projectRoot, target);
-  if (!fs.existsSync(targetPath)) {
-    console.error(`\n  Error: File not found: ${target}\n`);
     process.exit(2);
   }
 
@@ -325,7 +325,12 @@ export async function fixCommand(
   console.log(`\n  ${confirmedBugs.length} confirmed bug(s). Generating fix...`);
 
   // Step 4 & 5: Generate fix with verification loop
-  const maxAttempts = Math.min(Math.max(1, parseInt(options.maxAttempts ?? "3", 10) || 3), 5);
+  const maxAttemptsRaw = parseInt(options.maxAttempts ?? "3", 10);
+  if (options.maxAttempts !== undefined && isNaN(maxAttemptsRaw)) {
+    console.error(`\n  Error: --max-attempts must be a number, got "${options.maxAttempts}"\n`);
+    process.exit(2);
+  }
+  const maxAttempts = Math.min(Math.max(1, maxAttemptsRaw || 3), 5);
   let bestFix: FixResult | null = null;
   let verificationResult: ExecutionResult | null = null;
   let retryFeedback: string | undefined;
@@ -383,10 +388,18 @@ export async function fixCommand(
       );
 
       // Clean up verify test file
-      try { await fsPromises.unlink(verifyTestPath); } catch {}
+      try { await fsPromises.unlink(verifyTestPath); } catch (e) {
+        if (e instanceof Error && (e as NodeJS.ErrnoException).code !== "ENOENT") {
+          console.warn(`  Warning: Failed to clean up ${verifyTestPath}: ${e.message}`);
+        }
+      }
     } finally {
       // Clean up temp source
-      try { await fsPromises.unlink(tmpPath); } catch {}
+      try { await fsPromises.unlink(tmpPath); } catch (e) {
+        if (e instanceof Error && (e as NodeJS.ErrnoException).code !== "ENOENT") {
+          console.warn(`  Warning: Failed to clean up ${tmpPath}: ${e.message}`);
+        }
+      }
     }
 
     if (verificationResult && verificationResult.failed.length === 0 && verificationResult.errors.length === 0) {

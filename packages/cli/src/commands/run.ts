@@ -77,7 +77,18 @@ export async function runCommand(
       process.exit(2);
     }
 
-    const changedPaths = new Set(changedResult.files.map((f) => toForwardSlash(f.filePath)));
+    const changedPaths = new Set(
+      changedResult.files
+        .map((f) => toForwardSlash(f.filePath))
+        .filter((p) =>
+          // Exclude internal files, build artifacts, and non-source files
+          !p.startsWith(".propcheck/") &&
+          !p.startsWith("node_modules/") &&
+          !p.includes("/dist/") &&
+          !p.includes("/dist-bundle/") &&
+          /\.(ts|tsx|js|jsx|py)$/.test(p)
+        ),
+    );
 
     if (changedPaths.size === 0) {
       console.log("\n  No changes detected (git diff is clean).\n");
@@ -96,6 +107,15 @@ export async function runCommand(
     console.log(`\n  Running properties for ${propertySets.length} changed file(s)...\n`);
   } else if (target) {
     const targetPath = path.resolve(projectRoot, target);
+
+    // Check file exists before looking up properties
+    try {
+      await fs.access(targetPath);
+    } catch {
+      console.error(`\n  Error: File not found: ${target}\n`);
+      process.exit(2);
+    }
+
     const moduleKey = toForwardSlash(path.relative(projectRoot, targetPath));
     const ps = await getProperties(storeDir, moduleKey);
 
