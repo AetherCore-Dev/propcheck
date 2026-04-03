@@ -35,5 +35,5 @@ export function formatSummary(result: ExecutionResult): string {
 }
 
 export function formatCost(tokensUsed: number, cost: number): string {
-  return chalk.dim(`Tokens: ${tokensUsed.toLocaleString()} | Cost: $${cost.toFixed(4)}`);
+  return chalk.dim(`AI usage: ${tokensUsed.toLocaleString()} tokens | Cost: $${cost.toFixed(4)}`);
 }

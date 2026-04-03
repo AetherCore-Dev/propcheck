@@ -803,7 +803,7 @@ async function trialRunValidation(
           if (weakened) {
             needsRepair.push(weakened);
             totalRepaired++;
-            console.log(`    ↻ Relaxing: ${prop.targetFunction}: ${prop.description} (attempt ${round + 1})`);
+            console.log(`    ↻ Adjusting: ${prop.targetFunction}: ${prop.description} — too strict, relaxing... (attempt ${round + 1})`);
             continue;
           }
         }
@@ -938,7 +938,7 @@ export async function inferCommand(
     return;
   }
 
-  console.log(`\n  Analyzing ${inferContext.functions.length} functions in ${target}...`);
+  console.log(`\n  Analyzing ${inferContext.functions.length} function${inferContext.functions.length === 1 ? "" : "s"} in ${target}...`);
 
   // Parse and validate numeric options
   const maxPropsRaw = parseInt(options.maxProperties ?? "5", 10);
@@ -991,7 +991,7 @@ export async function inferCommand(
     const testsDir = path.join(storeDir, "tests");
     await fs.mkdir(testsDir, { recursive: true });
 
-    console.log(`  Validating ${result.properties.length} properties (trial run, 100 iterations)...`);
+    console.log(`  Validating ${result.properties.length} rules (quick test, 100 random inputs each)...`);
 
     // Create LLM client for self-repair (reuse same config)
     const llmClient = config.mock
@@ -1011,7 +1011,7 @@ export async function inferCommand(
     );
 
     if (repaired > 0) {
-      console.log(`  Auto-stabilized ${repaired} propert${repaired === 1 ? "y" : "ies"} to prevent flaky tests.`);
+      console.log(`  Fixed ${repaired} rule${repaired === 1 ? "" : "s"} that ${repaired === 1 ? "was" : "were"} too strict.`);
     }
 
     if (dropped.length > 0) {

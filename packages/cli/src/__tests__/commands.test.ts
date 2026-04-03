@@ -747,7 +747,7 @@ describe("cli commands", () => {
         await inferCommand("calc.ts", { mock: true, function: "add", skipValidation: true });
 
         const allOutput = logs.join("\n");
-        assert.ok(allOutput.includes("Analyzing 1 functions"));
+        assert.ok(allOutput.includes("Analyzing 1 function"));
       } finally {
         console.log = originalLog;
       }

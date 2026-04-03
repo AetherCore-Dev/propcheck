@@ -13,47 +13,47 @@ Set Width 1200
 Set Height 700
 Set Theme "Catppuccin Mocha"
 Set Padding 24
-Set TypingSpeed 35ms
+Set TypingSpeed 40ms
 Set WindowBar Colorful
 Set WindowBarSize 40
 Set CursorBlink false
 
-# ── Opening: Title card ──
-Type "# propcheck — AI-powered property-based testing"
+# ── Scene 1: Tests pass — build false confidence ──
+Type "# Your tests all pass..."
 Enter
-Sleep 1.5s
-Type "# Your tests pass. Your code has bugs. propcheck finds them."
-Enter
-Sleep 2s
-Ctrl+L
-
-# ── Step 1: Show the code (looks production-ready) ──
-Type "cat examples/price-utils.ts"
-Enter
-Sleep 3s
-Ctrl+L
-
-# ── Step 2: Show 12/12 tests passing (build false confidence) ──
+Sleep 1.2s
 Type "NODE_NO_WARNINGS=1 node --experimental-strip-types --test examples/price-utils.test.ts"
 Enter
+Sleep 3.5s
+Type ""
+Enter
+Type "# 12 tests. 100% coverage. All green. Ship it?"
+Enter
+Sleep 2.5s
+Ctrl+L
+
+# ── Scene 2: propcheck discovers rules ──
+Type "# Let's see what propcheck thinks..."
+Enter
+Sleep 1s
+Type "npx propcheck infer --mock examples/price-utils.ts"
+Enter
+Sleep 6s
+Ctrl+L
+
+# ── Scene 3: THE REVEAL ──
+Type "npx propcheck run examples/price-utils.ts"
+Enter
+Sleep 8s
+
+# Let the audience absorb the FAIL
 Sleep 4s
 Ctrl+L
 
-# ── Step 3: The pivot — make the audience think ──
-Type "# 12 tests. 100% coverage. But is the code actually correct?"
+# ── Scene 4: Call to action ──
+Type "# Bug found: 150% discount → negative price. Tests missed it."
 Enter
-Sleep 2.5s
-
-# ── Step 4: propcheck infer (discover properties with mock LLM) ──
-Type "node packages/cli/dist/index.js infer --mock examples/price-utils.ts"
+Sleep 2s
+Type "# Get started: npx propcheck init && npx propcheck infer --mock YOUR_FILE.ts"
 Enter
-Sleep 6s
-Ctrl+L
-
-# ── Step 5: propcheck run — THE REVEAL ──
-Type "node packages/cli/dist/index.js run examples/price-utils.ts"
-Enter
-Sleep 6s
-
-# Let the audience absorb the results — FAIL stands out
-Sleep 5s
+Sleep 4s

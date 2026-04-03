@@ -38,7 +38,7 @@ export function reportInferResult(result: InferResult, filePath: string): void {
   const dur = (result.duration / 1000).toFixed(1);
   console.log("");
   console.log(
-    chalk.bold(`  Inferred ${result.properties.length} properties for ${filePath}`) +
+    chalk.bold(`  Discovered ${result.properties.length} rules for ${filePath}`) +
     chalk.dim(` ($${result.cost.toFixed(4)}, ${dur}s)`),
   );
   console.log("");
