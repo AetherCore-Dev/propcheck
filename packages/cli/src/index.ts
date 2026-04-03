@@ -21,12 +21,20 @@ import { propsCommand } from "./commands/props";
 import { propertyCommand } from "./commands/property";
 import { fixCommand } from "./commands/fix";
 
+import chalk from "chalk";
+
 const program = new Command();
 
 program
   .name("propcheck")
   .description("AI-powered property-based testing — find bugs your tests miss")
-  .version("0.1.0");
+  .version("0.2.0")
+  .option("--no-color", "Disable colored output")
+  .hook("preAction", () => {
+    if (program.opts().color === false) {
+      chalk.level = 0;
+    }
+  });
 
 program
   .command("init")

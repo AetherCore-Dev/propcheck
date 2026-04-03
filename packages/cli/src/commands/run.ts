@@ -179,13 +179,13 @@ export async function runCommand(
       !(prop.status === "quarantined" && !options.includeQuarantined)
     ));
 
-    if (!options.json && quarantinedSkipped.length > 0) {
+    if (!options.json && !hasOnlyFilter && quarantinedSkipped.length > 0) {
       console.log(`  Skipping ${quarantinedSkipped.length} quarantined propert${quarantinedSkipped.length === 1 ? "y" : "ies"} in ${ps.filePath}. Use --include-quarantined to run them.`);
     }
-    if (!options.json && droppedSkipped.length > 0) {
+    if (!options.json && !hasOnlyFilter && droppedSkipped.length > 0) {
       console.log(`  Skipping ${droppedSkipped.length} dropped propert${droppedSkipped.length === 1 ? "y" : "ies"} in ${ps.filePath}.`);
     }
-    if (!options.json && explicitSkipped.length > 0) {
+    if (!options.json && !hasOnlyFilter && explicitSkipped.length > 0) {
       console.log(`  Skipping ${explicitSkipped.length} propert${explicitSkipped.length === 1 ? "y" : "ies"} in ${ps.filePath} due to --skip/--only filters.`);
     }
 
@@ -230,7 +230,7 @@ export async function runCommand(
 
     // Report
     if (options.json) {
-      console.log(reportAsJson(enrichedResult));
+      console.log(reportAsJson(enrichedResult, ps.filePath));
     } else {
       reportRunSummary(enrichedResult, ps.filePath);
     }

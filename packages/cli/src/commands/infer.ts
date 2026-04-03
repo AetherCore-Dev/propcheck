@@ -803,7 +803,7 @@ async function trialRunValidation(
           if (weakened) {
             needsRepair.push(weakened);
             totalRepaired++;
-            console.log(`    ↻ Weakening: ${prop.targetFunction}: ${prop.description} (round ${round + 1})`);
+            console.log(`    ↻ Relaxing: ${prop.targetFunction}: ${prop.description} (attempt ${round + 1})`);
             continue;
           }
         }
@@ -1011,7 +1011,7 @@ export async function inferCommand(
     );
 
     if (repaired > 0) {
-      console.log(`  Self-repaired ${repaired} properties.`);
+      console.log(`  Auto-stabilized ${repaired} propert${repaired === 1 ? "y" : "ies"} to prevent flaky tests.`);
     }
 
     if (dropped.length > 0) {
@@ -1029,7 +1029,7 @@ export async function inferCommand(
     );
 
     if (quarantined.length > 0) {
-      console.log(`  Quarantined ${quarantined.length} risky properties after canary validation:`);
+      console.log(`  Quarantined ${quarantined.length} fragile propert${quarantined.length === 1 ? "y" : "ies"} after edge-case validation:`);
       for (const { prop, reason } of quarantined) {
         console.log(`    - ${prop.targetFunction}: ${prop.description} [${reason.length > 80 ? reason.slice(0, 77) + "..." : reason}]`);
       }

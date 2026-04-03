@@ -5,6 +5,9 @@
 import type { ExecutionResult } from "@propcheck/common";
 
 export interface JsonReport {
+  readonly version: string;
+  readonly timestamp: string;
+  readonly filePath: string | null;
   readonly passed: readonly { propertyId: string; iterations: number; duration: number }[];
   readonly failed: readonly { propertyId: string; counterexample: unknown; errorMessage: string; seed: number }[];
   readonly errors: readonly { propertyId: string; errorMessage: string }[];
@@ -19,8 +22,11 @@ export interface JsonReport {
   };
 }
 
-export function reportAsJson(result: ExecutionResult): string {
+export function reportAsJson(result: ExecutionResult, filePath?: string): string {
   const report: JsonReport = {
+    version: "1.0.0",
+    timestamp: new Date().toISOString(),
+    filePath: filePath ?? null,
     passed: result.passed.map((p) => ({
       propertyId: p.propertyId,
       iterations: p.iterations,

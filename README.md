@@ -72,16 +72,27 @@ Latest real-provider validation: **Claude Opus 4.6 → 15 inferred properties �
 
 ## Quick Start
 
+### Try it now (no API key needed)
+
 ```bash
-npx propcheck init                                # Create .propcheck/ directory
-npx propcheck infer examples/price-utils.ts       # LLM infers properties (needs PROPCHECK_API_KEY)
-npx propcheck run examples/price-utils.ts         # Run 1000 random inputs per property
+npx propcheck init                                    # Create .propcheck/ directory
+npx propcheck infer --mock examples/price-utils.ts    # Infer properties using mock LLM
+npx propcheck run examples/price-utils.ts             # Run 1,000 random inputs per property
 ```
 
-Using an OpenAI-compatible `/v1` provider:
+### With real LLM inference
 
 ```bash
-PROPCHECK_API_KEY=sk-... \
+export PROPCHECK_API_KEY=sk-ant-...                   # Anthropic API key
+npx propcheck infer examples/price-utils.ts           # ~$0.05 one-time cost
+npx propcheck run examples/price-utils.ts             # Free forever after inference
+```
+
+<details>
+<summary><strong>Using OpenAI-compatible providers (OpenRouter, one-api, etc.)</strong></summary>
+
+```bash
+PROPCHECK_API_KEY=sk-or-... \
   npx propcheck infer \
   --provider openai-compatible \
   --model claude-opus-4-6 \
@@ -89,11 +100,9 @@ PROPCHECK_API_KEY=sk-... \
   examples/price-utils.ts
 ```
 
-No API key? Try the demo:
-```bash
-npx propcheck infer --mock examples/price-utils.ts && npx propcheck run examples/price-utils.ts
-npx propcheck infer --mock --refine examples/price-utils.ts
-```
+**Privacy:** propcheck sends your source code to the configured LLM provider for inference. Use `--base-url` to point to a self-hosted endpoint if needed. After inference, all test execution is local — no data leaves your machine.
+
+</details>
 
 ## What propcheck discovers
 
@@ -132,6 +141,7 @@ propcheck run --json                              # Machine-readable output for 
 propcheck run --skip prop_001,prop_002            # Skip specific property IDs
 propcheck run --only prop_009                     # Run only selected property IDs
 propcheck run --include-quarantined               # Include quarantined properties in a run
+propcheck run --no-color                          # Disable colored output (for CI logs)
 propcheck quality examples/price-utils.ts         # Mutation testing — measure property strength
 propcheck props                                   # List all properties with status overview
 propcheck props --status risky                    # Filter by status
@@ -139,6 +149,34 @@ propcheck props --json                            # Machine-readable output
 propcheck property src/cart.ts prop_001           # Inspect a single property
 propcheck property src/cart.ts prop_001 --status quarantined  # Update status (marks humanVerified)
 ```
+
+## Exit Codes
+
+| Code | Meaning | CI Action |
+|------|---------|-----------|
+| `0` | All properties passed | ✅ Merge OK |
+| `1` | One or more properties failed | ❌ Block merge, review counterexamples |
+| `2` | Invalid input, missing files, or config error | ❌ Fix configuration |
+
+```yaml
+# GitHub Actions example
+- run: npx propcheck run src/cart.ts
+  # Exit 0 = green, exit 1 = red (property failure), exit 2 = red (config error)
+```
+
+## Risk Tags Explained
+
+When propcheck infers properties, it tags potentially fragile ones:
+
+| Risk Tag | What It Means | What To Do |
+|----------|---------------|------------|
+| `float_exact_equality` | Uses `===` on floating-point numbers — may fail due to rounding | Consider `approxEqual()` or accept as risky |
+| `wide_numeric_domain` | Tests unbounded numbers (no min/max) — may timeout or overflow | Add constraints in `.propcheckrc` or review generators |
+| `missing_precondition` | Assumes input constraints not enforced by the code | Add input validation or accept the risk |
+| `tiny_abs_tolerance` | Uses tolerance like `1e-12` — too strict for most floats | Will be auto-relaxed to `1e-6` |
+| `doc_domain_mismatch` | Property contradicts function documentation | Review: is the doc or the property wrong? |
+| `roundtrip_numeric_fragility` | Roundtrip test (parse → format → parse) with exact equality | Use approximate comparison |
+| `metamorphic_scale_risk` | Scale relationship test without tolerance margin | Add tolerance for floating-point scale tests |
 
 ## Property lifecycle
 
@@ -240,17 +278,27 @@ Generate: `npx propcheck badge`
 
 ## Supported Languages
 
-| Language | Parser | PBT Engine | Status |
-|----------|--------|------------|--------|
-| TypeScript / JavaScript | TS Compiler API | fast-check | **Ready** |
-| Python | Type hints + docstrings | Hypothesis | **Ready** |
-| Rust | — | proptest | Planned |
-| Go | — | rapid | Planned |
+| Language | Parser | PBT Engine | Status | Requirements |
+|----------|--------|------------|--------|-------------|
+| TypeScript / JavaScript | TS Compiler API | fast-check | **Ready** | Node.js 18+ |
+| Python | Type hints + docstrings | Hypothesis | **Ready** | Node.js 18+ & Python 3.8+ with `pip install hypothesis` |
+| Rust | — | proptest | Planned | — |
+| Go | — | rapid | Planned | — |
+
+> **Note for Python users:** propcheck CLI runs on Node.js but generates and executes Hypothesis tests using your local Python. You need both runtimes installed.
+
+```bash
+# Python setup
+pip install hypothesis                            # Required for Python property execution
+npx propcheck infer --mock my_module.py           # Infer properties
+npx propcheck run my_module.py                    # Runs via Hypothesis under the hood
+```
 
 ## Configuration
 
+Create `.propcheckrc` in your project root (generated by `propcheck init`):
+
 ```json
-// .propcheckrc
 {
   "provider": "anthropic",
   "model": "claude-sonnet-4-20250514",
@@ -258,9 +306,35 @@ Generate: `npx propcheck badge`
   "maxPropertiesPerFunction": 5,
   "minScore": 10,
   "defaultMode": "default",
-  "timeout": 30000
+  "timeout": 30000,
+  "storeDir": ".propcheck",
+  "mock": false
 }
 ```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `provider` | `"anthropic"` \| `"openai-compatible"` | `"anthropic"` | LLM provider |
+| `model` | string | `"claude-sonnet-4-20250514"` | Model name |
+| `baseURL` | string \| null | `null` | Custom API endpoint (for proxies/OpenRouter) |
+| `apiKey` | string \| null | `null` | API key (prefer env var `PROPCHECK_API_KEY`) |
+| `maxPropertiesPerFunction` | 1-20 | `5` | Max properties inferred per function |
+| `minScore` | 0-13 | `10` | Minimum quality score to keep a property |
+| `defaultMode` | `"quick"` \| `"default"` \| `"thorough"` | `"default"` | Default run mode |
+| `timeout` | 1000-300000 | `30000` | Per-test timeout in milliseconds |
+| `storeDir` | string | `".propcheck"` | Directory for property storage |
+| `mock` | boolean | `false` | Use mock LLM (no API key needed) |
+
+**Environment variables** (override `.propcheckrc`):
+
+| Variable | Fallback | Description |
+|----------|----------|-------------|
+| `PROPCHECK_API_KEY` | — | API key (highest priority) |
+| `ANTHROPIC_API_KEY` | `PROPCHECK_API_KEY` | Anthropic-specific key |
+| `OPENAI_API_KEY` | `ANTHROPIC_API_KEY` | OpenAI-compatible key |
+| `PROPCHECK_MOCK=true` | — | Enable mock mode |
+| `PROPCHECK_BASE_URL` | — | Custom API endpoint |
+| `PROPCHECK_PROVIDER` | — | Provider override |
 
 <details>
 <summary><strong>Architecture</strong></summary>
