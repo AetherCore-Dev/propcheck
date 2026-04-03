@@ -28,7 +28,7 @@ const program = new Command();
 program
   .name("propcheck")
   .description("AI-powered property-based testing — find bugs your tests miss")
-  .version("0.2.0")
+  .version("0.3.0")
   .option("--no-color", "Disable colored output")
   .hook("preAction", () => {
     if (program.opts().color === false) {

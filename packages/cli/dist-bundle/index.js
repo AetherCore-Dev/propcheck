@@ -68,24 +68,68 @@ var require_property_store = __commonJS({
       };
     })();
     Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.getProperties = getProperties3;
-    exports2.getAllProperties = getAllProperties3;
-    exports2.setProperties = setProperties2;
+    exports2.getProperties = getProperties6;
+    exports2.getAllProperties = getAllProperties4;
+    exports2.setProperties = setProperties3;
     exports2.isStale = isStale;
     exports2.removeProperties = removeProperties;
-    var fs4 = __importStar(require("fs/promises"));
-    var path6 = __importStar(require("path"));
-    var crypto = __importStar(require("crypto"));
+    var fs5 = __importStar(require("fs/promises"));
+    var path9 = __importStar(require("path"));
+    var crypto2 = __importStar(require("crypto"));
     var PROPERTIES_FILE = "properties.json";
-    var FILE_VERSION = 1;
+    var FILE_VERSION = 2;
+    var LEGACY_RISK_PENALTIES = {
+      float_exact_equality: 3,
+      tiny_abs_tolerance: 2,
+      missing_precondition: 1,
+      wide_numeric_domain: 2,
+      doc_domain_mismatch: 2,
+      roundtrip_numeric_fragility: 3,
+      metamorphic_scale_risk: 1
+    };
     function propertiesPath(storeDir) {
-      return path6.join(storeDir, PROPERTIES_FILE);
+      return path9.join(storeDir, PROPERTIES_FILE);
+    }
+    function computeLegacyRiskScore(score, riskTags) {
+      const penalty = riskTags.reduce((sum, tag) => sum + LEGACY_RISK_PENALTIES[tag], 0);
+      return Math.max(0, score - penalty);
+    }
+    function normalizeProperty(property) {
+      const riskTags = Object.freeze([...property.riskTags ?? []]);
+      return {
+        ...property,
+        riskScore: property.riskScore ?? computeLegacyRiskScore(property.score, riskTags),
+        riskTags,
+        status: property.status ?? "accepted",
+        ...property.validation ? { validation: property.validation } : {},
+        ...property.humanVerified !== void 0 ? { humanVerified: property.humanVerified } : {}
+      };
+    }
+    function normalizePropertySet(propertySet) {
+      return {
+        schemaVersion: 2,
+        module: propertySet.module,
+        filePath: propertySet.filePath,
+        properties: Object.freeze(propertySet.properties.map(normalizeProperty)),
+        sourceHash: propertySet.sourceHash,
+        inferredAt: propertySet.inferredAt
+      };
+    }
+    function normalizePropertiesFile(file) {
+      const version = file.version ?? 1;
+      if (version > FILE_VERSION) {
+        throw new Error(`Unsupported properties file version ${version}. Current CLI supports up to ${FILE_VERSION}.`);
+      }
+      return {
+        version: FILE_VERSION,
+        modules: Object.fromEntries(Object.entries(file.modules ?? {}).map(([module3, propertySet]) => [module3, normalizePropertySet(propertySet)]))
+      };
     }
     async function readPropertiesFile(storeDir) {
       const filePath = propertiesPath(storeDir);
       try {
-        const content = await fs4.readFile(filePath, "utf8");
-        return JSON.parse(content);
+        const content = await fs5.readFile(filePath, "utf8");
+        return normalizePropertiesFile(JSON.parse(content));
       } catch (err) {
         if (err instanceof Error && "code" in err && err.code === "ENOENT") {
           return { version: FILE_VERSION, modules: {} };
@@ -95,21 +139,21 @@ var require_property_store = __commonJS({
     }
     async function writePropertiesFile(storeDir, data) {
       const filePath = propertiesPath(storeDir);
-      const tmpName = `.tmp-${crypto.randomBytes(8).toString("hex")}.json`;
-      const tmpPath = path6.join(storeDir, tmpName);
+      const tmpName = `.tmp-${crypto2.randomBytes(8).toString("hex")}.json`;
+      const tmpPath = path9.join(storeDir, tmpName);
       const content = JSON.stringify(data, null, 2);
-      await fs4.writeFile(tmpPath, content, "utf8");
-      await fs4.rename(tmpPath, filePath);
+      await fs5.writeFile(tmpPath, content, "utf8");
+      await fs5.rename(tmpPath, filePath);
     }
-    async function getProperties3(storeDir, module3) {
+    async function getProperties6(storeDir, module3) {
       const file = await readPropertiesFile(storeDir);
       return file.modules[module3] ?? null;
     }
-    async function getAllProperties3(storeDir) {
+    async function getAllProperties4(storeDir) {
       const file = await readPropertiesFile(storeDir);
       return Object.values(file.modules);
     }
-    async function setProperties2(storeDir, module3, propertySet) {
+    async function setProperties3(storeDir, module3, propertySet) {
       const file = await readPropertiesFile(storeDir);
       const updated = {
         ...file,
@@ -177,27 +221,27 @@ var require_test_file_store = __commonJS({
     exports2.writeTestFile = writeTestFile;
     exports2.readTestFile = readTestFile;
     exports2.listTestFiles = listTestFiles;
-    var fs4 = __importStar(require("fs/promises"));
-    var path6 = __importStar(require("path"));
+    var fs5 = __importStar(require("fs/promises"));
+    var path9 = __importStar(require("path"));
     var TESTS_DIR = "tests";
     function testsPath(storeDir) {
-      return path6.join(storeDir, TESTS_DIR);
+      return path9.join(storeDir, TESTS_DIR);
     }
     async function writeTestFile(storeDir, fileName, content) {
       const dir = testsPath(storeDir);
-      await fs4.mkdir(dir, { recursive: true });
-      const filePath = path6.join(dir, fileName);
-      await fs4.writeFile(filePath, content, "utf8");
+      await fs5.mkdir(dir, { recursive: true });
+      const filePath = path9.join(dir, fileName);
+      await fs5.writeFile(filePath, content, "utf8");
       return filePath;
     }
     async function readTestFile(storeDir, fileName) {
-      const filePath = path6.join(testsPath(storeDir), fileName);
-      return fs4.readFile(filePath, "utf8");
+      const filePath = path9.join(testsPath(storeDir), fileName);
+      return fs5.readFile(filePath, "utf8");
     }
     async function listTestFiles(storeDir) {
       const dir = testsPath(storeDir);
       try {
-        const entries = await fs4.readdir(dir);
+        const entries = await fs5.readdir(dir);
         return entries.filter((e) => e.endsWith(".ts") || e.endsWith(".js") || e.endsWith(".py"));
       } catch {
         return [];
@@ -250,17 +294,17 @@ var require_corpus_store = __commonJS({
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.getSeeds = getSeeds;
     exports2.addSeeds = addSeeds;
-    var fs4 = __importStar(require("fs/promises"));
-    var path6 = __importStar(require("path"));
+    var fs5 = __importStar(require("fs/promises"));
+    var path9 = __importStar(require("path"));
     var CORPUS_DIR = "corpus";
     function corpusPath(storeDir, functionName) {
       const safeName = functionName.replace(/[^a-zA-Z0-9._-]/g, "_");
-      return path6.join(storeDir, CORPUS_DIR, `${safeName}.json`);
+      return path9.join(storeDir, CORPUS_DIR, `${safeName}.json`);
     }
     async function getSeeds(storeDir, functionName) {
       const filePath = corpusPath(storeDir, functionName);
       try {
-        const content = await fs4.readFile(filePath, "utf8");
+        const content = await fs5.readFile(filePath, "utf8");
         return JSON.parse(content);
       } catch {
         return [];
@@ -271,9 +315,9 @@ var require_corpus_store = __commonJS({
       const existingKeys = new Set(existing.map((s) => JSON.stringify(s.value)));
       const newSeeds = seeds.filter((s) => !existingKeys.has(JSON.stringify(s.value)));
       const merged = [...existing, ...newSeeds];
-      const dir = path6.join(storeDir, CORPUS_DIR);
-      await fs4.mkdir(dir, { recursive: true });
-      await fs4.writeFile(corpusPath(storeDir, functionName), JSON.stringify(merged, null, 2), "utf8");
+      const dir = path9.join(storeDir, CORPUS_DIR);
+      await fs5.mkdir(dir, { recursive: true });
+      await fs5.writeFile(corpusPath(storeDir, functionName), JSON.stringify(merged, null, 2), "utf8");
     }
   }
 });
@@ -321,27 +365,27 @@ var require_init = __commonJS({
     })();
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.initStore = initStore3;
-    var fs4 = __importStar(require("fs/promises"));
-    var path6 = __importStar(require("path"));
+    var fs5 = __importStar(require("fs/promises"));
+    var path9 = __importStar(require("path"));
     var SUBDIRS = ["tests", "corpus", "reports"];
     async function initStore3(projectRoot, storeDir = ".propcheck") {
-      const storePath = path6.join(projectRoot, storeDir);
+      const storePath = path9.join(projectRoot, storeDir);
       try {
-        const stat2 = await fs4.stat(storePath);
+        const stat2 = await fs5.stat(storePath);
         if (stat2.isDirectory()) {
           for (const sub of SUBDIRS) {
-            await fs4.mkdir(path6.join(storePath, sub), { recursive: true });
+            await fs5.mkdir(path9.join(storePath, sub), { recursive: true });
           }
           return { created: false, path: storePath };
         }
       } catch {
       }
-      await fs4.mkdir(storePath, { recursive: true });
+      await fs5.mkdir(storePath, { recursive: true });
       for (const sub of SUBDIRS) {
-        await fs4.mkdir(path6.join(storePath, sub), { recursive: true });
+        await fs5.mkdir(path9.join(storePath, sub), { recursive: true });
       }
-      const propertiesPath = path6.join(storePath, "properties.json");
-      await fs4.writeFile(propertiesPath, JSON.stringify({ version: 1, modules: {} }, null, 2), "utf8");
+      const propertiesPath = path9.join(storePath, "properties.json");
+      await fs5.writeFile(propertiesPath, JSON.stringify({ version: 2, modules: {} }, null, 2), "utf8");
       return { created: true, path: storePath };
     }
   }
@@ -457,10 +501,10 @@ var require_loader = __commonJS({
       };
     })();
     Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.loadConfig = loadConfig5;
-    exports2.validateConfig = validateConfig2;
-    var fs4 = __importStar(require("fs"));
-    var path6 = __importStar(require("path"));
+    exports2.loadConfig = loadConfig8;
+    exports2.validateConfig = validateConfig3;
+    var fs5 = __importStar(require("fs"));
+    var path9 = __importStar(require("path"));
     var zod_1 = require("zod");
     var defaults_1 = require_defaults();
     var PropcheckRcSchema = zod_1.z.object({
@@ -472,15 +516,15 @@ var require_loader = __commonJS({
       minScore: zod_1.z.number().int().min(0).max(13).optional(),
       defaultMode: zod_1.z.enum(["quick", "default", "thorough"]).optional(),
       timeout: zod_1.z.number().int().min(1e3).max(3e5).optional(),
-      storeDir: zod_1.z.string().regex(/^[a-zA-Z0-9._-]+(?:\/[a-zA-Z0-9._-]+)*$/, "storeDir must be a relative path without traversal").optional(),
+      storeDir: zod_1.z.string().regex(/^[a-zA-Z0-9_][a-zA-Z0-9._-]*(?:\/[a-zA-Z0-9_][a-zA-Z0-9._-]*)*$/, "storeDir must be a relative path without traversal (no '..' components)").optional(),
       mock: zod_1.z.boolean().optional()
     }).strict();
-    function loadConfig5(projectRoot, overrides = {}) {
+    function loadConfig8(projectRoot, overrides = {}) {
       let config = { ...defaults_1.DEFAULTS };
-      const rcPath = path6.join(projectRoot, ".propcheckrc");
-      if (fs4.existsSync(rcPath)) {
+      const rcPath = path9.join(projectRoot, ".propcheckrc");
+      if (fs5.existsSync(rcPath)) {
         try {
-          const rcContent = fs4.readFileSync(rcPath, "utf8");
+          const rcContent = fs5.readFileSync(rcPath, "utf8");
           const rawJson = JSON.parse(rcContent);
           const parsed = PropcheckRcSchema.safeParse(rawJson);
           if (parsed.success) {
@@ -534,9 +578,9 @@ var require_loader = __commonJS({
       }
       return Object.freeze(config);
     }
-    function validateConfig2(config, command) {
+    function validateConfig3(config, command) {
       const errors = [];
-      if (command === "infer" && !config.mock && !config.apiKey) {
+      if ((command === "infer" || command === "fix") && !config.mock && !config.apiKey) {
         errors.push('API key is required for property inference.\nSet it via one of:\n  export PROPCHECK_API_KEY=sk-...      # any provider\n  export ANTHROPIC_API_KEY=sk-ant-...  # Anthropic direct\n  export OPENAI_API_KEY=sk-or-...      # OpenRouter / OpenAI-compatible\nOr add "apiKey" to .propcheckrc\nOr use --mock for offline testing with canned responses.');
       }
       return errors;
@@ -1200,9 +1244,9 @@ var require_hash = __commonJS({
   "../common/dist/utils/hash.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.hashContent = hashContent3;
+    exports2.hashContent = hashContent4;
     var node_crypto_1 = require("crypto");
-    function hashContent3(content) {
+    function hashContent4(content) {
       return (0, node_crypto_1.createHash)("sha256").update(content, "utf8").digest("hex");
     }
   }
@@ -1250,23 +1294,23 @@ var require_path = __commonJS({
       };
     })();
     Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.toForwardSlash = toForwardSlash4;
+    exports2.toForwardSlash = toForwardSlash7;
     exports2.resolveForward = resolveForward;
     exports2.relativeForward = relativeForward;
     exports2.importPath = importPath;
-    var path6 = __importStar(require("path"));
-    function toForwardSlash4(filePath) {
+    var path9 = __importStar(require("path"));
+    function toForwardSlash7(filePath) {
       return filePath.replace(/\\/g, "/");
     }
     function resolveForward(...segments) {
-      return toForwardSlash4(path6.resolve(...segments));
+      return toForwardSlash7(path9.resolve(...segments));
     }
     function relativeForward(from, to) {
-      const rel = path6.relative(from, to);
-      return toForwardSlash4(rel);
+      const rel = path9.relative(from, to);
+      return toForwardSlash7(rel);
     }
     function importPath(fromFile, toFile) {
-      const fromDir = path6.dirname(fromFile);
+      const fromDir = path9.dirname(fromFile);
       let rel = relativeForward(fromDir, toFile);
       rel = rel.replace(/\.(ts|tsx|js|jsx|mts|mjs)$/, "");
       if (!rel.startsWith(".")) {
@@ -1290,11 +1334,19 @@ var require_git = __commonJS({
       try {
         const diffResult = (0, node_child_process_1.spawnSync)("git", ["diff", "HEAD", "--unified=0", "--diff-filter=ACMR", "--name-only"], { cwd, encoding: "utf8", timeout: 1e4 });
         if (diffResult.status !== 0) {
-          return [];
+          return {
+            status: "git_error",
+            files: [],
+            errorMessage: diffResult.stderr?.trim() || `git diff exited with code ${diffResult.status}`
+          };
         }
         diffOutput = diffResult.stdout;
-      } catch {
-        return [];
+      } catch (err) {
+        return {
+          status: "git_error",
+          files: [],
+          errorMessage: err instanceof Error ? err.message : "git not available"
+        };
       }
       const files = diffOutput.trim().split("\n").filter(Boolean);
       const result = [];
@@ -1321,7 +1373,7 @@ var require_git = __commonJS({
         }
         result.push({ filePath, changedLines });
       }
-      return result;
+      return { status: "ok", files: result };
     }
     function getChangedFunctions(functions, changedLines) {
       if (changedLines.length === 0) {
@@ -1543,7 +1595,7 @@ var require_client = __commonJS({
       };
     }
     function sleep(ms) {
-      return new Promise((resolve4) => setTimeout(resolve4, ms));
+      return new Promise((resolve7) => setTimeout(resolve7, ms));
     }
   }
 });
@@ -1653,7 +1705,7 @@ var require_openai_client = __commonJS({
       };
     }
     function sleep(ms) {
-      return new Promise((resolve4) => setTimeout(resolve4, ms));
+      return new Promise((resolve7) => setTimeout(resolve7, ms));
     }
   }
 });
@@ -2232,10 +2284,7 @@ var require_mock_client = __commonJS({
               matchedFunctions.push(funcName);
             }
           }
-          if (matchedFunctions.length > 0) {
-            console.log(`  [MOCK] Generating properties for: ${matchedFunctions.join(", ")}`);
-          } else {
-            console.log("  [MOCK] No specific mock found, using generic response");
+          if (matchedFunctions.length === 0) {
             allProperties.push({
               targetFunction: promptFuncNames[0] ?? "unknown",
               description: "Output type is consistent",
@@ -2296,7 +2345,18 @@ Rules:
 4. Include seed inputs: one normal case, one boundary, one extreme
 5. Generators must cover the function's parameter types
 6. Assertions must reference the target function's return value
-7. Do NOT generate tautologies (always-true) or trivial type checks`;
+7. Do NOT generate tautologies (always-true) or trivial type checks
+8. Avoid fragile assertions:
+   - Do NOT use exact equality (===) for floating-point comparisons; use tolerance-based checks
+   - Do NOT use tiny absolute tolerances (< 1e-9) for sums or scaled values
+   - If a property depends on business constraints (e.g. price >= 0), make the precondition explicit
+   - Prefer metamorphic or relation-style properties over arbitrary free-form assertions
+9. For parameters that are custom types/interfaces, use type "object" with a "fields" constraint:
+   - Each field maps to a generator spec: { type: "string", constraints: { maxLength: 100 } }
+   - For optional fields, use type "optional" with an "inner" constraint: { type: "optional", constraints: { inner: { type: "string" } } }
+   - For enum types, use type "enum" with a "values" constraint: { type: "enum", constraints: { values: ["a", "b"] } }
+   - Nest "object" types for fields that are themselves custom interfaces
+   - Example: { type: "object", constraints: { fields: { name: { type: "string" }, price: { type: "float", constraints: { min: 0 } } } } }`;
     function formatFunction(fn) {
       const params = fn.parameters.map((p) => {
         let s = p.name;
@@ -2415,7 +2475,10 @@ Rules:
                       type: "object",
                       properties: {
                         type: { type: "string" },
-                        constraints: { type: "object" }
+                        constraints: {
+                          type: "object",
+                          description: "Generator constraints. For 'object' type, include 'fields' mapping field names to nested generator specs. For 'optional', include 'inner' with the wrapped generator spec. For 'enum', include 'values' array."
+                        }
                       },
                       required: ["type"]
                     }
@@ -2708,6 +2771,32 @@ var require_response_parser = __commonJS({
           constraints.maxLength = maxItems;
         }
       }
+      const KNOWN_GENERATOR_TYPES = /* @__PURE__ */ new Set([
+        "constant",
+        "integer",
+        "int",
+        "float",
+        "number",
+        "string",
+        "boolean",
+        "array",
+        "record",
+        "object",
+        "optional",
+        "enum",
+        "dict",
+        "list",
+        "str",
+        "bool",
+        "any"
+      ]);
+      if (!KNOWN_GENERATOR_TYPES.has(type) && constraints?.fields && typeof constraints.fields === "object") {
+        return {
+          ...raw,
+          type: "object",
+          ...constraints ? { constraints } : {}
+        };
+      }
       return {
         ...raw,
         type,
@@ -2804,6 +2893,9 @@ var require_response_parser = __commonJS({
           seedInputs: Object.freeze(seedInputs),
           score: 0,
           // Will be set by scoring
+          riskScore: 0,
+          riskTags: Object.freeze([]),
+          status: "accepted",
           confidence: raw.confidence,
           evidence: raw.evidence,
           sourceHash: options.sourceHash,
@@ -2821,6 +2913,8 @@ var require_scoring = __commonJS({
   "../llm/dist/scoring.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.detectRiskTags = detectRiskTags2;
+    exports2.computeRiskScore = computeRiskScore2;
     exports2.scoreProperty = scoreProperty;
     exports2.isRedundant = isRedundant;
     exports2.scoreAndFilter = scoreAndFilter;
@@ -2842,19 +2936,79 @@ var require_scoring = __commonJS({
         return false;
       });
     }
-    function detectFragility(property) {
+    var FRAGILITY_PENALTIES = {
+      float_exact_equality: 2,
+      tiny_abs_tolerance: 1,
+      missing_precondition: 0,
+      wide_numeric_domain: 0,
+      doc_domain_mismatch: 0,
+      roundtrip_numeric_fragility: 2,
+      metamorphic_scale_risk: 0
+    };
+    var RISK_PENALTIES = {
+      float_exact_equality: 3,
+      tiny_abs_tolerance: 2,
+      missing_precondition: 1,
+      wide_numeric_domain: 2,
+      doc_domain_mismatch: 2,
+      roundtrip_numeric_fragility: 3,
+      metamorphic_scale_risk: 1
+    };
+    function hasWideNumericDomain(property) {
+      return Object.values(property.generators).some((spec) => {
+        const c = spec.constraints ?? {};
+        if (spec.type === "float" || spec.type === "number" || spec.type === "integer" || spec.type === "int") {
+          if (c.min === void 0 && c.max === void 0)
+            return true;
+          if (typeof c.min === "number" && typeof c.max === "number") {
+            return Math.abs(c.max - c.min) > 1e6;
+          }
+          return false;
+        }
+        if (spec.type === "array") {
+          const elementType = c.element ?? c.elementType;
+          const min = c.elementMin ?? c.min;
+          const max = c.elementMax ?? c.max;
+          if (elementType === "float" || elementType === "number" || elementType === "integer" || elementType === "int") {
+            if (min === void 0 && max === void 0)
+              return true;
+            if (typeof min === "number" && typeof max === "number") {
+              return Math.abs(max - min) > 1e6;
+            }
+          }
+        }
+        return false;
+      });
+    }
+    function detectRiskTags2(property) {
       const assertion = property.assertion.trim();
-      let penalty = 0;
-      if (hasFloatLikeGenerator(property) && /(===|!==)/.test(assertion) && !assertion.includes("Math.abs(")) {
-        penalty += 2;
+      const tags = /* @__PURE__ */ new Set();
+      if (hasFloatLikeGenerator(property) && /(===|!==)/.test(assertion) && !assertion.includes("Math.abs(") && !assertion.includes("approxEqual(")) {
+        tags.add("float_exact_equality");
       }
       if (/(<|<=)\s*1e-(9|[1-9]\d+)/i.test(assertion)) {
-        penalty += 1;
+        tags.add("tiny_abs_tolerance");
       }
       if (/(parseFloat|parseInt|JSON\.parse)\s*\(/.test(assertion) && /(===|!==)/.test(assertion)) {
-        penalty += 2;
+        tags.add("roundtrip_numeric_fragility");
       }
-      return penalty;
+      if (hasWideNumericDomain(property)) {
+        tags.add("wide_numeric_domain");
+      }
+      if (property.category === "boundary" && /(>=\s*0|>\s*0|<=\s*0|<\s*0|between|within)/i.test(assertion) && !/(requires|precondition|assume|if\s*\()/i.test(assertion)) {
+        tags.add("missing_precondition");
+      }
+      if (property.category === "metamorphic" && hasFloatLikeGenerator(property) && !/(Math\.abs|approx|tolerance|epsilon)/i.test(assertion)) {
+        tags.add("metamorphic_scale_risk");
+      }
+      return [...tags];
+    }
+    function detectFragility(property) {
+      return detectRiskTags2(property).reduce((sum, tag) => sum + FRAGILITY_PENALTIES[tag], 0);
+    }
+    function computeRiskScore2(property, score, riskTags) {
+      const penalty = riskTags.reduce((sum, tag) => sum + RISK_PENALTIES[tag], 0);
+      return Math.max(0, score - penalty);
     }
     function scoreProperty(property) {
       let score = 0;
@@ -2895,7 +3049,13 @@ var require_scoring = __commonJS({
       const kept = [];
       for (const prop of properties) {
         const score = scoreProperty(prop);
-        const withScore = { ...prop, score };
+        const riskTags = detectRiskTags2(prop);
+        const withScore = {
+          ...prop,
+          score,
+          riskTags,
+          riskScore: computeRiskScore2(prop, score, riskTags)
+        };
         scored.push(withScore);
       }
       for (const prop of scored) {
@@ -3179,13 +3339,245 @@ var require_mock_refinement = __commonJS({
   }
 });
 
+// ../llm/dist/prompts/fix.js
+var require_fix = __commonJS({
+  "../llm/dist/prompts/fix.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.FIX_TOOL = exports2.FIX_SYSTEM_PROMPT = exports2.DIAGNOSE_TOOL = exports2.DIAGNOSE_SYSTEM_PROMPT = void 0;
+    exports2.buildDiagnosePrompt = buildDiagnosePrompt;
+    exports2.diagnoseViolation = diagnoseViolation2;
+    exports2.buildFixPrompt = buildFixPrompt;
+    exports2.generateFix = generateFix2;
+    exports2.DIAGNOSE_SYSTEM_PROMPT = `You are propcheck's violation analyzer. A property-based test found a counterexample that violates a property. Your job: determine if this is a real bug in the source code or a flawed property.
+
+Rules:
+- A violation is a REAL BUG if the property correctly describes intended behavior and the source code produces wrong output for the given counterexample
+- A violation is a FALSE POSITIVE if the property is too strict, makes wrong assumptions, or tests unintended behavior
+- Consider the function's docstring, parameter names, return type, and surrounding code as signals of intent
+- Provide a clear explanation of WHY this is or isn't a bug
+- If it IS a bug, suggest what the fix should look like (high-level, not code)`;
+    exports2.DIAGNOSE_TOOL = {
+      name: "diagnose_violation",
+      description: "Analyze whether a property violation indicates a real bug in the source code",
+      input_schema: {
+        type: "object",
+        properties: {
+          propertyId: { type: "string", description: "ID of the violated property" },
+          isBug: { type: "boolean", description: "true if this is a real bug in the source code" },
+          explanation: { type: "string", description: "Why this is or isn't a bug" },
+          suggestedFix: {
+            type: ["string", "null"],
+            description: "High-level description of the fix (null if not a bug)"
+          },
+          confidence: { type: "number", description: "0-1 confidence in the diagnosis" },
+          rootCause: {
+            type: "string",
+            description: "Root cause category: boundary, logic, type, overflow, edge-case, validation"
+          }
+        },
+        required: ["propertyId", "isBug", "explanation", "suggestedFix", "confidence", "rootCause"]
+      }
+    };
+    function buildDiagnosePrompt(sourceCode, property, failure, language) {
+      const counterexampleStr = typeof failure.counterexample === "string" ? failure.counterexample : JSON.stringify(failure.counterexample, null, 2);
+      return `## Source Code
+
+\`\`\`${language}
+${sourceCode.slice(0, 8e3)}
+\`\`\`
+
+## Property that was violated
+- **ID:** ${property.id}
+- **Function:** ${property.targetFunction}
+- **Description:** ${property.description}
+- **Category:** ${property.category}
+- **Assertion:** \`${property.assertion}\`
+- **Evidence:** ${property.evidence}
+
+## Counterexample (shrunk to minimal case)
+- **Input:** ${counterexampleStr}
+- **Error:** ${failure.errorMessage.slice(0, 500)}
+- **Shrink steps:** ${failure.shrinkSteps}
+- **Seed:** ${failure.seed}
+
+Analyze this violation. Is this a real bug in the source code, or is the property flawed?`;
+    }
+    async function diagnoseViolation2(client, sourceCode, property, failure, language) {
+      try {
+        const prompt = buildDiagnosePrompt(sourceCode, property, failure, language);
+        const response = await client.call(exports2.DIAGNOSE_SYSTEM_PROMPT, prompt, [exports2.DIAGNOSE_TOOL]);
+        if (!response.content || typeof response.content !== "object") {
+          return null;
+        }
+        const content = response.content;
+        if (typeof content.isBug !== "boolean" || typeof content.explanation !== "string") {
+          return null;
+        }
+        return {
+          propertyId: String(content.propertyId ?? property.id),
+          isBug: content.isBug,
+          explanation: content.explanation,
+          suggestedFix: content.suggestedFix ? String(content.suggestedFix) : null,
+          confidence: typeof content.confidence === "number" ? content.confidence : 0.5
+        };
+      } catch {
+        return null;
+      }
+    }
+    exports2.FIX_SYSTEM_PROMPT = `You are propcheck's code fix generator. Property-based testing found real bugs in the source code. Your job: generate a minimal, correct fix.
+
+Rules:
+- Fix ONLY the bug(s) identified \u2014 do not refactor or change unrelated code
+- The fix must make ALL listed properties pass, not just the violated one(s)
+- Prefer the smallest possible change (minimal diff)
+- Preserve function signatures (parameter names, types, return type)
+- Preserve code style (indentation, naming conventions, comment style)
+- Do NOT add new dependencies or imports unless absolutely necessary
+- The counterexample shows the EXACT input that triggers the bug \u2014 use it to understand the edge case
+- Consider ALL properties listed (both passing and failing) to ensure no regressions
+- Return the COMPLETE source file with fixes applied`;
+    exports2.FIX_TOOL = {
+      name: "generate_fix",
+      description: "Generate a fixed version of the source code",
+      input_schema: {
+        type: "object",
+        properties: {
+          fixedSource: { type: "string", description: "The complete fixed source code" },
+          explanation: { type: "string", description: "What was changed and why" },
+          changedFunctions: {
+            type: "array",
+            items: { type: "string" },
+            description: "Names of functions that were modified"
+          },
+          confidence: { type: "number", description: "0-1 confidence the fix is correct" }
+        },
+        required: ["fixedSource", "explanation", "changedFunctions", "confidence"]
+      }
+    };
+    function buildFixPrompt(sourceCode, diagnoses, properties, failures, language, retryFeedback) {
+      const bugSections = diagnoses.filter((d) => d.isBug).map((d) => {
+        const failure = failures.find((f) => f.propertyId === d.propertyId);
+        const property = properties.find((p) => p.id === d.propertyId);
+        const counterexampleStr = failure ? typeof failure.counterexample === "string" ? failure.counterexample : JSON.stringify(failure.counterexample, null, 2) : "N/A";
+        return `### Bug in \`${property?.targetFunction ?? "unknown"}\`
+- **Property:** ${property?.description ?? d.propertyId}
+- **Counterexample:** ${counterexampleStr}
+- **Explanation:** ${d.explanation}
+- **Suggested fix:** ${d.suggestedFix ?? "N/A"}`;
+      }).join("\n\n");
+      const propertySummary = properties.map((p) => {
+        const failed = failures.some((f) => f.propertyId === p.id);
+        const status = failed ? "FAILING" : "PASSING";
+        return `- [${status}] ${p.targetFunction}: ${p.description}
+  Assertion: \`${p.assertion}\``;
+      }).join("\n");
+      let prompt = `## Source Code (with bug)
+
+\`\`\`${language}
+${sourceCode.slice(0, 1e4)}
+\`\`\`
+
+## Bug Diagnosis
+
+${bugSections}
+
+## ALL Properties (fix must not break any)
+
+${propertySummary}
+
+## Task
+
+Generate a fixed version of the source code that:
+1. Fixes the bug(s) described above
+2. Passes ALL listed properties (including the currently-passing ones)
+3. Makes the MINIMAL change necessary
+
+Return the complete fixed source code via the generate_fix tool.`;
+      if (retryFeedback) {
+        prompt += `
+
+## Previous Attempt Feedback
+
+${retryFeedback}
+
+Please fix the issues above and try again.`;
+      }
+      return prompt;
+    }
+    async function generateFix2(client, sourceCode, diagnoses, properties, failures, language, retryFeedback) {
+      try {
+        const prompt = buildFixPrompt(sourceCode, diagnoses, properties, failures, language, retryFeedback);
+        const response = await client.call(exports2.FIX_SYSTEM_PROMPT, prompt, [exports2.FIX_TOOL]);
+        if (!response.content || typeof response.content !== "object") {
+          return null;
+        }
+        const content = response.content;
+        if (typeof content.fixedSource !== "string" || !content.fixedSource.trim()) {
+          return null;
+        }
+        return {
+          fixedSource: content.fixedSource,
+          explanation: typeof content.explanation === "string" ? content.explanation : "",
+          changedFunctions: Array.isArray(content.changedFunctions) ? content.changedFunctions.map(String) : [],
+          confidence: typeof content.confidence === "number" ? content.confidence : 0.5
+        };
+      } catch {
+        return null;
+      }
+    }
+  }
+});
+
+// ../llm/dist/mock-fix.js
+var require_mock_fix = __commonJS({
+  "../llm/dist/mock-fix.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.mockDiagnoseViolation = mockDiagnoseViolation2;
+    exports2.mockGenerateFix = mockGenerateFix2;
+    function mockDiagnoseViolation2(property, failure) {
+      return {
+        propertyId: property.id,
+        isBug: true,
+        explanation: `Mock diagnosis: the counterexample ${JSON.stringify(failure.counterexample)} triggers a bug in ${property.targetFunction}. The property "${property.description}" is violated.`,
+        suggestedFix: `Add input validation or boundary check in ${property.targetFunction}`,
+        confidence: 0.85
+      };
+    }
+    function mockGenerateFix2(sourceCode, diagnoses) {
+      let fixedSource = sourceCode;
+      const changedFunctions = [];
+      for (const d of diagnoses) {
+        if (!d.isBug)
+          continue;
+        const funcPattern = new RegExp(`((?:export\\s+)?function\\s+${escapeRegExp(d.propertyId.split("_")[0] ?? "")}\\s*\\()`);
+        const match = fixedSource.match(funcPattern);
+        if (!match) {
+          fixedSource = `// [propcheck fix] Applied mock fix for ${d.propertyId}
+${fixedSource}`;
+        }
+      }
+      return {
+        fixedSource,
+        explanation: `Mock fix: applied guards for ${diagnoses.filter((d) => d.isBug).length} diagnosed bug(s)`,
+        changedFunctions,
+        confidence: 0.7
+      };
+    }
+    function escapeRegExp(s) {
+      return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    }
+  }
+});
+
 // ../llm/dist/index.js
 var require_dist5 = __commonJS({
   "../llm/dist/index.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.mockRefineProperties = exports2.buildRefinementPrompt = exports2.buildFeedbackSummary = exports2.classifyProperties = exports2.mockRepairProperty = exports2.repairProperty = exports2.getInferTool = exports2.getSystemPrompt = exports2.buildInferPrompt = exports2.isRedundant = exports2.scoreAndFilter = exports2.scoreProperty = exports2.parseInferResponse = exports2.createMockClient = exports2.createOpenAIClient = exports2.createLlmClient = void 0;
-    exports2.createClient = createClient2;
+    exports2.mockGenerateFix = exports2.mockDiagnoseViolation = exports2.buildFixPrompt = exports2.buildDiagnosePrompt = exports2.FIX_TOOL = exports2.FIX_SYSTEM_PROMPT = exports2.DIAGNOSE_TOOL = exports2.DIAGNOSE_SYSTEM_PROMPT = exports2.generateFix = exports2.diagnoseViolation = exports2.mockRefineProperties = exports2.buildRefinementPrompt = exports2.buildFeedbackSummary = exports2.classifyProperties = exports2.mockRepairProperty = exports2.repairProperty = exports2.getInferTool = exports2.getSystemPrompt = exports2.buildInferPrompt = exports2.computeRiskScore = exports2.detectRiskTags = exports2.isRedundant = exports2.scoreAndFilter = exports2.scoreProperty = exports2.parseInferResponse = exports2.createMockClient = exports2.createOpenAIClient = exports2.createLlmClient = void 0;
+    exports2.createClient = createClient3;
     exports2.inferProperties = inferProperties2;
     exports2.refineProperties = refineProperties2;
     var common_1 = require_dist4();
@@ -3234,7 +3626,7 @@ var require_dist5 = __commonJS({
         duration: Date.now() - startedAt
       };
     }
-    function createClient2(apiKey, model, provider = "anthropic", baseURL) {
+    function createClient3(apiKey, model, provider = "anthropic", baseURL) {
       if (provider === "openai-compatible") {
         return (0, openai_client_1.createOpenAIClient)(apiKey, model, baseURL ?? void 0);
       }
@@ -3243,7 +3635,7 @@ var require_dist5 = __commonJS({
     async function inferProperties2(apiKey, model, context, options = {}) {
       const opts = { ...DEFAULT_OPTIONS, ...options };
       const startTime = Date.now();
-      const client = opts.mock ? (0, mock_client_1.createMockClient)() : createClient2(apiKey, model, opts.provider, opts.baseURL);
+      const client = opts.mock ? (0, mock_client_1.createMockClient)() : createClient3(apiKey, model, opts.provider, opts.baseURL);
       const systemPrompt = (0, infer_properties_1.getSystemPrompt)();
       const userPrompt = (0, infer_properties_1.buildInferPrompt)(context);
       const tool = (0, infer_properties_1.getInferTool)();
@@ -3253,7 +3645,7 @@ var require_dist5 = __commonJS({
     async function refineProperties2(apiKey, model, context, feedbackSummary, options = {}) {
       const opts = { ...DEFAULT_OPTIONS, ...options };
       const startTime = Date.now();
-      const client = opts.mock ? (0, mock_client_1.createMockClient)() : createClient2(apiKey, model, opts.provider, opts.baseURL);
+      const client = opts.mock ? (0, mock_client_1.createMockClient)() : createClient3(apiKey, model, opts.provider, opts.baseURL);
       const systemPrompt = (0, infer_properties_1.getSystemPrompt)();
       const originalPrompt = (0, infer_properties_1.buildInferPrompt)(context);
       const userPrompt = (0, refinement_1.buildRefinementPrompt)(originalPrompt, feedbackSummary);
@@ -3287,6 +3679,12 @@ var require_dist5 = __commonJS({
     Object.defineProperty(exports2, "isRedundant", { enumerable: true, get: function() {
       return scoring_2.isRedundant;
     } });
+    Object.defineProperty(exports2, "detectRiskTags", { enumerable: true, get: function() {
+      return scoring_2.detectRiskTags;
+    } });
+    Object.defineProperty(exports2, "computeRiskScore", { enumerable: true, get: function() {
+      return scoring_2.computeRiskScore;
+    } });
     var infer_properties_2 = require_infer_properties();
     Object.defineProperty(exports2, "buildInferPrompt", { enumerable: true, get: function() {
       return infer_properties_2.buildInferPrompt;
@@ -3318,6 +3716,38 @@ var require_dist5 = __commonJS({
     var mock_refinement_1 = require_mock_refinement();
     Object.defineProperty(exports2, "mockRefineProperties", { enumerable: true, get: function() {
       return mock_refinement_1.mockRefineProperties;
+    } });
+    var fix_1 = require_fix();
+    Object.defineProperty(exports2, "diagnoseViolation", { enumerable: true, get: function() {
+      return fix_1.diagnoseViolation;
+    } });
+    Object.defineProperty(exports2, "generateFix", { enumerable: true, get: function() {
+      return fix_1.generateFix;
+    } });
+    Object.defineProperty(exports2, "DIAGNOSE_SYSTEM_PROMPT", { enumerable: true, get: function() {
+      return fix_1.DIAGNOSE_SYSTEM_PROMPT;
+    } });
+    Object.defineProperty(exports2, "DIAGNOSE_TOOL", { enumerable: true, get: function() {
+      return fix_1.DIAGNOSE_TOOL;
+    } });
+    Object.defineProperty(exports2, "FIX_SYSTEM_PROMPT", { enumerable: true, get: function() {
+      return fix_1.FIX_SYSTEM_PROMPT;
+    } });
+    Object.defineProperty(exports2, "FIX_TOOL", { enumerable: true, get: function() {
+      return fix_1.FIX_TOOL;
+    } });
+    Object.defineProperty(exports2, "buildDiagnosePrompt", { enumerable: true, get: function() {
+      return fix_1.buildDiagnosePrompt;
+    } });
+    Object.defineProperty(exports2, "buildFixPrompt", { enumerable: true, get: function() {
+      return fix_1.buildFixPrompt;
+    } });
+    var mock_fix_1 = require_mock_fix();
+    Object.defineProperty(exports2, "mockDiagnoseViolation", { enumerable: true, get: function() {
+      return mock_fix_1.mockDiagnoseViolation;
+    } });
+    Object.defineProperty(exports2, "mockGenerateFix", { enumerable: true, get: function() {
+      return mock_fix_1.mockGenerateFix;
     } });
   }
 });
@@ -3364,45 +3794,42 @@ var require_fc_codegen = __commonJS({
       };
     })();
     Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.generateFastCheckTest = generateFastCheckTest3;
+    exports2.generateFastCheckTest = generateFastCheckTest4;
     var common_1 = require_dist4();
-    var path6 = __importStar(require("path"));
-    var JS_BUILTINS = /* @__PURE__ */ new Set([
-      "target",
-      "true",
-      "false",
-      "null",
-      "undefined",
-      "Math",
-      "Number",
-      "String",
-      "Array",
-      "JSON",
-      "Object",
-      "RegExp",
-      "Date",
-      "Error",
-      "TypeError",
-      "RangeError",
-      "Set",
-      "Map",
-      "NaN",
-      "Infinity",
-      "parseFloat",
-      "parseInt",
-      "isNaN",
-      "isFinite",
-      "encodeURIComponent",
-      "decodeURIComponent",
-      "console",
-      "globalThis"
-    ]);
+    var fs5 = __importStar(require("fs"));
+    var path9 = __importStar(require("path"));
     function toSafeComment(s) {
       return s.replace(/[\r\n\u2028\u2029]/g, " ").slice(0, 200);
     }
-    function mapGenerator(spec) {
+    function isTypeModuleProject(targetFile) {
+      let dir = path9.dirname(targetFile);
+      while (true) {
+        const packageJsonPath = path9.join(dir, "package.json");
+        if (fs5.existsSync(packageJsonPath)) {
+          try {
+            const raw = fs5.readFileSync(packageJsonPath, "utf8");
+            const pkg = JSON.parse(raw);
+            return pkg.type === "module";
+          } catch {
+            return false;
+          }
+        }
+        const parent = path9.dirname(dir);
+        if (parent === dir)
+          break;
+        dir = parent;
+      }
+      return false;
+    }
+    var MAX_GENERATOR_DEPTH = 10;
+    function mapGenerator(spec, depth = 0) {
+      if (depth > MAX_GENERATOR_DEPTH) {
+        return "fc.anything()";
+      }
       const c = spec.constraints ?? {};
       switch (spec.type) {
+        case "constant":
+          return `fc.constant(${JSON.stringify(c.value ?? null)})`;
         case "integer":
         case "int":
           if (c.min !== void 0 || c.max !== void 0) {
@@ -3433,23 +3860,66 @@ var require_fc_codegen = __commonJS({
         case "boolean":
           return "fc.boolean()";
         case "array": {
+          const items = c.items;
           const elementType = c.element ?? c.elementType;
-          const nestedConstraints = c.elementConstraints && typeof c.elementConstraints === "object" ? c.elementConstraints : {
-            ...(c.elementMin ?? c.min) !== void 0 ? { min: c.elementMin ?? c.min } : {},
-            ...(c.elementMax ?? c.max) !== void 0 ? { max: c.elementMax ?? c.max } : {},
-            ...c.elementMaxLength !== void 0 ? { maxLength: c.elementMaxLength } : {}
-          };
-          const element = elementType ? mapGenerator({
-            type: String(elementType).replace(/[^a-zA-Z0-9_]/g, ""),
-            ...Object.keys(nestedConstraints).length > 0 ? { constraints: nestedConstraints } : {}
-          }) : "fc.anything()";
+          let element;
+          if (items && typeof items === "object" && typeof items.type === "string") {
+            element = mapGenerator({ type: items.type, constraints: items.constraints }, depth + 1);
+          } else if (elementType) {
+            const nestedConstraints = c.elementConstraints && typeof c.elementConstraints === "object" ? c.elementConstraints : {
+              ...(c.elementMin ?? c.min) !== void 0 ? { min: c.elementMin ?? c.min } : {},
+              ...(c.elementMax ?? c.max) !== void 0 ? { max: c.elementMax ?? c.max } : {},
+              ...c.elementMaxLength !== void 0 ? { maxLength: c.elementMaxLength } : {}
+            };
+            element = mapGenerator({
+              type: String(elementType).replace(/[^a-zA-Z0-9_]/g, ""),
+              ...Object.keys(nestedConstraints).length > 0 ? { constraints: nestedConstraints } : {}
+            }, depth + 1);
+          } else {
+            element = "fc.anything()";
+          }
           const maxLen = c.maxLength ? `, { maxLength: ${Number(c.maxLength)} }` : "";
           return `fc.array(${element}${maxLen})`;
         }
         case "record":
           return "fc.dictionary(fc.string(), fc.anything())";
-        default:
+        case "object": {
+          const fields = c.fields;
+          if (fields && typeof fields === "object") {
+            const entries = Object.entries(fields);
+            if (entries.length === 0) {
+              return "fc.record({})";
+            }
+            const fieldExprs = entries.map(([name, fieldSpec]) => {
+              const fs6 = fieldSpec;
+              const safeName = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(name) ? name : JSON.stringify(name);
+              return `${safeName}: ${mapGenerator({ type: fs6.type, constraints: fs6.constraints }, depth + 1)}`;
+            });
+            return `fc.record({ ${fieldExprs.join(", ")} })`;
+          }
+          return "fc.dictionary(fc.string(), fc.anything())";
+        }
+        case "optional": {
+          const inner = c.inner;
+          if (inner && typeof inner === "object" && typeof inner.type === "string") {
+            return `fc.option(${mapGenerator({ type: inner.type, constraints: inner.constraints }, depth + 1)})`;
+          }
+          return "fc.option(fc.anything())";
+        }
+        case "enum": {
+          const values = c.values;
+          if (Array.isArray(values) && values.length > 0) {
+            return `fc.constantFrom(${values.map((v) => JSON.stringify(v)).join(", ")})`;
+          }
           return "fc.anything()";
+        }
+        default: {
+          const fields = c.fields;
+          if (fields && typeof fields === "object" && Object.keys(fields).length > 0) {
+            return mapGenerator({ type: "object", constraints: spec.constraints }, depth);
+          }
+          return "fc.anything()";
+        }
       }
     }
     function normalizeAssertionSyntax(assertion) {
@@ -3495,11 +3965,11 @@ var require_fc_codegen = __commonJS({
       }
       return assertion;
     }
-    function generateFastCheckTest3(properties, targetFile, testDir, config) {
-      const relativeImport = (0, common_1.toForwardSlash)(path6.relative(testDir, targetFile)).replace(/\.(ts|tsx|js|jsx)$/, "");
+    function generateFastCheckTest4(properties, targetFile, testDir, config) {
+      const relativeImport = (0, common_1.toForwardSlash)(path9.relative(testDir, targetFile)).replace(/\.(ts|tsx|js|jsx)$/, "");
       let importPathStr;
       if (targetFile.endsWith(".ts") || targetFile.endsWith(".tsx")) {
-        importPathStr = (0, common_1.toForwardSlash)(path6.relative(testDir, targetFile));
+        importPathStr = (0, common_1.toForwardSlash)(path9.relative(testDir, targetFile));
         if (!importPathStr.startsWith("."))
           importPathStr = `./${importPathStr}`;
       } else {
@@ -3521,19 +3991,19 @@ var require_fc_codegen = __commonJS({
       lines.push(`const fc = ${fcRequire};`);
       lines.push(`const target = require("${importPathStr}");`);
       lines.push(``);
+      lines.push(`function approxEqual(a, b, absTol = 1e-9, relTol = 1e-6) {`);
+      lines.push(`  return Math.abs(a - b) <= absTol + relTol * Math.max(1, Math.abs(a), Math.abs(b));`);
+      lines.push(`}`);
+      lines.push(``);
       lines.push(`const numRuns = ${config.iterations};`);
       lines.push(``);
       for (const prop of properties) {
-        const funcName = prop.targetFunction.split(".").pop();
         const generators = Object.entries(prop.generators);
         const arbNames = generators.map(([name]) => name);
         const arbExprs = generators.map(([, spec]) => mapGenerator(spec));
         let assertion = normalizeAssertionSyntax(prop.assertion);
-        assertion = assertion.replace(new RegExp(`(?<!\\.)\\b${funcName}\\(`, "g"), `target.${funcName}(`);
-        for (const varName of assertion.match(/\b[a-zA-Z_]\w*\b/g) ?? []) {
-          if (varName !== funcName && !JS_BUILTINS.has(varName) && !arbNames.includes(varName) && !functionNames.includes(varName)) {
-            assertion = assertion.replace(new RegExp(`(?<!\\.)\\b${varName}\\(`, "g"), `target.${varName}(`);
-          }
+        for (const fn of functionNames) {
+          assertion = assertion.replace(new RegExp(`(?<!\\.)\\b${fn}\\(`, "g"), `target.${fn}(`);
         }
         lines.push(`// ${prop.id}: ${toSafeComment(prop.description)}`);
         lines.push(`// Category: ${toSafeComment(prop.category)}`);
@@ -3583,8 +4053,9 @@ var require_fc_codegen = __commonJS({
         lines.push(`}`);
         lines.push(``);
       }
-      const baseName = path6.basename(targetFile, path6.extname(targetFile));
-      const fileName = `${baseName}.fc.js`;
+      const baseName = path9.basename(targetFile, path9.extname(targetFile));
+      const fileExt = isTypeModuleProject(targetFile) ? ".fc.cjs" : ".fc.js";
+      const fileName = `${baseName}${fileExt}`;
       return {
         content: lines.join("\n"),
         fileName
@@ -3604,7 +4075,7 @@ var require_process_runner = __commonJS({
     var MAX_OUTPUT_BYTES = 10 * 1024 * 1024;
     function runProcess(command, args, options = {}) {
       const timeout = options.timeout ?? 6e4;
-      return new Promise((resolve4, reject) => {
+      return new Promise((resolve7, reject) => {
         const proc = (0, node_child_process_1.spawn)(command, args, {
           cwd: options.cwd,
           env: {
@@ -3660,7 +4131,7 @@ var require_process_runner = __commonJS({
             }));
             return;
           }
-          resolve4({ stdout, stderr, exitCode: code ?? 1 });
+          resolve7({ stdout, stderr, exitCode: code ?? 1 });
         });
         proc.on("error", (err) => {
           clearTimeout(timer);
@@ -3745,6 +4216,7 @@ var require_result_parser = __commonJS({
         passed,
         failed,
         errors,
+        skipped: [],
         duration,
         totalIterations: passed.reduce((sum, p) => sum + p.iterations, 0),
         properties
@@ -3795,13 +4267,13 @@ var require_fc_runner = __commonJS({
       };
     })();
     Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.runFastCheckTest = runFastCheckTest3;
-    var path6 = __importStar(require("path"));
+    exports2.runFastCheckTest = runFastCheckTest4;
+    var path9 = __importStar(require("path"));
     var process_runner_1 = require_process_runner();
     var result_parser_1 = require_result_parser();
-    async function runFastCheckTest3(testFilePath, properties, config) {
+    async function runFastCheckTest4(testFilePath, properties, config) {
       const startTime = Date.now();
-      const cwd = path6.dirname(testFilePath);
+      const cwd = path9.dirname(testFilePath);
       const nodeArgs = [
         "--experimental-strip-types",
         "--no-warnings",
@@ -3812,11 +4284,11 @@ var require_fc_runner = __commonJS({
         timeout: config.timeout * Math.max(properties.length, 1),
         env: {
           NODE_PATH: [
-            path6.join(cwd, "node_modules"),
-            path6.join(cwd, "..", "..", "node_modules"),
-            path6.join(cwd, "..", "..", "..", "node_modules"),
+            path9.join(cwd, "node_modules"),
+            path9.join(cwd, "..", "..", "node_modules"),
+            path9.join(cwd, "..", "..", "..", "node_modules"),
             process.env["NODE_PATH"] ?? ""
-          ].join(path6.delimiter)
+          ].join(path9.delimiter)
         }
       });
       const rawResults = (0, result_parser_1.parseJsonLines)(result.stdout);
@@ -3869,13 +4341,40 @@ var require_hyp_codegen = __commonJS({
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.generateHypothesisTest = generateHypothesisTest3;
     var common_1 = require_dist4();
-    var path6 = __importStar(require("path"));
+    var path9 = __importStar(require("path"));
     function toSafeComment(s) {
       return s.replace(/[\r\n\u2028\u2029]/g, " ").slice(0, 200);
     }
-    function mapStrategy(spec) {
+    function toPythonLiteral(value) {
+      if (value === null || value === void 0)
+        return "None";
+      if (typeof value === "number") {
+        if (Number.isNaN(value))
+          return 'float("nan")';
+        if (!Number.isFinite(value))
+          return value > 0 ? 'float("inf")' : 'float("-inf")';
+        return Object.is(value, -0) ? "-0.0" : String(value);
+      }
+      if (typeof value === "boolean")
+        return value ? "True" : "False";
+      if (typeof value === "string")
+        return JSON.stringify(value);
+      if (Array.isArray(value))
+        return `[${value.map((item) => toPythonLiteral(item)).join(", ")}]`;
+      if (typeof value === "object") {
+        return `{${Object.entries(value).map(([key, item]) => `${JSON.stringify(key)}: ${toPythonLiteral(item)}`).join(", ")}}`;
+      }
+      return JSON.stringify(value);
+    }
+    var MAX_GENERATOR_DEPTH = 10;
+    function mapStrategy(spec, depth = 0) {
+      if (depth > MAX_GENERATOR_DEPTH) {
+        return "st.integers()";
+      }
       const c = spec.constraints ?? {};
       switch (spec.type) {
+        case "constant":
+          return `st.just(${toPythonLiteral(c.value ?? null)})`;
         case "integer":
         case "int": {
           const parts = [];
@@ -3906,24 +4405,66 @@ var require_hyp_codegen = __commonJS({
           return "st.booleans()";
         case "array":
         case "list": {
+          const items = c.items;
           const elementType = c.element ?? c.elementType;
-          const nestedConstraints = c.elementConstraints && typeof c.elementConstraints === "object" ? c.elementConstraints : {
-            ...(c.elementMin ?? c.min) !== void 0 ? { min: c.elementMin ?? c.min } : {},
-            ...(c.elementMax ?? c.max) !== void 0 ? { max: c.elementMax ?? c.max } : {},
-            ...c.elementMaxLength !== void 0 ? { maxLength: c.elementMaxLength } : {}
-          };
-          const element = elementType ? mapStrategy({
-            type: String(elementType).replace(/[^a-zA-Z0-9_]/g, ""),
-            ...Object.keys(nestedConstraints).length > 0 ? { constraints: nestedConstraints } : {}
-          }) : "st.integers()";
+          let element;
+          if (items && typeof items === "object" && typeof items.type === "string") {
+            element = mapStrategy({ type: items.type, constraints: items.constraints }, depth + 1);
+          } else if (elementType) {
+            const nestedConstraints = c.elementConstraints && typeof c.elementConstraints === "object" ? c.elementConstraints : {
+              ...(c.elementMin ?? c.min) !== void 0 ? { min: c.elementMin ?? c.min } : {},
+              ...(c.elementMax ?? c.max) !== void 0 ? { max: c.elementMax ?? c.max } : {},
+              ...c.elementMaxLength !== void 0 ? { maxLength: c.elementMaxLength } : {}
+            };
+            element = mapStrategy({
+              type: String(elementType).replace(/[^a-zA-Z0-9_]/g, ""),
+              ...Object.keys(nestedConstraints).length > 0 ? { constraints: nestedConstraints } : {}
+            }, depth + 1);
+          } else {
+            element = "st.integers()";
+          }
           const maxLen = c.maxLength ? `, max_size=${Number(c.maxLength)}` : "";
           return `st.lists(${element}${maxLen})`;
         }
         case "dict":
         case "record":
           return "st.dictionaries(st.text(min_size=1, max_size=10), st.integers())";
-        default:
+        case "object": {
+          const fields = c.fields;
+          if (fields && typeof fields === "object") {
+            const entries = Object.entries(fields);
+            if (entries.length === 0) {
+              return "st.fixed_dictionaries({})";
+            }
+            const fieldExprs = entries.map(([name, fieldSpec]) => {
+              const fs5 = fieldSpec;
+              return `${JSON.stringify(name)}: ${mapStrategy({ type: fs5.type, constraints: fs5.constraints }, depth + 1)}`;
+            });
+            return `st.fixed_dictionaries({${fieldExprs.join(", ")}})`;
+          }
+          return "st.dictionaries(st.text(min_size=1, max_size=10), st.integers())";
+        }
+        case "optional": {
+          const inner = c.inner;
+          if (inner && typeof inner === "object" && typeof inner.type === "string") {
+            return `st.one_of(st.just(None), ${mapStrategy({ type: inner.type, constraints: inner.constraints }, depth + 1)})`;
+          }
+          return "st.one_of(st.just(None), st.integers())";
+        }
+        case "enum": {
+          const values = c.values;
+          if (Array.isArray(values) && values.length > 0) {
+            return `st.sampled_from([${values.map((v) => toPythonLiteral(v)).join(", ")}])`;
+          }
           return "st.integers()";
+        }
+        default: {
+          const fields = c.fields;
+          if (fields && typeof fields === "object" && Object.keys(fields).length > 0) {
+            return mapStrategy({ type: "object", constraints: spec.constraints }, depth);
+          }
+          return "st.integers()";
+        }
       }
     }
     function translateAssertionToPython(assertion) {
@@ -3937,6 +4478,7 @@ var require_hyp_codegen = __commonJS({
       translated = translated.replace(/\bMath\.abs\s*\(/g, "abs(");
       translated = translated.replace(/\bparseFloat\s*\(/g, "float(");
       translated = translated.replace(/\bparseInt\s*\(/g, "int(");
+      translated = translated.replace(/\bapproxEqual\s*\(/g, "approx_equal(");
       translated = translated.replace(/\s*&&\s*/g, " and ");
       translated = translated.replace(/\s*\|\|\s*/g, " or ");
       translated = translated.replace(/!\s*(?!=)\(/g, "not (");
@@ -3945,9 +4487,9 @@ var require_hyp_codegen = __commonJS({
       return translated;
     }
     function generateHypothesisTest3(properties, targetFile, testsDir, config) {
-      const targetDir = path6.dirname(targetFile);
-      const moduleName = path6.basename(targetFile, path6.extname(targetFile));
-      const relTargetDir = (0, common_1.toForwardSlash)(path6.relative(testsDir, targetDir));
+      const targetDir = path9.dirname(targetFile);
+      const moduleName = path9.basename(targetFile, path9.extname(targetFile));
+      const relTargetDir = (0, common_1.toForwardSlash)(path9.relative(testsDir, targetDir));
       const lines = [];
       lines.push(`# Auto-generated by propcheck \u2014 do not edit manually`);
       lines.push(`# Target: ${(0, common_1.toForwardSlash)(targetFile)}`);
@@ -3963,6 +4505,9 @@ var require_hyp_codegen = __commonJS({
       lines.push(`from hypothesis import given, settings`);
       lines.push(`from hypothesis import strategies as st`);
       lines.push(`import ${moduleName} as target`);
+      lines.push(``);
+      lines.push(`def approx_equal(a, b, abs_tol=1e-9, rel_tol=1e-6):`);
+      lines.push(`    return abs(a - b) <= abs_tol + rel_tol * max(1, abs(a), abs(b))`);
       lines.push(``);
       lines.push(`MAX_EXAMPLES = ${config.iterations}`);
       lines.push(``);
@@ -4051,7 +4596,7 @@ var require_hyp_runner = __commonJS({
     })();
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.runHypothesisTest = runHypothesisTest3;
-    var path6 = __importStar(require("path"));
+    var path9 = __importStar(require("path"));
     var process_runner_1 = require_process_runner();
     var result_parser_1 = require_result_parser();
     var _cachedPythonCmd = null;
@@ -4074,7 +4619,7 @@ var require_hyp_runner = __commonJS({
       const startTime = Date.now();
       const python = await findPython();
       const result = await (0, process_runner_1.runProcess)(python, [testFilePath], {
-        cwd: path6.dirname(testFilePath),
+        cwd: path9.dirname(testFilePath),
         timeout: config.timeout * Math.max(properties.length, 1)
       });
       const rawResults = (0, result_parser_1.parseJsonLines)(result.stdout);
@@ -4197,8 +4742,8 @@ var require_runner = __commonJS({
     })();
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.runMutationTesting = runMutationTesting2;
-    var fs4 = __importStar(require("fs/promises"));
-    var path6 = __importStar(require("path"));
+    var fs5 = __importStar(require("fs/promises"));
+    var path9 = __importStar(require("path"));
     var fc_codegen_1 = require_fc_codegen();
     var fc_runner_1 = require_fc_runner();
     var operators_1 = require_operators();
@@ -4217,8 +4762,8 @@ var require_runner = __commonJS({
           duration: Date.now() - startTime
         };
       }
-      const testsDir = path6.join(storeDir, "tests");
-      await fs4.mkdir(testsDir, { recursive: true });
+      const testsDir = path9.join(storeDir, "tests");
+      await fs5.mkdir(testsDir, { recursive: true });
       const quickConfig = {
         mode: "quick",
         iterations: 50,
@@ -4229,14 +4774,14 @@ var require_runner = __commonJS({
       const results = [];
       const survivingMutants = [];
       for (const mutant of mutants) {
-        const ext = path6.extname(sourceFilePath);
+        const ext = path9.extname(sourceFilePath);
         const mutantFileName = `_mutant_${mutant.id}${ext}`;
-        const mutantFilePath = path6.join(testsDir, mutantFileName);
+        const mutantFilePath = path9.join(testsDir, mutantFileName);
         try {
-          await fs4.writeFile(mutantFilePath, mutant.mutatedSource, "utf8");
+          await fs5.writeFile(mutantFilePath, mutant.mutatedSource, "utf8");
           const generated = (0, fc_codegen_1.generateFastCheckTest)(properties, mutantFilePath, testsDir, quickConfig);
-          const testFilePath = path6.join(testsDir, `_mut_test_${mutant.id}.js`);
-          await fs4.writeFile(testFilePath, generated.content, "utf8");
+          const testFilePath = path9.join(testsDir, `_mut_test_${mutant.id}.js`);
+          await fs5.writeFile(testFilePath, generated.content, "utf8");
           const result = await (0, fc_runner_1.runFastCheckTest)(testFilePath, properties, quickConfig);
           if (result.failed.length > 0) {
             results.push({
@@ -4257,7 +4802,7 @@ var require_runner = __commonJS({
             survivingMutants.push(mutant);
           }
           try {
-            await fs4.unlink(testFilePath);
+            await fs5.unlink(testFilePath);
           } catch {
           }
         } catch {
@@ -4267,7 +4812,7 @@ var require_runner = __commonJS({
           });
         } finally {
           try {
-            await fs4.unlink(mutantFilePath);
+            await fs5.unlink(mutantFilePath);
           } catch {
           }
         }
@@ -4336,25 +4881,60 @@ var require_property_table = __commonJS({
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.formatPropertyLine = formatPropertyLine;
     var chalk_1 = __importDefault(require("chalk"));
+    var RISK_LABELS = {
+      float_exact_equality: "float ===",
+      tiny_abs_tolerance: "tight tolerance",
+      missing_precondition: "no precondition",
+      wide_numeric_domain: "wide range",
+      doc_domain_mismatch: "doc mismatch",
+      roundtrip_numeric_fragility: "roundtrip fragile",
+      metamorphic_scale_risk: "scale risk"
+    };
+    function formatRiskTags(tags) {
+      if (tags.length === 0)
+        return "";
+      const labels = tags.map((t) => RISK_LABELS[t] ?? t);
+      return ` ${chalk_1.default.yellow(`(${labels.join(", ")})`)}`;
+    }
+    function formatStatus(property) {
+      const statusLabel = (() => {
+        switch (property.status) {
+          case "risky":
+            return chalk_1.default.yellow("[risky]");
+          case "refined":
+            return chalk_1.default.cyan("[refined]");
+          case "quarantined":
+          case "dropped":
+            return chalk_1.default.gray(`[${property.status}]`);
+          default:
+            return "";
+        }
+      })();
+      const status = statusLabel ? ` ${statusLabel}` : "";
+      const risk = formatRiskTags(property.riskTags);
+      return `${status}${risk}`;
+    }
     function formatPropertyLine(property, outcome) {
       const desc = `${property.targetFunction}: ${property.description}`;
       const padded = desc.padEnd(50);
+      const id = chalk_1.default.dim(`[${property.id}]`);
+      const meta = formatStatus(property);
       if (!outcome) {
-        const cat = chalk_1.default.dim(`[${property.category}]`);
-        const score = chalk_1.default.dim(`score: ${property.score}/13`);
-        return `  ${chalk_1.default.cyan("*")} ${padded} ${cat}  ${score}`;
+        const scoreNum = property.score;
+        const quality = scoreNum >= 12 ? chalk_1.default.green("\u2605") : scoreNum >= 9 ? chalk_1.default.yellow("\u2605") : chalk_1.default.red("\u2605");
+        return `  ${chalk_1.default.cyan("*")} ${padded} ${quality} ${chalk_1.default.dim(`${scoreNum}/13`)}${meta}`;
       }
       switch (outcome.status) {
         case "passed": {
           const iters = `(${outcome.iterations}/${outcome.iterations})`;
           const dur = `${(outcome.duration / 1e3).toFixed(1)}s`;
-          return `  ${chalk_1.default.green("\u2713")} ${padded} ${chalk_1.default.green("PASS")} ${chalk_1.default.dim(iters)}  ${chalk_1.default.dim(dur)}`;
+          return `  ${chalk_1.default.green("\u2713")} ${id} ${padded} ${chalk_1.default.green("PASS")} ${chalk_1.default.dim(iters)}  ${chalk_1.default.dim(dur)}${meta}`;
         }
         case "failed": {
-          return `  ${chalk_1.default.red("\u2717")} ${padded} ${chalk_1.default.red("FAIL")}`;
+          return `  ${chalk_1.default.red("\u2717")} ${id} ${padded} ${chalk_1.default.red("FAIL")}${meta}`;
         }
         case "error": {
-          return `  ${chalk_1.default.yellow("\u26A0")} ${padded} ${chalk_1.default.yellow("ERROR")}`;
+          return `  ${chalk_1.default.yellow("\u26A0")} ${id} ${padded} ${chalk_1.default.yellow("ERROR")}${meta}`;
         }
       }
     }
@@ -4424,6 +5004,7 @@ var require_summary = __commonJS({
       const passCount = result.passed.length;
       const failCount = result.failed.length;
       const errorCount = result.errors.length;
+      const skippedCount = result.skipped.length;
       const duration = (result.duration / 1e3).toFixed(1);
       const parts = [
         `Properties: ${total}`,
@@ -4435,11 +5016,14 @@ var require_summary = __commonJS({
       if (errorCount > 0) {
         parts.push(chalk_1.default.yellow(`Errors: ${errorCount}`));
       }
+      if (skippedCount > 0) {
+        parts.push(chalk_1.default.gray(`Skipped: ${skippedCount}`));
+      }
       parts.push(`Duration: ${duration}s`);
       return parts.join(" | ");
     }
     function formatCost(tokensUsed, cost) {
-      return chalk_1.default.dim(`Tokens: ${tokensUsed.toLocaleString()} | Cost: $${cost.toFixed(4)}`);
+      return chalk_1.default.dim(`AI usage: ${tokensUsed.toLocaleString()} tokens | Cost: $${cost.toFixed(4)}`);
     }
   }
 });
@@ -4461,7 +5045,7 @@ var require_cli_reporter = __commonJS({
     function reportInferResult2(result, filePath) {
       const dur = (result.duration / 1e3).toFixed(1);
       console.log("");
-      console.log(chalk_1.default.bold(`  Inferred ${result.properties.length} properties for ${filePath}`) + chalk_1.default.dim(` ($${result.cost.toFixed(4)}, ${dur}s)`));
+      console.log(chalk_1.default.bold(`  Discovered ${result.properties.length} rules for ${filePath}`) + chalk_1.default.dim(` ($${result.cost.toFixed(4)}, ${dur}s)`));
       console.log("");
       for (const prop of result.properties) {
         console.log((0, property_table_1.formatPropertyLine)(prop));
@@ -4492,6 +5076,15 @@ var require_cli_reporter = __commonJS({
       }
       console.log("");
       console.log(`  ${(0, summary_1.formatSummary)(result)}`);
+      if (result.failed.length > 0) {
+        const failedIds = result.failed.map((f) => f.propertyId).join(",");
+        console.log("");
+        console.log(chalk_1.default.dim(`  Next steps:`));
+        console.log(chalk_1.default.dim(`    \u2022 Review the counterexample above \u2014 is this a real bug or a false positive?`));
+        console.log(chalk_1.default.dim(`    \u2022 Fix the bug:     propcheck fix ${filePath}`));
+        console.log(chalk_1.default.dim(`    \u2022 Skip this rule:  propcheck run --skip ${failedIds} ${filePath}`));
+        console.log(chalk_1.default.dim(`    \u2022 Quarantine it:   propcheck property ${filePath} ${result.failed[0].propertyId} --status quarantined`));
+      }
       console.log("");
     }
   }
@@ -4503,8 +5096,11 @@ var require_json_reporter = __commonJS({
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.reportAsJson = reportAsJson2;
-    function reportAsJson2(result) {
+    function reportAsJson2(result, filePath) {
       const report = {
+        version: "1.0.0",
+        timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+        filePath: filePath ?? null,
         passed: result.passed.map((p) => ({
           propertyId: p.propertyId,
           iterations: p.iterations,
@@ -4520,15 +5116,200 @@ var require_json_reporter = __commonJS({
           propertyId: e.propertyId,
           errorMessage: e.errorMessage
         })),
+        skipped: result.skipped.map((s) => ({
+          propertyId: s.propertyId,
+          reason: s.reason,
+          propertyStatus: s.propertyStatus
+        })),
         summary: {
           total: result.passed.length + result.failed.length + result.errors.length,
           passed: result.passed.length,
           failed: result.failed.length,
           errors: result.errors.length,
+          skipped: result.skipped.length,
           duration: result.duration
         }
       };
       return JSON.stringify(report, null, 2);
+    }
+  }
+});
+
+// ../reporter/dist/property-workflow-reporter.js
+var require_property_workflow_reporter = __commonJS({
+  "../reporter/dist/property-workflow-reporter.js"(exports2) {
+    "use strict";
+    var __importDefault = exports2 && exports2.__importDefault || function(mod) {
+      return mod && mod.__esModule ? mod : { "default": mod };
+    };
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.reportPropertiesOverview = reportPropertiesOverview2;
+    exports2.reportPropertiesOverviewAsJson = reportPropertiesOverviewAsJson2;
+    exports2.reportPropertyDetail = reportPropertyDetail2;
+    exports2.reportPropertyDetailAsJson = reportPropertyDetailAsJson2;
+    exports2.reportStatusUpdate = reportStatusUpdate2;
+    var chalk_1 = __importDefault(require("chalk"));
+    var RISK_LABELS = {
+      float_exact_equality: "float ===",
+      tiny_abs_tolerance: "tight tolerance",
+      missing_precondition: "no precondition",
+      wide_numeric_domain: "wide range",
+      doc_domain_mismatch: "doc mismatch",
+      roundtrip_numeric_fragility: "roundtrip fragile",
+      metamorphic_scale_risk: "scale risk"
+    };
+    function formatRiskTags(tags) {
+      if (tags.length === 0)
+        return "";
+      const labels = tags.map((t) => RISK_LABELS[t] ?? t);
+      return chalk_1.default.yellow(` (${labels.join(", ")})`);
+    }
+    function statusIcon(status) {
+      switch (status) {
+        case "accepted":
+          return chalk_1.default.green("\u25CF");
+        case "risky":
+          return chalk_1.default.yellow("\u25CF");
+        case "refined":
+          return chalk_1.default.cyan("\u25CF");
+        case "quarantined":
+          return chalk_1.default.gray("\u25CB");
+        case "dropped":
+          return chalk_1.default.strikethrough(chalk_1.default.gray("\u25CB"));
+      }
+    }
+    function statusBadge(status) {
+      switch (status) {
+        case "accepted":
+          return chalk_1.default.green(status);
+        case "risky":
+          return chalk_1.default.yellow(status);
+        case "refined":
+          return chalk_1.default.cyan(status);
+        case "quarantined":
+          return chalk_1.default.gray(status);
+        case "dropped":
+          return chalk_1.default.strikethrough(chalk_1.default.gray(status));
+      }
+    }
+    function summarize(text, maxLen) {
+      return text.length > maxLen ? text.slice(0, maxLen - 1) + "\u2026" : text;
+    }
+    function reportPropertiesOverview2(propertySets, statusFilter) {
+      if (propertySets.length === 0) {
+        console.log("\n  No properties found. Run: propcheck infer <file>\n");
+        return;
+      }
+      for (const ps of propertySets) {
+        const props = statusFilter ? ps.properties.filter((p) => p.status === statusFilter) : ps.properties;
+        if (props.length === 0)
+          continue;
+        console.log("");
+        console.log(chalk_1.default.bold(`  ${ps.filePath}`));
+        for (const p of props) {
+          const icon = statusIcon(p.status);
+          const desc = summarize(`${p.targetFunction}: ${p.description}`, 50);
+          const badge = statusBadge(p.status);
+          const verified = p.humanVerified ? chalk_1.default.green(" \u2714 verified") : "";
+          const risk = formatRiskTags(p.riskTags);
+          console.log(`    ${icon} ${chalk_1.default.dim(p.id)} ${desc}  ${badge}${verified}${risk}`);
+        }
+        const counts = countByStatus(ps.properties);
+        const parts = [];
+        parts.push(`${ps.properties.length} total`);
+        if (counts.accepted > 0)
+          parts.push(chalk_1.default.green(`${counts.accepted} accepted`));
+        if (counts.risky > 0)
+          parts.push(chalk_1.default.yellow(`${counts.risky} risky`));
+        if (counts.refined > 0)
+          parts.push(chalk_1.default.cyan(`${counts.refined} refined`));
+        if (counts.quarantined > 0)
+          parts.push(chalk_1.default.gray(`${counts.quarantined} quarantined`));
+        if (counts.dropped > 0)
+          parts.push(chalk_1.default.gray(`${counts.dropped} dropped`));
+        console.log(chalk_1.default.dim(`    \u2500\u2500 ${parts.join(" | ")}`));
+      }
+      console.log("");
+    }
+    function reportPropertiesOverviewAsJson2(propertySets, statusFilter) {
+      const modules = propertySets.map((ps) => {
+        const props = statusFilter ? ps.properties.filter((p) => p.status === statusFilter) : ps.properties;
+        return {
+          filePath: ps.filePath,
+          properties: props.map((p) => ({
+            id: p.id,
+            targetFunction: p.targetFunction,
+            description: p.description,
+            status: p.status,
+            humanVerified: p.humanVerified ?? false,
+            riskScore: p.riskScore,
+            riskTags: p.riskTags
+          })),
+          summary: countByStatus(props)
+        };
+      }).filter((m) => m.properties.length > 0);
+      const json = { modules };
+      return JSON.stringify(json, null, 2);
+    }
+    function reportPropertyDetail2(property, filePath) {
+      console.log("");
+      console.log(chalk_1.default.bold(`  ${filePath} \u2014 ${property.id}`));
+      console.log("");
+      console.log(`  Function   : ${property.targetFunction}`);
+      console.log(`  Description: ${property.description}`);
+      console.log(`  Category   : ${property.category}`);
+      console.log(`  Status     : ${statusBadge(property.status)}${property.humanVerified ? chalk_1.default.green(" \u2714 verified") : ""}`);
+      console.log(`  Score      : ${property.score}/13  risk: ${property.riskScore}`);
+      if (property.riskTags.length > 0) {
+        console.log(`  Risk tags  : ${chalk_1.default.yellow(property.riskTags.map((t) => RISK_LABELS[t] ?? t).join(", "))}`);
+      }
+      console.log(`  Confidence : ${(property.confidence * 100).toFixed(0)}%`);
+      console.log(`  Evidence   : ${property.evidence}`);
+      console.log("");
+      console.log(chalk_1.default.dim("  Assertion:"));
+      console.log(`    ${property.assertion}`);
+      console.log("");
+      console.log(chalk_1.default.dim(`  Inferred: ${property.inferredAt}  model: ${property.modelId}`));
+      if (property.validation) {
+        const v = property.validation;
+        console.log(chalk_1.default.dim(`  Validated: smoke=${v.smokePasses} canary=${v.canaryPasses} seeds=[${v.seedsTested.join(",")}] at ${v.lastValidatedAt}`));
+      }
+      console.log("");
+    }
+    function reportPropertyDetailAsJson2(property, filePath) {
+      const json = {
+        filePath,
+        property: {
+          id: property.id,
+          targetFunction: property.targetFunction,
+          description: property.description,
+          category: property.category,
+          assertion: property.assertion,
+          status: property.status,
+          humanVerified: property.humanVerified ?? false,
+          score: property.score,
+          riskScore: property.riskScore,
+          riskTags: property.riskTags,
+          confidence: property.confidence,
+          evidence: property.evidence,
+          inferredAt: property.inferredAt,
+          modelId: property.modelId
+        }
+      };
+      return JSON.stringify(json, null, 2);
+    }
+    function reportStatusUpdate2(propertyId, filePath, oldStatus, newStatus) {
+      console.log("");
+      console.log(`  ${chalk_1.default.bold(propertyId)} in ${filePath}: ${statusBadge(oldStatus)} \u2192 ${statusBadge(newStatus)}` + chalk_1.default.green(" \u2714 humanVerified"));
+      console.log("");
+    }
+    function countByStatus(properties) {
+      const counts = { total: 0, accepted: 0, risky: 0, refined: 0, quarantined: 0, dropped: 0 };
+      for (const p of properties) {
+        counts.total++;
+        counts[p.status]++;
+      }
+      return counts;
     }
   }
 });
@@ -4538,7 +5319,7 @@ var require_dist7 = __commonJS({
   "../reporter/dist/index.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.formatPropertyLine = exports2.formatCounterexample = exports2.formatCost = exports2.formatSummary = exports2.reportAsJson = exports2.reportRunSummary = exports2.reportInferResult = void 0;
+    exports2.reportStatusUpdate = exports2.reportPropertyDetailAsJson = exports2.reportPropertyDetail = exports2.reportPropertiesOverviewAsJson = exports2.reportPropertiesOverview = exports2.formatPropertyLine = exports2.formatCounterexample = exports2.formatCost = exports2.formatSummary = exports2.reportAsJson = exports2.reportRunSummary = exports2.reportInferResult = void 0;
     var cli_reporter_1 = require_cli_reporter();
     Object.defineProperty(exports2, "reportInferResult", { enumerable: true, get: function() {
       return cli_reporter_1.reportInferResult;
@@ -4564,6 +5345,22 @@ var require_dist7 = __commonJS({
     var property_table_1 = require_property_table();
     Object.defineProperty(exports2, "formatPropertyLine", { enumerable: true, get: function() {
       return property_table_1.formatPropertyLine;
+    } });
+    var property_workflow_reporter_1 = require_property_workflow_reporter();
+    Object.defineProperty(exports2, "reportPropertiesOverview", { enumerable: true, get: function() {
+      return property_workflow_reporter_1.reportPropertiesOverview;
+    } });
+    Object.defineProperty(exports2, "reportPropertiesOverviewAsJson", { enumerable: true, get: function() {
+      return property_workflow_reporter_1.reportPropertiesOverviewAsJson;
+    } });
+    Object.defineProperty(exports2, "reportPropertyDetail", { enumerable: true, get: function() {
+      return property_workflow_reporter_1.reportPropertyDetail;
+    } });
+    Object.defineProperty(exports2, "reportPropertyDetailAsJson", { enumerable: true, get: function() {
+      return property_workflow_reporter_1.reportPropertyDetailAsJson;
+    } });
+    Object.defineProperty(exports2, "reportStatusUpdate", { enumerable: true, get: function() {
+      return property_workflow_reporter_1.reportStatusUpdate;
     } });
   }
 });
@@ -4613,7 +5410,529 @@ var import_store2 = __toESM(require_dist());
 var import_engines = __toESM(require_dist6());
 var import_reporter = __toESM(require_dist7());
 var import_common = __toESM(require_dist4());
+function findReferencedTypeNames(functions, allTypes) {
+  const typeNames = new Set(allTypes.map((t) => t.name));
+  const referenced = /* @__PURE__ */ new Set();
+  for (const fn of functions) {
+    for (const typeName of typeNames) {
+      if (fn.returnType?.includes(typeName)) {
+        referenced.add(typeName);
+      }
+      for (const param of fn.parameters) {
+        if (param.type?.includes(typeName)) {
+          referenced.add(typeName);
+        }
+      }
+      if (fn.docstring?.includes(typeName)) {
+        referenced.add(typeName);
+      }
+    }
+  }
+  return referenced;
+}
+function trimSourceCode(fullSource, matchedFunctions, referencedTypes) {
+  const lines = fullSource.split("\n");
+  const ranges = [];
+  const allStarts = [
+    ...matchedFunctions.map((f) => f.loc.startLine),
+    ...referencedTypes.map((t) => t.loc.startLine)
+  ];
+  if (allStarts.length > 0) {
+    const firstDeclLine = Math.min(...allStarts);
+    if (firstDeclLine > 1) {
+      ranges.push([1, firstDeclLine - 1]);
+    }
+  }
+  for (const fn of matchedFunctions) {
+    ranges.push([fn.loc.startLine, fn.loc.endLine]);
+  }
+  for (const t of referencedTypes) {
+    ranges.push([t.loc.startLine, t.loc.endLine]);
+  }
+  if (ranges.length === 0) return fullSource;
+  ranges.sort((a, b) => a[0] - b[0]);
+  const merged = [ranges[0]];
+  for (let i = 1; i < ranges.length; i++) {
+    const prev = merged[merged.length - 1];
+    const curr = ranges[i];
+    if (curr[0] <= prev[1] + 1) {
+      prev[1] = Math.max(prev[1], curr[1]);
+    } else {
+      merged.push(curr);
+    }
+  }
+  const parts = [];
+  for (const [start, end] of merged) {
+    const s = Math.max(0, start - 1);
+    const e = Math.min(lines.length, end);
+    parts.push(lines.slice(s, e).join("\n"));
+  }
+  return parts.join("\n\n// ... (trimmed)\n\n");
+}
+function matchesFunctionName(fn, name) {
+  return fn.name === name || fn.qualifiedName === name || fn.qualifiedName.endsWith("." + name);
+}
+function filterContextByFunctions(context, functionNames) {
+  const matchedFunctions = context.functions.filter(
+    (fn) => functionNames.some((name) => matchesFunctionName(fn, name))
+  );
+  const refTypeNames = findReferencedTypeNames(matchedFunctions, context.types);
+  const matchedTypes = context.types.filter((t) => refTypeNames.has(t.name));
+  const trimmedSource = trimSourceCode(
+    context.sourceCode,
+    matchedFunctions,
+    matchedTypes
+  );
+  const matchedQualNames = new Set(matchedFunctions.map((f) => f.qualifiedName));
+  const matchedNames = new Set(matchedFunctions.map((f) => f.name));
+  const filteredDoc = context.signals.doc.filter(
+    (d) => matchedQualNames.has(d.functionName) || matchedNames.has(d.functionName)
+  );
+  const filteredType = context.signals.type.filter(
+    (t) => matchedQualNames.has(t.functionName) || matchedNames.has(t.functionName)
+  );
+  return {
+    filePath: context.filePath,
+    language: context.language,
+    sourceCode: trimmedSource,
+    functions: matchedFunctions,
+    types: matchedTypes,
+    imports: context.imports,
+    signals: {
+      ast: context.signals.ast,
+      type: filteredType,
+      doc: filteredDoc
+    }
+  };
+}
 var MAX_REPAIR_ROUNDS = 3;
+var MAX_CANARY_CASES = 8;
+function isNumericSpec(spec) {
+  return spec.type === "float" || spec.type === "number" || spec.type === "integer" || spec.type === "int";
+}
+function getNumericBounds(spec) {
+  const c = spec.constraints ?? {};
+  const min = typeof c.min === "number" ? c.min : void 0;
+  const max = typeof c.max === "number" ? c.max : void 0;
+  return { ...min !== void 0 ? { min } : {}, ...max !== void 0 ? { max } : {} };
+}
+function buildValidationEvidence(smokePasses, canaryPasses) {
+  return {
+    smokePasses,
+    canaryPasses,
+    seedsTested: [],
+    lastValidatedAt: (/* @__PURE__ */ new Date()).toISOString()
+  };
+}
+function buildCandidateValues(spec) {
+  const c = spec.constraints ?? {};
+  if (spec.type === "boolean") {
+    return [false, true];
+  }
+  if (spec.type === "string") {
+    const maxSize = typeof c.maxLength === "number" ? Math.max(1, c.maxLength) : 1;
+    return ["", "x", "0".slice(0, maxSize)];
+  }
+  if (isNumericSpec(spec)) {
+    const defaults = spec.type === "integer" || spec.type === "int" ? [0, 1, -1, 42, -42, Number.MAX_SAFE_INTEGER - 1] : [0, Number.EPSILON, 0.1, 0.2, 0.3, 1e-12, 1e6];
+    const { min, max } = getNumericBounds(spec);
+    const filtered = defaults.filter((value) => {
+      if (!Number.isFinite(value)) return false;
+      if (min !== void 0 && value < min) return false;
+      if (max !== void 0 && value > max) return false;
+      return true;
+    });
+    if (filtered.length > 0) {
+      return [...new Set(filtered.map((value) => spec.type === "integer" || spec.type === "int" ? Math.trunc(value) : value))];
+    }
+    const fallback = [];
+    if (min !== void 0) fallback.push(spec.type === "integer" || spec.type === "int" ? Math.trunc(min) : min);
+    if (max !== void 0) fallback.push(spec.type === "integer" || spec.type === "int" ? Math.trunc(max) : max);
+    return fallback.length > 0 ? [...new Set(fallback)] : [spec.type === "integer" || spec.type === "int" ? 0 : 0];
+  }
+  if (spec.type === "array") {
+    const elementType = c.element ?? c.elementType;
+    const nestedSpec = {
+      type: typeof elementType === "string" ? elementType : "integer",
+      constraints: {
+        ...(c.elementMin ?? c.min) !== void 0 ? { min: c.elementMin ?? c.min } : {},
+        ...(c.elementMax ?? c.max) !== void 0 ? { max: c.elementMax ?? c.max } : {},
+        ...c.elementMaxLength !== void 0 ? { maxLength: c.elementMaxLength } : {}
+      }
+    };
+    const elementValues = buildCandidateValues(nestedSpec);
+    const singleton = elementValues[0] ?? 0;
+    const second = elementValues[1] ?? singleton;
+    const maxLength = typeof c.maxLength === "number" ? c.maxLength : void 0;
+    const arrays = [];
+    if (maxLength === void 0 || maxLength >= 0) arrays.push([]);
+    if (maxLength === void 0 || maxLength >= 1) arrays.push([singleton]);
+    if (maxLength === void 0 || maxLength >= 2) arrays.push([singleton, singleton]);
+    if (maxLength === void 0 || maxLength >= 2) arrays.push([singleton, second]);
+    return arrays;
+  }
+  if (spec.type === "object") {
+    const fields = c.fields;
+    if (fields && typeof fields === "object") {
+      const entries = Object.entries(fields);
+      const obj = {};
+      for (const [name, fieldSpec] of entries) {
+        const fs5 = fieldSpec;
+        const vals = buildCandidateValues({ type: fs5.type, constraints: fs5.constraints });
+        obj[name] = vals[0] ?? null;
+      }
+      return [obj];
+    }
+    return [{}];
+  }
+  if (spec.type === "optional") {
+    const inner = c.inner;
+    if (inner && typeof inner === "object" && typeof inner.type === "string") {
+      const vals = buildCandidateValues({ type: inner.type, constraints: inner.constraints });
+      return [void 0, vals[0] ?? null];
+    }
+    return [void 0, null];
+  }
+  if (spec.type === "enum") {
+    const values = c.values;
+    if (Array.isArray(values) && values.length > 0) {
+      return values;
+    }
+    return [];
+  }
+  return [];
+}
+function buildCanaryCases(property) {
+  const entries = Object.entries(property.generators);
+  if (entries.length === 0) {
+    return [{}];
+  }
+  const candidates = entries.map(([name, spec]) => [name, buildCandidateValues(spec)]);
+  if (candidates.some(([, values]) => values.length === 0)) {
+    return [];
+  }
+  const baseline = Object.fromEntries(candidates.map(([name, values]) => [name, values[0]]));
+  const cases = [baseline];
+  const seen = /* @__PURE__ */ new Set([JSON.stringify(baseline)]);
+  for (const [name, values] of candidates) {
+    for (const value of values.slice(1)) {
+      const nextCase = { ...baseline, [name]: value };
+      const key = JSON.stringify(nextCase);
+      if (!seen.has(key)) {
+        seen.add(key);
+        cases.push(nextCase);
+      }
+      if (cases.length >= MAX_CANARY_CASES) {
+        return cases;
+      }
+    }
+  }
+  return cases;
+}
+function buildConstantGenerators(input) {
+  return Object.freeze(
+    Object.fromEntries(
+      Object.entries(input).map(([name, value]) => [name, { type: "constant", constraints: { value } }])
+    )
+  );
+}
+function findTopLevelOperator(expression, operators) {
+  let depth = 0;
+  let quote = null;
+  let escaped = false;
+  for (let i = 0; i < expression.length; i++) {
+    const ch = expression[i];
+    if (quote) {
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      if (ch === "\\") {
+        escaped = true;
+        continue;
+      }
+      if (ch === quote) {
+        quote = null;
+      }
+      continue;
+    }
+    if (ch === '"' || ch === "'" || ch === "`") {
+      quote = ch;
+      continue;
+    }
+    if (ch === "(" || ch === "[" || ch === "{") {
+      depth++;
+      continue;
+    }
+    if (ch === ")" || ch === "]" || ch === "}") {
+      depth = Math.max(0, depth - 1);
+      continue;
+    }
+    if (depth === 0) {
+      for (const operator of operators) {
+        if (expression.startsWith(operator, i)) {
+          return {
+            left: expression.slice(0, i).trim(),
+            operator,
+            right: expression.slice(i + operator.length).trim()
+          };
+        }
+      }
+    }
+  }
+  return null;
+}
+function weakenExactEquality(assertion) {
+  const match = findTopLevelOperator(assertion.trim(), ["!==", "==="]);
+  if (!match || !match.left || !match.right) {
+    return null;
+  }
+  return match.operator === "!==" ? `!approxEqual(${match.left}, ${match.right})` : `approxEqual(${match.left}, ${match.right})`;
+}
+function parseTinyTolerance(assertion) {
+  const trimmed = assertion.trim();
+  if (!trimmed.startsWith("Math.abs(")) {
+    return null;
+  }
+  const start = "Math.abs(".length;
+  let depth = 0;
+  let closeIndex = -1;
+  for (let i = start; i < trimmed.length; i++) {
+    const ch = trimmed[i];
+    if (ch === "(") depth++;
+    if (ch === ")") {
+      if (depth === 0) {
+        closeIndex = i;
+        break;
+      }
+      depth--;
+    }
+  }
+  if (closeIndex === -1) {
+    return null;
+  }
+  const body = trimmed.slice(start, closeIndex).trim();
+  const remainder = trimmed.slice(closeIndex + 1).trim();
+  const toleranceMatch = remainder.match(/^(?:<|<=)\s*1e-(?:9|[1-9]\d+)$/i);
+  if (!toleranceMatch) {
+    return null;
+  }
+  const diff = findTopLevelOperator(body, ["-"]);
+  if (!diff || !diff.left || !diff.right) {
+    return null;
+  }
+  return {
+    left: diff.left,
+    right: diff.right
+  };
+}
+function weakenTinyTolerance(assertion) {
+  const parsed = parseTinyTolerance(assertion);
+  if (!parsed) {
+    return null;
+  }
+  return `approxEqual(${parsed.left}, ${parsed.right}, 1e-6, 1e-6)`;
+}
+function weakenMissingPrecondition(assertion) {
+  const trimmed = assertion.trim();
+  if (!trimmed) {
+    return null;
+  }
+  if (/\btry\b|\bcatch\b/.test(trimmed)) {
+    return null;
+  }
+  return `(() => { try { return ${trimmed}; } catch { return true; } })()`;
+}
+function tightenWideNumericGenerators(generators) {
+  const next = Object.fromEntries(Object.entries(generators).map(([name, spec]) => {
+    if (isNumericSpec(spec)) {
+      const { min, max } = getNumericBounds(spec);
+      if (min === void 0 && max === void 0) {
+        return [name, { ...spec, constraints: { ...spec.constraints ?? {}, min: 0, max: 1e6 } }];
+      }
+      if (min !== void 0 && max !== void 0 && Math.abs(max - min) > 1e6) {
+        return [name, { ...spec, constraints: { ...spec.constraints ?? {}, min: Math.max(min, 0), max: Math.min(max, 1e6) } }];
+      }
+    }
+    if (spec.type === "array") {
+      const c = spec.constraints ?? {};
+      const elementType = c.element ?? c.elementType;
+      if (elementType === "float" || elementType === "number" || elementType === "integer" || elementType === "int") {
+        const min = typeof (c.elementMin ?? c.min) === "number" ? Number(c.elementMin ?? c.min) : void 0;
+        const max = typeof (c.elementMax ?? c.max) === "number" ? Number(c.elementMax ?? c.max) : void 0;
+        if (min === void 0 && max === void 0) {
+          return [name, { ...spec, constraints: { ...c, elementMin: 0, elementMax: 1e6 } }];
+        }
+        if (min !== void 0 && max !== void 0 && Math.abs(max - min) > 1e6) {
+          return [name, { ...spec, constraints: { ...c, elementMin: Math.max(min, 0), elementMax: Math.min(max, 1e6) } }];
+        }
+      }
+    }
+    return [name, spec];
+  }));
+  return Object.freeze(next);
+}
+function refreshRiskMetadata(property) {
+  const preservedTags = property.riskTags.filter((tag) => tag === "doc_domain_mismatch" || tag === "missing_precondition");
+  const riskTags = [.../* @__PURE__ */ new Set([...(0, import_llm.detectRiskTags)(property), ...preservedTags])];
+  return {
+    ...property,
+    riskTags,
+    riskScore: (0, import_llm.computeRiskScore)(property, property.score, riskTags)
+  };
+}
+function autoWeakenProperty(property) {
+  if (property.status === "refined") {
+    return null;
+  }
+  let assertion = property.assertion;
+  let generators = property.generators;
+  let changed = false;
+  if (property.riskTags.includes("float_exact_equality")) {
+    const weakened = weakenExactEquality(assertion);
+    if (weakened && weakened !== assertion) {
+      assertion = weakened;
+      changed = true;
+    }
+  }
+  if (property.riskTags.includes("tiny_abs_tolerance")) {
+    const weakened = weakenTinyTolerance(assertion);
+    if (weakened && weakened !== assertion) {
+      assertion = weakened;
+      changed = true;
+    }
+  }
+  if (property.riskTags.includes("wide_numeric_domain")) {
+    const tightened = tightenWideNumericGenerators(generators);
+    if (JSON.stringify(tightened) !== JSON.stringify(generators)) {
+      generators = tightened;
+      changed = true;
+    }
+  }
+  if (property.riskTags.includes("missing_precondition")) {
+    const weakened = weakenMissingPrecondition(assertion);
+    if (weakened && weakened !== assertion) {
+      assertion = weakened;
+      changed = true;
+    }
+  }
+  if (!changed) {
+    return null;
+  }
+  return refreshRiskMetadata({
+    ...property,
+    assertion,
+    generators,
+    status: "refined"
+  });
+}
+function detectDocDomainRiskTags(property, context) {
+  const functionName = property.targetFunction.split(".").pop() ?? property.targetFunction;
+  const doc = context.signals.doc.find((entry) => entry.functionName === property.targetFunction || entry.functionName === functionName);
+  if (!doc) {
+    return [];
+  }
+  for (const [paramName, spec] of Object.entries(property.generators)) {
+    const docText = doc.paramDocs[paramName]?.toLowerCase();
+    if (!docText || !isNumericSpec(spec)) continue;
+    const { min, max } = getNumericBounds(spec);
+    const mentionsPercentageRange = /0\s*(?:-|to)\s*100|0-100|0 to 100|percentage|percent/.test(docText);
+    const mentionsNonNegative = /non-negative|nonnegative|>=\s*0|positive/.test(docText);
+    if (mentionsPercentageRange && (min !== 0 || max !== 100)) {
+      return ["doc_domain_mismatch"];
+    }
+    if (mentionsNonNegative && min === void 0) {
+      return ["doc_domain_mismatch"];
+    }
+  }
+  return [];
+}
+function applyRiskMetadata(properties, context) {
+  return properties.map((property) => {
+    const riskTags = [.../* @__PURE__ */ new Set([...property.riskTags, ...detectDocDomainRiskTags(property, context)])];
+    return {
+      ...property,
+      riskTags,
+      riskScore: (0, import_llm.computeRiskScore)(property, property.score, riskTags),
+      status: riskTags.length > 0 ? "risky" : "accepted"
+    };
+  });
+}
+async function canaryValidateProperties(properties, targetPath, storeDir, language) {
+  const testsDir = path2.join(storeDir, "tests");
+  await fs.mkdir(testsDir, { recursive: true });
+  const canaryConfig = {
+    mode: "quick",
+    iterations: 1,
+    timeout: 15e3,
+    verbose: false
+  };
+  const validated = [];
+  const quarantined = [];
+  for (const property of properties) {
+    if (property.riskTags.length === 0) {
+      validated.push({
+        ...property,
+        validation: buildValidationEvidence(100, 0)
+      });
+      continue;
+    }
+    const canaryCases = buildCanaryCases(property);
+    if (canaryCases.length === 0) {
+      validated.push({
+        ...property,
+        status: property.status === "refined" ? "refined" : "risky",
+        validation: buildValidationEvidence(100, 0)
+      });
+      continue;
+    }
+    let canaryPasses = 0;
+    let failureReason = null;
+    for (const input of canaryCases) {
+      const canaryProperty = {
+        ...property,
+        generators: buildConstantGenerators(input)
+      };
+      const result = await executeTrialRun([canaryProperty], targetPath, testsDir, canaryConfig, language);
+      const failed = result.failed[0];
+      const error = result.errors[0];
+      if (failed || error) {
+        failureReason = failed?.errorMessage ?? error?.errorMessage ?? `canary failed for ${JSON.stringify(input)}`;
+        break;
+      }
+      canaryPasses++;
+    }
+    if (failureReason) {
+      const weakened = autoWeakenProperty(property);
+      if (weakened) {
+        const rerun = await canaryValidateProperties([weakened], targetPath, storeDir, language);
+        if (rerun.validated.length > 0) {
+          validated.push(rerun.validated[0]);
+          continue;
+        }
+        if (rerun.quarantined.length > 0) {
+          quarantined.push(rerun.quarantined[0]);
+          continue;
+        }
+      }
+      quarantined.push({
+        prop: {
+          ...property,
+          status: "quarantined",
+          validation: buildValidationEvidence(100, canaryPasses)
+        },
+        reason: failureReason
+      });
+      continue;
+    }
+    validated.push({
+      ...property,
+      status: property.status === "refined" ? "refined" : "risky",
+      validation: buildValidationEvidence(100, canaryPasses)
+    });
+  }
+  return { validated, quarantined };
+}
 async function executeTrialRun(properties, targetPath, testsDir, config, language) {
   const generated = language === "python" ? (0, import_engines.generateHypothesisTest)(properties, targetPath, testsDir, config) : (0, import_engines.generateFastCheckTest)(properties, targetPath, testsDir, config);
   const testFilePath = path2.join(testsDir, generated.fileName);
@@ -4657,6 +5976,15 @@ async function trialRunValidation(properties, targetPath, storeDir, sourceCode, 
       if (passedIds.has(prop.id)) {
         validated.push(prop);
       } else if (failedIds.has(prop.id)) {
+        if (round < MAX_REPAIR_ROUNDS) {
+          const weakened = autoWeakenProperty(prop);
+          if (weakened) {
+            needsRepair.push(weakened);
+            totalRepaired++;
+            console.log(`    \u21BB Adjusting: ${prop.targetFunction}: ${prop.description} \u2014 too strict, relaxing... (attempt ${round + 1})`);
+            continue;
+          }
+        }
         validated.push(prop);
       } else if (errorIds.has(prop.id)) {
         const err = result.errors.find((e) => e.propertyId === prop.id);
@@ -4674,10 +6002,10 @@ async function trialRunValidation(properties, targetPath, storeDir, sourceCode, 
             totalRepaired++;
             console.log(`    \u21BB Repairing: ${prop.targetFunction}: ${prop.description} (round ${round + 1})`);
           } else {
-            dropped.push({ prop, reason: `codegen error (repair failed round ${round + 1}): ${errorMsg.slice(0, 60)}` });
+            dropped.push({ prop, reason: `codegen error (repair failed round ${round + 1}): ${errorMsg}` });
           }
         } else {
-          dropped.push({ prop, reason: `codegen error (max ${MAX_REPAIR_ROUNDS} repairs): ${errorMsg.slice(0, 60)}` });
+          dropped.push({ prop, reason: `codegen error (max ${MAX_REPAIR_ROUNDS} repairs): ${errorMsg}` });
         }
       } else {
         dropped.push({ prop, reason: "no output from trial run" });
@@ -4695,17 +6023,6 @@ async function inferCommand(target, options) {
     provider: options.provider,
     baseURL: options.baseUrl
   });
-  const errors = (0, import_config.validateConfig)(config, "infer");
-  if (errors.length > 0) {
-    for (const err of errors) {
-      console.error(`
-  Error: ${err}
-`);
-    }
-    process.exit(2);
-  }
-  await (0, import_store2.initStore)(projectRoot, config.storeDir);
-  const storeDir = path2.join(projectRoot, config.storeDir);
   const targetPath = path2.resolve(projectRoot, target);
   if (!targetPath.startsWith(projectRoot + path2.sep) && targetPath !== projectRoot) {
     console.error(`
@@ -4728,6 +6045,17 @@ async function inferCommand(target, options) {
 `);
     process.exit(2);
   }
+  const errors = (0, import_config.validateConfig)(config, "infer");
+  if (errors.length > 0) {
+    for (const err of errors) {
+      console.error(`
+  Error: ${err}
+`);
+    }
+    process.exit(2);
+  }
+  await (0, import_store2.initStore)(projectRoot, config.storeDir);
+  const storeDir = path2.join(projectRoot, config.storeDir);
   const MAX_SOURCE_BYTES = 5e5;
   const stat2 = await fs.stat(targetPath);
   if (stat2.size > MAX_SOURCE_BYTES) {
@@ -4738,19 +6066,49 @@ async function inferCommand(target, options) {
   }
   const source = await fs.readFile(targetPath, "utf8");
   const context = language === "python" ? (0, import_parser.analyzePythonFile)(targetPath, source) : (0, import_parser.analyzeFile)(targetPath, source, language);
-  if (context.functions.length === 0) {
+  let inferContext = context;
+  if (options.function) {
+    const names = options.function.split(",").map((n) => n.trim()).filter(Boolean);
+    const missing = names.filter(
+      (name) => !context.functions.some((fn) => matchesFunctionName(fn, name))
+    );
+    if (missing.length > 0) {
+      const available = context.functions.map((fn) => fn.qualifiedName).join(", ");
+      console.error(`
+  Error: Function(s) not found: ${missing.join(", ")}`);
+      console.error(`  Available: ${available}
+`);
+      process.exit(2);
+    }
+    inferContext = filterContextByFunctions(context, names);
+  }
+  if (inferContext.functions.length === 0) {
     console.log(`
   No exported functions found in ${target}
 `);
     return;
   }
   console.log(`
-  Analyzing ${context.functions.length} functions in ${target}...`);
-  const maxProperties = Math.min(Math.max(1, parseInt(options.maxProperties ?? "5", 10) || 5), 20);
-  const minScore = Math.min(Math.max(0, parseInt(options.minScore ?? "10", 10) || 10), 15);
+  Analyzing ${inferContext.functions.length} function${inferContext.functions.length === 1 ? "" : "s"} in ${target}...`);
+  const maxPropsRaw = parseInt(options.maxProperties ?? "5", 10);
+  if (options.maxProperties !== void 0 && isNaN(maxPropsRaw)) {
+    console.error(`
+  Error: --max-properties must be a number, got "${options.maxProperties}"
+`);
+    process.exit(2);
+  }
+  const maxProperties = Math.min(Math.max(1, maxPropsRaw || 5), 20);
+  const minScoreRaw = parseInt(options.minScore ?? "10", 10);
+  if (options.minScore !== void 0 && isNaN(minScoreRaw)) {
+    console.error(`
+  Error: --min-score must be a number, got "${options.minScore}"
+`);
+    process.exit(2);
+  }
+  const minScore = Math.min(Math.max(0, minScoreRaw || 10), 15);
   let result;
   try {
-    result = await (0, import_llm.inferProperties)(config.apiKey, config.model, context, {
+    result = await (0, import_llm.inferProperties)(config.apiKey, config.model, inferContext, {
       maxProperties,
       minScore,
       mock: config.mock,
@@ -4770,6 +6128,10 @@ async function inferCommand(target, options) {
     }
     process.exit(1);
   }
+  result = {
+    ...result,
+    properties: applyRiskMetadata(result.properties, inferContext)
+  };
   if (result.properties.length === 0) {
     console.log("  No properties inferred (all filtered out by quality scoring).\n");
     return;
@@ -4778,7 +6140,7 @@ async function inferCommand(target, options) {
   if (!options.skipValidation) {
     const testsDir = path2.join(storeDir, "tests");
     await fs.mkdir(testsDir, { recursive: true });
-    console.log(`  Validating ${result.properties.length} properties (trial run, 100 iterations)...`);
+    console.log(`  Validating ${result.properties.length} rules (quick test, 100 random inputs each)...`);
     const llmClient = config.mock ? null : config.apiKey ? (0, import_llm.createClient)(config.apiKey, config.model, config.provider, config.baseURL) : null;
     const { validated, dropped, repaired } = await trialRunValidation(
       result.properties,
@@ -4790,7 +6152,7 @@ async function inferCommand(target, options) {
       language
     );
     if (repaired > 0) {
-      console.log(`  Self-repaired ${repaired} properties.`);
+      console.log(`  Fixed ${repaired} rule${repaired === 1 ? "" : "s"} that ${repaired === 1 ? "was" : "were"} too strict.`);
     }
     if (dropped.length > 0) {
       console.log(`  Dropped ${dropped.length} properties during validation:`);
@@ -4798,24 +6160,37 @@ async function inferCommand(target, options) {
         console.log(`    - ${prop.targetFunction}: ${prop.description} [${reason}]`);
       }
     }
-    finalProperties = validated;
+    const { validated: canaryValidated, quarantined } = await canaryValidateProperties(
+      validated,
+      targetPath,
+      storeDir,
+      language
+    );
+    if (quarantined.length > 0) {
+      console.log(`  Quarantined ${quarantined.length} fragile propert${quarantined.length === 1 ? "y" : "ies"} after edge-case validation:`);
+      for (const { prop, reason } of quarantined) {
+        console.log(`    - ${prop.targetFunction}: ${prop.description} [${reason.length > 80 ? reason.slice(0, 77) + "..." : reason}]`);
+      }
+    }
+    finalProperties = [...canaryValidated, ...quarantined.map(({ prop }) => prop)];
     if (finalProperties.length === 0) {
       console.log("  No properties survived validation.\n");
       return;
     }
-    if (options.refine && finalProperties.length > 0) {
+    const activeProperties = finalProperties.filter((property) => property.status !== "quarantined");
+    if (options.refine && activeProperties.length > 0) {
       console.log(`
-  Refinement Round 2: analyzing ${finalProperties.length} properties...`);
+  Refinement Round 2: analyzing ${activeProperties.length} properties...`);
       const fullConfig = { mode: "quick", iterations: 100, timeout: 15e3, verbose: false };
       const execResult = await executeTrialRun(
-        finalProperties,
+        activeProperties,
         targetPath,
         testsDir,
         fullConfig,
         language
       );
-      const classifications = (0, import_llm.classifyProperties)(finalProperties, execResult);
-      const functionNames = context.functions.map((f) => f.qualifiedName);
+      const classifications = (0, import_llm.classifyProperties)(activeProperties, execResult);
+      const functionNames = inferContext.functions.map((f) => f.qualifiedName);
       const feedback = (0, import_llm.buildFeedbackSummary)(classifications, functionNames);
       const strong = classifications.filter((c) => c.kind === "strong");
       const weak = classifications.filter((c) => c.kind === "weak");
@@ -4824,16 +6199,16 @@ async function inferCommand(target, options) {
       if (weak.length > 0 || bugs.length > 0) {
         let improvedProperties;
         if (config.mock) {
-          improvedProperties = (0, import_llm.mockRefineProperties)(classifications);
+          improvedProperties = applyRiskMetadata((0, import_llm.mockRefineProperties)(classifications), inferContext);
         } else if (llmClient) {
-          const refineResult = await (0, import_llm.refineProperties)(config.apiKey, config.model, context, feedback, {
+          const refineResult = await (0, import_llm.refineProperties)(config.apiKey, config.model, inferContext, feedback, {
             maxProperties,
             minScore,
             mock: false,
             provider: config.provider,
             baseURL: config.baseURL
           });
-          improvedProperties = refineResult.properties;
+          improvedProperties = applyRiskMetadata(refineResult.properties, inferContext);
         } else {
           improvedProperties = [];
         }
@@ -4848,10 +6223,18 @@ async function inferCommand(target, options) {
             config.mock,
             language
           );
+          const { validated: improvedCanaryValidated, quarantined: improvedQuarantined } = await canaryValidateProperties(
+            improvedValidated,
+            targetPath,
+            storeDir,
+            language
+          );
           const strongProps = classifications.filter((c) => c.kind === "strong" || c.kind === "bug_found").map((c) => c.property);
+          const quarantinedProps = finalProperties.filter((property) => property.status === "quarantined");
           const existingAssertions = new Set(strongProps.map((p) => p.assertion));
-          const newUnique = improvedValidated.filter((p) => !existingAssertions.has(p.assertion));
-          finalProperties = [...strongProps, ...newUnique];
+          const improvedCombined = [...improvedCanaryValidated, ...improvedQuarantined.map(({ prop }) => prop)];
+          const newUnique = improvedCombined.filter((p) => !existingAssertions.has(p.assertion));
+          finalProperties = [...strongProps, ...newUnique, ...quarantinedProps];
           console.log(`    Final: ${finalProperties.length} properties after refinement`);
         }
       } else {
@@ -4861,6 +6244,7 @@ async function inferCommand(target, options) {
   }
   const moduleKey = (0, import_common.toForwardSlash)(path2.relative(projectRoot, targetPath));
   const propertySet = {
+    schemaVersion: 2,
     module: moduleKey,
     filePath: moduleKey,
     properties: finalProperties,
@@ -4880,6 +6264,11 @@ var import_store3 = __toESM(require_dist());
 var import_engines2 = __toESM(require_dist6());
 var import_reporter2 = __toESM(require_dist7());
 var import_common2 = __toESM(require_dist4());
+function parseIdList(input) {
+  return new Set(
+    (input ?? "").split(",").map((part) => part.trim()).filter(Boolean)
+  );
+}
 async function runCommand(target, options) {
   const projectRoot = process.cwd();
   const config = (0, import_config2.loadConfig)(projectRoot);
@@ -4894,8 +6283,21 @@ async function runCommand(target, options) {
   };
   let propertySets;
   if (options.changed) {
-    const changedFiles = (0, import_common2.getChangedFiles)(projectRoot);
-    const changedPaths = new Set(changedFiles.map((f) => (0, import_common2.toForwardSlash)(f.filePath)));
+    const changedResult = (0, import_common2.getChangedFiles)(projectRoot);
+    if (changedResult.status === "git_error") {
+      console.error(`
+  Error: git is not available or this is not a git repository.`);
+      console.error("  --changed mode requires a git repository.\n");
+      process.exit(2);
+    }
+    const changedPaths = new Set(
+      changedResult.files.map((f) => (0, import_common2.toForwardSlash)(f.filePath)).filter(
+        (p) => (
+          // Exclude internal files, build artifacts, and non-source files
+          !p.startsWith(".propcheck/") && !p.startsWith("node_modules/") && !p.includes("/dist/") && !p.includes("/dist-bundle/") && /\.(ts|tsx|js|jsx|py)$/.test(p)
+        )
+      )
+    );
     if (changedPaths.size === 0) {
       console.log("\n  No changes detected (git diff is clean).\n");
       process.exit(0);
@@ -4913,6 +6315,14 @@ async function runCommand(target, options) {
 `);
   } else if (target) {
     const targetPath = path3.resolve(projectRoot, target);
+    try {
+      await fs2.access(targetPath);
+    } catch {
+      console.error(`
+  Error: File not found: ${target}
+`);
+      process.exit(2);
+    }
     const moduleKey = (0, import_common2.toForwardSlash)(path3.relative(projectRoot, targetPath));
     const ps = await (0, import_store3.getProperties)(storeDir, moduleKey);
     if (!ps) {
@@ -4929,7 +6339,11 @@ async function runCommand(target, options) {
       process.exit(2);
     }
   }
+  const skipIds = parseIdList(options.skip);
+  const onlyIds = parseIdList(options.only);
+  const hasOnlyFilter = onlyIds.size > 0;
   let exitCode = 0;
+  let ranAnyProperties = false;
   for (const ps of propertySets) {
     const filePath = path3.resolve(projectRoot, ps.filePath);
     try {
@@ -4945,20 +6359,74 @@ async function runCommand(target, options) {
   Warning: Cannot read ${ps.filePath} \u2014 file may have been moved.
 `);
     }
+    const explicitSkipped = ps.properties.filter((prop) => {
+      if (skipIds.has(prop.id)) return true;
+      return hasOnlyFilter && !onlyIds.has(prop.id);
+    });
+    const droppedSkipped = ps.properties.filter((prop) => !explicitSkipped.includes(prop) && prop.status === "dropped");
+    const quarantinedSkipped = ps.properties.filter((prop) => !explicitSkipped.includes(prop) && !droppedSkipped.includes(prop) && prop.status === "quarantined" && !options.includeQuarantined);
+    const skipped = [
+      ...explicitSkipped.map((prop) => ({ propertyId: prop.id, reason: "filter", propertyStatus: prop.status })),
+      ...droppedSkipped.map((prop) => ({ propertyId: prop.id, reason: "dropped", propertyStatus: prop.status })),
+      ...quarantinedSkipped.map((prop) => ({ propertyId: prop.id, reason: "quarantined", propertyStatus: prop.status }))
+    ];
+    const runnableProperties = ps.properties.filter((prop) => !explicitSkipped.includes(prop) && !droppedSkipped.includes(prop) && !(prop.status === "quarantined" && !options.includeQuarantined));
+    if (!options.json && !hasOnlyFilter && quarantinedSkipped.length > 0) {
+      console.log(`  Skipping ${quarantinedSkipped.length} quarantined propert${quarantinedSkipped.length === 1 ? "y" : "ies"} in ${ps.filePath}. Use --include-quarantined to run them.`);
+    }
+    if (!options.json && !hasOnlyFilter && droppedSkipped.length > 0) {
+      console.log(`  Skipping ${droppedSkipped.length} dropped propert${droppedSkipped.length === 1 ? "y" : "ies"} in ${ps.filePath}.`);
+    }
+    if (!options.json && !hasOnlyFilter && explicitSkipped.length > 0) {
+      console.log(`  Skipping ${explicitSkipped.length} propert${explicitSkipped.length === 1 ? "y" : "ies"} in ${ps.filePath} due to --skip/--only filters.`);
+    }
+    if (runnableProperties.length === 0) {
+      if (options.json) {
+        console.log((0, import_reporter2.reportAsJson)({
+          passed: [],
+          failed: [],
+          errors: [],
+          skipped,
+          duration: 0,
+          totalIterations: 0,
+          properties: []
+        }));
+      }
+      continue;
+    }
+    ranAnyProperties = true;
     const testsDir = path3.join(storeDir, "tests");
     await fs2.mkdir(testsDir, { recursive: true });
     const isPython = ps.filePath.endsWith(".py");
-    const generated = isPython ? (0, import_engines2.generateHypothesisTest)(ps.properties, filePath, testsDir, runConfig) : (0, import_engines2.generateFastCheckTest)(ps.properties, filePath, testsDir, runConfig);
+    const generated = isPython ? (0, import_engines2.generateHypothesisTest)(runnableProperties, filePath, testsDir, runConfig) : (0, import_engines2.generateFastCheckTest)(runnableProperties, filePath, testsDir, runConfig);
     const testFilePath = path3.join(testsDir, generated.fileName);
     await fs2.writeFile(testFilePath, generated.content, "utf8");
-    const result = isPython ? await (0, import_engines2.runHypothesisTest)(testFilePath, ps.properties, runConfig) : await (0, import_engines2.runFastCheckTest)(testFilePath, ps.properties, runConfig);
+    const result = isPython ? await (0, import_engines2.runHypothesisTest)(testFilePath, runnableProperties, runConfig) : await (0, import_engines2.runFastCheckTest)(testFilePath, runnableProperties, runConfig);
+    const enrichedResult = {
+      ...result,
+      skipped
+    };
     if (options.json) {
-      console.log((0, import_reporter2.reportAsJson)(result));
+      console.log((0, import_reporter2.reportAsJson)(enrichedResult, ps.filePath));
     } else {
-      (0, import_reporter2.reportRunSummary)(result, ps.filePath);
+      (0, import_reporter2.reportRunSummary)(enrichedResult, ps.filePath);
     }
     if (result.failed.length > 0 || result.errors.length > 0) {
       exitCode = 1;
+    }
+  }
+  if (!ranAnyProperties) {
+    if (hasOnlyFilter) {
+      const requested = [...onlyIds].join(", ");
+      if (!options.json) {
+        console.error(`
+  No properties matched --only filter: ${requested}`);
+        console.error("  Check property IDs with: propcheck props\n");
+      }
+      process.exit(2);
+    }
+    if (!options.json) {
+      console.log("\n  No runnable properties remain after applying status and CLI filters.\n");
     }
   }
   process.exit(exitCode);
@@ -5064,13 +6532,536 @@ function printReport(report, target) {
   }
 }
 
+// src/commands/props.ts
+var path6 = __toESM(require("path"));
+var import_config5 = __toESM(require_dist2());
+var import_store6 = __toESM(require_dist());
+var import_reporter3 = __toESM(require_dist7());
+var import_common4 = __toESM(require_dist4());
+var VALID_STATUSES = /* @__PURE__ */ new Set([
+  "accepted",
+  "risky",
+  "refined",
+  "quarantined",
+  "dropped"
+]);
+async function propsCommand(target, options) {
+  const projectRoot = process.cwd();
+  const config = (0, import_config5.loadConfig)(projectRoot);
+  const storeDir = path6.join(projectRoot, config.storeDir);
+  let statusFilter;
+  if (options.status) {
+    if (!VALID_STATUSES.has(options.status)) {
+      console.error(
+        `
+  Invalid status: "${options.status}". Must be one of: ${[...VALID_STATUSES].join(", ")}
+`
+      );
+      process.exit(2);
+    }
+    statusFilter = options.status;
+  }
+  if (target) {
+    const targetPath = path6.resolve(projectRoot, target);
+    const moduleKey = (0, import_common4.toForwardSlash)(path6.relative(projectRoot, targetPath));
+    const ps = await (0, import_store6.getProperties)(storeDir, moduleKey);
+    if (!ps) {
+      console.error(`
+  No properties found for ${target}`);
+      console.error("  Run: propcheck infer " + target + "\n");
+      process.exit(2);
+    }
+    if (options.json) {
+      console.log((0, import_reporter3.reportPropertiesOverviewAsJson)([ps], statusFilter));
+    } else {
+      (0, import_reporter3.reportPropertiesOverview)([ps], statusFilter);
+    }
+  } else {
+    const allSets = await (0, import_store6.getAllProperties)(storeDir);
+    if (allSets.length === 0) {
+      if (options.json) {
+        console.log(JSON.stringify({ modules: [] }, null, 2));
+      } else {
+        console.log("\n  No properties found. Run: propcheck infer <file>\n");
+      }
+      process.exit(0);
+    }
+    if (options.json) {
+      console.log((0, import_reporter3.reportPropertiesOverviewAsJson)(allSets, statusFilter));
+    } else {
+      (0, import_reporter3.reportPropertiesOverview)(allSets, statusFilter);
+    }
+  }
+}
+
+// src/commands/property.ts
+var path7 = __toESM(require("path"));
+var import_config6 = __toESM(require_dist2());
+var import_store7 = __toESM(require_dist());
+var import_reporter4 = __toESM(require_dist7());
+var import_common5 = __toESM(require_dist4());
+var VALID_STATUSES2 = /* @__PURE__ */ new Set([
+  "accepted",
+  "risky",
+  "refined",
+  "quarantined",
+  "dropped"
+]);
+async function propertyCommand(target, propertyId, options) {
+  const projectRoot = process.cwd();
+  const config = (0, import_config6.loadConfig)(projectRoot);
+  const storeDir = path7.join(projectRoot, config.storeDir);
+  const targetPath = path7.resolve(projectRoot, target);
+  const moduleKey = (0, import_common5.toForwardSlash)(path7.relative(projectRoot, targetPath));
+  const ps = await (0, import_store7.getProperties)(storeDir, moduleKey);
+  if (!ps) {
+    console.error(`
+  No properties found for ${target}`);
+    console.error("  Run: propcheck infer " + target + "\n");
+    process.exit(2);
+  }
+  const property = ps.properties.find((p) => p.id === propertyId);
+  if (!property) {
+    console.error(`
+  Property "${propertyId}" not found in ${target}`);
+    console.error("  Available IDs: " + ps.properties.map((p) => p.id).join(", ") + "\n");
+    process.exit(2);
+  }
+  if (options.status) {
+    if (!VALID_STATUSES2.has(options.status)) {
+      console.error(
+        `
+  Invalid status: "${options.status}". Must be one of: ${[...VALID_STATUSES2].join(", ")}
+`
+      );
+      process.exit(2);
+    }
+    const newStatus = options.status;
+    const oldStatus = property.status;
+    const updatedProperty = {
+      ...property,
+      status: newStatus,
+      humanVerified: true
+    };
+    const updatedProperties = ps.properties.map(
+      (p) => p.id === propertyId ? updatedProperty : p
+    );
+    const updatedPs = {
+      ...ps,
+      properties: updatedProperties
+    };
+    await (0, import_store7.setProperties)(storeDir, moduleKey, updatedPs);
+    if (options.json) {
+      console.log((0, import_reporter4.reportPropertyDetailAsJson)(updatedProperty, ps.filePath));
+    } else {
+      (0, import_reporter4.reportStatusUpdate)(propertyId, ps.filePath, oldStatus, newStatus);
+    }
+    return;
+  }
+  if (options.json) {
+    console.log((0, import_reporter4.reportPropertyDetailAsJson)(property, ps.filePath));
+  } else {
+    (0, import_reporter4.reportPropertyDetail)(property, ps.filePath);
+  }
+}
+
+// src/commands/fix.ts
+var fs4 = __toESM(require("fs"));
+var fsPromises = __toESM(require("fs/promises"));
+var crypto = __toESM(require("crypto"));
+var path8 = __toESM(require("path"));
+var import_config7 = __toESM(require_dist2());
+var import_store8 = __toESM(require_dist());
+var import_engines4 = __toESM(require_dist6());
+var import_common6 = __toESM(require_dist4());
+var import_llm2 = __toESM(require_dist5());
+function computeDiff(oldText, newText) {
+  const oldLines = oldText.split("\n");
+  const newLines = newText.split("\n");
+  const result = [];
+  const m = oldLines.length;
+  const n = newLines.length;
+  const dp = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
+  for (let i2 = 1; i2 <= m; i2++) {
+    for (let j2 = 1; j2 <= n; j2++) {
+      if (oldLines[i2 - 1] === newLines[j2 - 1]) {
+        dp[i2][j2] = dp[i2 - 1][j2 - 1] + 1;
+      } else {
+        dp[i2][j2] = Math.max(dp[i2 - 1][j2], dp[i2][j2 - 1]);
+      }
+    }
+  }
+  const ops = [];
+  let i = m;
+  let j = n;
+  while (i > 0 || j > 0) {
+    if (i > 0 && j > 0 && oldLines[i - 1] === newLines[j - 1]) {
+      ops.unshift({ type: "equal", oldIdx: i - 1, newIdx: j - 1 });
+      i--;
+      j--;
+    } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+      ops.unshift({ type: "insert", newIdx: j - 1 });
+      j--;
+    } else {
+      ops.unshift({ type: "delete", oldIdx: i - 1 });
+      i--;
+    }
+  }
+  let oldLineNum = 1;
+  let newLineNum = 1;
+  for (const op of ops) {
+    switch (op.type) {
+      case "equal":
+        result.push({ type: "context", content: oldLines[op.oldIdx], oldLine: oldLineNum, newLine: newLineNum });
+        oldLineNum++;
+        newLineNum++;
+        break;
+      case "delete":
+        result.push({ type: "remove", content: oldLines[op.oldIdx], oldLine: oldLineNum });
+        oldLineNum++;
+        break;
+      case "insert":
+        result.push({ type: "add", content: newLines[op.newIdx], newLine: newLineNum });
+        newLineNum++;
+        break;
+    }
+  }
+  return result;
+}
+function formatDiff(diff, filePath) {
+  const CONTEXT = 3;
+  const lines = [];
+  const changed = diff.map((d, i) => d.type !== "context" ? i : -1).filter((i) => i >= 0);
+  if (changed.length === 0) return "  No changes.\n";
+  lines.push(`  --- a/${filePath}`);
+  lines.push(`  +++ b/${filePath}`);
+  let lastEnd = -1;
+  for (const idx of changed) {
+    const start = Math.max(0, idx - CONTEXT);
+    const end = Math.min(diff.length - 1, idx + CONTEXT);
+    if (start <= lastEnd) continue;
+    let hunkStart = start;
+    let hunkEnd = end;
+    for (const other of changed) {
+      if (other >= start && other <= end + CONTEXT) {
+        hunkEnd = Math.min(diff.length - 1, other + CONTEXT);
+      }
+    }
+    if (hunkStart > lastEnd + 1 && lastEnd >= 0) {
+      lines.push("  ...");
+    }
+    for (let k = hunkStart; k <= hunkEnd; k++) {
+      const d = diff[k];
+      switch (d.type) {
+        case "add":
+          lines.push(`  + ${d.content}`);
+          break;
+        case "remove":
+          lines.push(`  - ${d.content}`);
+          break;
+        case "context":
+          lines.push(`    ${d.content}`);
+          break;
+      }
+    }
+    lastEnd = hunkEnd;
+  }
+  return lines.join("\n");
+}
+async function fixCommand(target, options) {
+  const projectRoot = process.cwd();
+  const config = (0, import_config7.loadConfig)(projectRoot, {
+    mock: options.mock ?? false,
+    model: options.model,
+    provider: options.provider,
+    baseURL: options.baseUrl
+  });
+  const targetPath = path8.resolve(projectRoot, target);
+  if (!fs4.existsSync(targetPath)) {
+    console.error(`
+  Error: File not found: ${target}
+`);
+    process.exit(2);
+  }
+  const errors = (0, import_config7.validateConfig)(config, "fix");
+  if (errors.length > 0) {
+    for (const err of errors) {
+      console.error(`
+  ${err}`);
+    }
+    process.exit(2);
+  }
+  const moduleKey = (0, import_common6.toForwardSlash)(path8.relative(projectRoot, targetPath));
+  const storeDir = path8.join(projectRoot, config.storeDir);
+  const propertySet = await (0, import_store8.getProperties)(storeDir, moduleKey);
+  if (!propertySet || propertySet.properties.length === 0) {
+    console.error(`
+  No properties found for ${target}`);
+    console.error(`  Run: propcheck infer ${target}
+`);
+    process.exit(2);
+  }
+  const sourceCode = await fsPromises.readFile(targetPath, "utf8");
+  const language = targetPath.endsWith(".py") ? "python" : "typescript";
+  const activeProperties = propertySet.properties.filter(
+    (p) => p.status !== "dropped" && p.status !== "quarantined"
+  );
+  if (activeProperties.length === 0) {
+    console.error(`
+  No active properties for ${target} (all quarantined/dropped)
+`);
+    process.exit(2);
+  }
+  console.log(`
+  Running ${activeProperties.length} properties for ${target}...`);
+  const runConfig = {
+    mode: "default",
+    iterations: import_common6.RUN_MODE_ITERATIONS.default,
+    timeout: config.timeout,
+    verbose: false
+  };
+  const testsDir = path8.join(storeDir, "tests");
+  await fsPromises.mkdir(testsDir, { recursive: true });
+  const generated = (0, import_engines4.generateFastCheckTest)(activeProperties, targetPath, testsDir, runConfig);
+  const testFilePath = path8.join(testsDir, generated.fileName);
+  await fsPromises.writeFile(testFilePath, generated.content, "utf8");
+  const execResult = await (0, import_engines4.runFastCheckTest)(testFilePath, activeProperties, runConfig);
+  let failures = execResult.failed;
+  if (options.property) {
+    const propertyExists = activeProperties.some((p) => p.id === options.property);
+    if (!propertyExists) {
+      console.error(`
+  Property ${options.property} not found in ${target}`);
+      console.error(`  Available properties: ${activeProperties.map((p) => p.id).join(", ")}
+`);
+      process.exit(2);
+    }
+    failures = failures.filter((f) => f.propertyId === options.property);
+    if (failures.length === 0) {
+      console.log(`
+  Property ${options.property} is passing \u2014 nothing to fix.
+`);
+      process.exit(0);
+    }
+  }
+  if (failures.length === 0) {
+    console.log(`
+  All ${activeProperties.length} properties pass \u2014 nothing to fix.
+`);
+    process.exit(0);
+  }
+  console.log(`  Found ${failures.length} violation(s).
+`);
+  const llmClient = config.mock ? null : (0, import_llm2.createClient)(config.apiKey, config.model, config.provider, config.baseURL);
+  console.log("  Diagnosing violations...");
+  const diagnoses = [];
+  for (const failure of failures) {
+    const property = activeProperties.find((p) => p.id === failure.propertyId);
+    if (!property) continue;
+    let diagnosis;
+    if (config.mock || !llmClient) {
+      diagnosis = (0, import_llm2.mockDiagnoseViolation)(property, failure);
+    } else {
+      diagnosis = await (0, import_llm2.diagnoseViolation)(llmClient, sourceCode, property, failure, language);
+    }
+    if (diagnosis) {
+      diagnoses.push(diagnosis);
+      const icon = diagnosis.isBug ? "BUG" : "OK";
+      console.log(`    [${icon}] ${failure.propertyId}: ${diagnosis.explanation.slice(0, 80)}`);
+    } else {
+      console.log(`    [???] ${failure.propertyId}: diagnosis failed`);
+    }
+  }
+  const confirmedBugs = diagnoses.filter((d) => d.isBug);
+  if (confirmedBugs.length === 0) {
+    console.log(`
+  No real bugs found \u2014 all violations appear to be false positives.`);
+    console.log("  Consider reviewing the property definitions.\n");
+    if (options.json) {
+      console.log(JSON.stringify({
+        status: "no_bugs",
+        diagnoses,
+        failureCount: failures.length
+      }, null, 2));
+    }
+    process.exit(0);
+  }
+  console.log(`
+  ${confirmedBugs.length} confirmed bug(s). Generating fix...`);
+  const maxAttemptsRaw = parseInt(options.maxAttempts ?? "3", 10);
+  if (options.maxAttempts !== void 0 && isNaN(maxAttemptsRaw)) {
+    console.error(`
+  Error: --max-attempts must be a number, got "${options.maxAttempts}"
+`);
+    process.exit(2);
+  }
+  const maxAttempts = Math.min(Math.max(1, maxAttemptsRaw || 3), 5);
+  let bestFix = null;
+  let verificationResult = null;
+  let retryFeedback;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    if (attempt > 1) {
+      console.log(`  Retry attempt ${attempt}/${maxAttempts}...`);
+    }
+    let fix;
+    if (config.mock || !llmClient) {
+      fix = (0, import_llm2.mockGenerateFix)(sourceCode, confirmedBugs);
+    } else {
+      fix = await (0, import_llm2.generateFix)(
+        llmClient,
+        sourceCode,
+        confirmedBugs,
+        activeProperties,
+        failures,
+        language,
+        retryFeedback
+      );
+    }
+    if (!fix) {
+      console.log(`  Fix generation failed (attempt ${attempt}/${maxAttempts})`);
+      continue;
+    }
+    bestFix = fix;
+    const ext = path8.extname(targetPath);
+    const base = path8.basename(targetPath, ext);
+    const dir = path8.dirname(targetPath);
+    const tmpPath = path8.join(dir, `${base}.fix.tmp.${crypto.randomBytes(4).toString("hex")}${ext}`);
+    try {
+      await fsPromises.writeFile(tmpPath, fix.fixedSource, "utf8");
+      const verifyGenerated = (0, import_engines4.generateFastCheckTest)(
+        activeProperties,
+        tmpPath,
+        testsDir,
+        runConfig
+      );
+      const verifyTestPath = path8.join(testsDir, verifyGenerated.fileName);
+      await fsPromises.writeFile(verifyTestPath, verifyGenerated.content, "utf8");
+      verificationResult = await (0, import_engines4.runFastCheckTest)(
+        verifyTestPath,
+        activeProperties,
+        runConfig
+      );
+      try {
+        await fsPromises.unlink(verifyTestPath);
+      } catch (e) {
+        if (e instanceof Error && e.code !== "ENOENT") {
+          console.warn(`  Warning: Failed to clean up ${verifyTestPath}: ${e.message}`);
+        }
+      }
+    } finally {
+      try {
+        await fsPromises.unlink(tmpPath);
+      } catch (e) {
+        if (e instanceof Error && e.code !== "ENOENT") {
+          console.warn(`  Warning: Failed to clean up ${tmpPath}: ${e.message}`);
+        }
+      }
+    }
+    if (verificationResult && verificationResult.failed.length === 0 && verificationResult.errors.length === 0) {
+      console.log(`  Fix verified \u2014 all ${activeProperties.length} properties pass.
+`);
+      break;
+    }
+    const newFailures = verificationResult.failed.map((f) => {
+      const p = activeProperties.find((prop) => prop.id === f.propertyId);
+      return `- ${f.propertyId} (${p?.targetFunction ?? "?"}): ${f.errorMessage.slice(0, 200)}`;
+    }).join("\n");
+    const newErrors = verificationResult.errors.map((e) => `- ${e.propertyId}: ${e.errorMessage.slice(0, 200)}`).join("\n");
+    retryFeedback = `Your fix broke ${verificationResult.failed.length} property/properties and caused ${verificationResult.errors.length} error(s):
+
+`;
+    if (newFailures) retryFeedback += `Failures:
+${newFailures}
+
+`;
+    if (newErrors) retryFeedback += `Errors:
+${newErrors}
+`;
+    console.log(`  Verification failed: ${verificationResult.failed.length} failure(s), ${verificationResult.errors.length} error(s)`);
+  }
+  if (!bestFix) {
+    console.error(`
+  Failed to generate a fix after ${maxAttempts} attempt(s).
+`);
+    process.exit(1);
+  }
+  const diff = computeDiff(sourceCode, bestFix.fixedSource);
+  const hasChanges = diff.some((d) => d.type !== "context");
+  if (!hasChanges) {
+    console.log("  Generated fix is identical to the original \u2014 no changes needed.\n");
+    process.exit(0);
+  }
+  const allPassed = verificationResult ? verificationResult.failed.length === 0 && verificationResult.errors.length === 0 : false;
+  if (options.json) {
+    console.log(JSON.stringify({
+      status: allPassed ? "fixed" : "partial",
+      explanation: bestFix.explanation,
+      changedFunctions: bestFix.changedFunctions,
+      confidence: bestFix.confidence,
+      diagnoses,
+      verification: verificationResult ? {
+        passed: verificationResult.passed.length,
+        failed: verificationResult.failed.length,
+        errors: verificationResult.errors.length
+      } : null,
+      diff: formatDiff(diff, moduleKey)
+    }, null, 2));
+  } else {
+    console.log("  Diagnoses:");
+    for (const d of confirmedBugs) {
+      const prop = activeProperties.find((p) => p.id === d.propertyId);
+      console.log(`    [BUG] ${prop?.targetFunction ?? "?"}: ${d.explanation}`);
+      if (d.suggestedFix) {
+        console.log(`          Fix: ${d.suggestedFix}`);
+      }
+    }
+    console.log(`
+  Fix (${bestFix.changedFunctions.join(", ") || "source"}):
+`);
+    console.log(formatDiff(diff, moduleKey));
+    console.log(`
+  Explanation: ${bestFix.explanation}`);
+    console.log(`  Confidence: ${(bestFix.confidence * 100).toFixed(0)}%`);
+    if (verificationResult) {
+      const total = activeProperties.length;
+      const passed = verificationResult.passed.length;
+      if (allPassed) {
+        console.log(`  Verification: ${passed}/${total} properties PASS`);
+      } else {
+        console.log(`  Verification: ${passed}/${total} pass, ${verificationResult.failed.length} fail, ${verificationResult.errors.length} error(s)`);
+        console.log("  Warning: fix is partial \u2014 not all properties pass.");
+      }
+    }
+    console.log();
+  }
+  if (options.apply && allPassed) {
+    await fsPromises.writeFile(targetPath, bestFix.fixedSource, "utf8");
+    if (!options.json) {
+      console.log(`  Applied fix to ${target}
+`);
+    }
+  } else if (!options.apply && allPassed && !options.json) {
+    console.log(`  Run: propcheck fix ${target} --apply  to apply this fix
+`);
+  }
+  process.exit(allPassed ? 0 : 1);
+}
+
 // src/index.ts
+var import_chalk2 = __toESM(require("chalk"));
 var program = new import_commander.Command();
-program.name("propcheck").description("AI-powered property-based testing \u2014 find bugs your tests miss").version("0.1.0");
-program.command("init").description("Initialize .propcheck/ directory in the current project").action(initCommand);
-program.command("infer <target>").description("Infer testable properties for target file(s) using LLM").option("--mock", "Use mock LLM client (no API key needed)").option("--model <model>", "LLM model to use").option("--provider <provider>", "LLM provider: anthropic or openai-compatible").option("--base-url <url>", "Base URL for LLM API (for proxies / OpenRouter)").option("--max-properties <n>", "Max properties per function", "5").option("--min-score <n>", "Minimum quality score (0-13)", "10").option("--skip-validation", "Skip trial-run validation of inferred properties").option("--refine", "Enable refinement loop (Round 2): strengthen weak properties").action(inferCommand);
-program.command("run [target]").description("Run property tests against target file(s)").option("--quick", "Quick mode: 100 iterations").option("--thorough", "Thorough mode: 10,000 iterations").option("--seed <n>", "Random seed for reproducibility").option("--json", "Output results as JSON").option("--changed", "Only run properties for git-changed files").action(runCommand);
-program.command("badge").description("Output markdown badge snippet for your README").action(badgeCommand);
-program.command("quality <target>").description("Measure property effectiveness via mutation testing").action(qualityCommand);
+program.name("propcheck").description("AI-powered property-based testing \u2014 find bugs your tests miss").version("0.2.0").option("--no-color", "Disable colored output").hook("preAction", () => {
+  if (program.opts().color === false) {
+    import_chalk2.default.level = 0;
+  }
+});
+program.command("init").description("Set up propcheck in your project (creates .propcheck/ directory)").action(initCommand);
+program.command("infer <target>").description("Discover rules about your code using AI (one-time, ~$0.05/file)").option("--mock", "Use built-in demo mode (no API key needed)").option("--model <model>", "AI model to use").option("--provider <provider>", "AI provider: anthropic or openai-compatible").option("--base-url <url>", "Custom API endpoint (for proxies / OpenRouter)").option("--max-properties <n>", "Max rules per function", "5").option("--min-score <n>", "Minimum quality score to keep (0-13)", "10").option("--function <names>", "Only analyze specific functions (comma-separated)").option("--skip-validation", "Skip trial-run validation of discovered rules").option("--refine", "Run a second AI pass to strengthen weak rules").action(inferCommand);
+program.command("run [target]").description("Test your code with random inputs (run after infer)").option("--quick", "Fast mode: 100 random inputs per rule").option("--thorough", "Deep mode: 10,000 random inputs per rule").option("--seed <n>", "Fixed random seed (for reproducible results)").option("--json", "Output results as JSON (for CI/CD)").option("--changed", "Only test files changed in git diff").option("--skip <ids>", "Skip specific rules by ID (comma-separated)").option("--only <ids>", "Only run specific rules by ID (comma-separated)").option("--include-quarantined", "Also test quarantined (fragile) rules").action(runCommand);
+program.command("badge").description("Generate a README badge showing how many rules are verified").action(badgeCommand);
+program.command("quality <target>").description("Check how good your rules are at catching bugs (mutation testing)").action(qualityCommand);
+program.command("props [target]").description("List all discovered rules and their status").option("--status <status>", "Filter: accepted, risky, refined, quarantined, dropped").option("--json", "Output as JSON").action(propsCommand);
+program.command("property <target> <propertyId>").description("View or update a specific rule (e.g., mark as quarantined)").option("--status <status>", "Set new status (marks as human-reviewed)").option("--json", "Output as JSON").action(propertyCommand);
+program.command("fix <target>").description("Auto-fix bugs found by propcheck run (uses AI to generate a patch)").option("--mock", "Use built-in demo mode (no API key needed)").option("--model <model>", "AI model to use").option("--provider <provider>", "AI provider: anthropic or openai-compatible").option("--base-url <url>", "Custom API endpoint").option("--apply", "Apply the fix directly (skip review)").option("--property <id>", "Fix only a specific rule violation").option("--max-attempts <n>", "Maximum fix attempts (default: 3)", "3").option("--json", "Output fix result as JSON").action(fixCommand);
 program.parse();
 //# sourceMappingURL=index.js.map
