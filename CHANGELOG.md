@@ -2,13 +2,14 @@
 
 All notable changes to propcheck are documented in this file.
 
-## [Unreleased] - 2026-04-02
+## [Unreleased] - 2026-04-03
 
 ### Added
 - **`propcheck fix` command**: dual-agent auto-fix for property violations — Tester Agent diagnoses each failure (real bug vs false positive), Generator Agent produces minimal source fix, verification loop re-runs all properties against fixed code
 - **`--function` flag for targeted inference**: `propcheck infer --function parseAmount,buildAuth src/protocol.ts` restricts inference to named functions
 - **Custom object/optional/enum generators**: structured `fc.record()`, `fc.option()`, `fc.constantFrom()` codegen from LLM specs
 - **ESM `.cjs` compatibility**: generated fast-check test files use `.fc.cjs` extension in `"type": "module"` projects
+- **Property ID in run output**: `✓ [prop_002] applyDiscount: ...` — enables easy copy-paste to `--skip`/`--only`
 
 ### Fixed (0402 Audit — 6 bugs)
 - **`--only` filter silent success**: `propcheck run --only typo_id` now exits 2 with clear error instead of silent exit 0 — prevents CI false green
@@ -17,10 +18,18 @@ All notable changes to propcheck are documented in this file.
 - **`fix` command temp file collision**: parallel `propcheck fix` on same file no longer overwrites each other's temp files (random suffix added)
 - **`fix --property` misleading message**: nonexistent property ID now shows "not found" with available IDs instead of "all properties pass"
 - **`storeDir` path traversal (security)**: `.propcheckrc` `storeDir: "../escape"` was accepted by regex — now blocked by requiring non-dot first character in each path segment
-- **Assertion qualifier codegen**: method calls and JS globals no longer incorrectly prefixed with `target.`
-- **Array `items` generator mapping**: both `elementType` and `items: { type, constraints }` formats now produce correctly typed fast-check generators
+
+### Fixed (0403 UX Audit — 8 issues)
+- **File-not-found masked by API key error**: `infer`/`fix` commands now check file existence BEFORE config validation — users see "File not found" instead of misleading "API key required"
+- **`run` missing file check**: `propcheck run typo.ts` now shows "File not found" instead of "No properties found" → eliminates confusing debug loop
+- **`--changed` shows internal files**: `.propcheck/`, `node_modules/`, `dist/`, `dist-bundle/` and non-source extensions now filtered from changed file list
+- **Error messages truncated in storage**: `.slice(0, 60)` removed from stored error reasons — full messages preserved in `properties.json`, truncation only in display layer
+- **Cleanup failures silently swallowed**: temp file `unlink` errors now logged as warnings (except expected ENOENT)
+- **CLI numeric args silently defaulting**: `--max-properties`, `--min-score`, `--max-attempts` now reject non-numeric input with clear error instead of silently using defaults
 
 ### Changed
+- **Assertion qualifier codegen**: method calls and JS globals no longer incorrectly prefixed with `target.`
+- **Array `items` generator mapping**: both `elementType` and `items: { type, constraints }` formats now produce correctly typed fast-check generators
 - Test suite expanded from 98 → **295 tests** across all 8 packages (3x increase)
 - New test suites: assertion-sanitizer (48), config/loader (21), result-parser (10), git utilities (7), reporter (19), autoWeakenProperty (12), scoring edge cases (32), response-parser edge cases (15), store edge cases (9), CLI regression (2)
 - `getChangedFiles()` now returns `{ status, files }` discriminated union instead of bare array — callers can distinguish "no changes" from "git error"

@@ -12,8 +12,8 @@ AI-powered Property-Based Testing CLI. LLM infers code properties → determinis
 - Bundler: tsup (~273KB single-file bundle)
 - Test runner: Node.js `--experimental-strip-types` for direct .ts import
 
-## Project Status (2026-04-02)
-**Phase 1 MVP: COMPLETE + Hardening + Property Workflow + Fix Command + 0402 Audit Pass** — full CLI pipeline verified end-to-end. 295 unit tests across all 8 packages with 0 failures. 6 bugs found and fixed in 0402 audit.
+## Project Status (2026-04-03)
+**Phase 1 MVP: COMPLETE + Hardening + UX Audit Pass** — full CLI pipeline verified end-to-end. 295 unit tests across all 8 packages with 0 failures. 14 bugs found and fixed across two audit rounds (0402 code audit + 0403 UX audit).
 
 ### What's Done
 - Full CLI: `init`, `infer`, `run`, `badge`, `quality`, `props`, `property`, `fix` commands
@@ -23,7 +23,7 @@ AI-powered Property-Based Testing CLI. LLM infers code properties → determinis
 - Property lifecycle metadata: `accepted` / `risky` / `refined` / `quarantined` / `dropped`
 - Risk-aware persistence: `riskTags`, `riskScore`, validation evidence stored in `.propcheck/properties.json`
 - Canary validation + auto-weakening for fragile numeric properties before persistence
-- `--changed` mode: git diff → only test changed files
+- `--changed` mode: git diff → only test changed source files (filters internal/build artifacts)
 - `--quick` / `--thorough` / `--seed` / `--json` / `--skip` / `--only` / `--include-quarantined` / `--function` flags
 - tsup bundling: ~273KB single-file bundle
 - Multi-language: TypeScript/JavaScript (fast-check) + Python (Hypothesis)
@@ -35,13 +35,24 @@ AI-powered Property-Based Testing CLI. LLM infers code properties → determinis
 - GitHub repo: pushed to AetherCore-Dev/propcheck
 
 ### 0402 Audit Results
-**Bugs found and fixed:**
+**Bugs found and fixed (6):**
 1. `--only` filter: exit 0 on typo → now exit 2 with clear error
 2. `--changed` mode: silent success when git unavailable → now exit 2 with git error
 3. `fix` command: null pointer on verification failure → null guard added
 4. `fix` command: predictable temp file names → random suffix for parallel safety
 5. `fix --property`: misleading "all pass" for nonexistent ID → explicit "not found" error
 6. `storeDir` path traversal: regex allowed `..` components → blocked with stricter regex
+
+### 0403 UX Audit Results
+**Issues found and fixed (8) from deep user experience testing:**
+1. C1: `infer`/`fix` file-not-found masked by API key error → file check now runs first
+2. C2: `run` didn't check file existence → clear "File not found" before property lookup
+3. C3: `--changed` showed internal files (.propcheck/, dist-bundle/) → filtered to source only
+4. H1: run output missing property ID → `[prop_001]` now shown for easy --skip/--only
+5. H3: error messages truncated before storage (.slice(0,60)) → full storage, display-only truncation
+6. H4: cleanup failures silently swallowed → warnings logged for non-ENOENT errors
+7. H5: `--max-properties abc` silently defaulted → explicit validation with error message
+8. H5: `--max-attempts abc` silently defaulted → explicit validation with error message
 
 **Test coverage expansion (98 → 295 tests):**
 - assertion-sanitizer: 48 tests (all 38 dangerous patterns + edge cases)
@@ -149,7 +160,8 @@ cd packages/cli && npm publish
 ```
 
 ## Next Priority
-1. Rebuild tsup bundle + npm publish 0.3.0 (version bump for fix command + all recent features)
-2. Interactive confirmation mode (`propcheck infer --confirm`)
-3. CI coverage reporting (c8/istanbul) to track actual line coverage
-4. Phase 2 distribution work: PR Bot, VS Code extension
+1. Rebuild tsup bundle + npm publish 0.3.0
+2. Split `infer.ts` (1136 lines → 3-4 focused modules) per coding standards
+3. Interactive confirmation mode (`propcheck infer --confirm`)
+4. CI coverage reporting (c8/istanbul) to track actual line coverage
+5. Phase 2 distribution work: PR Bot, VS Code extension
