@@ -38,69 +38,69 @@ program
 
 program
   .command("init")
-  .description("Initialize .propcheck/ directory in the current project")
+  .description("Set up propcheck in your project (creates .propcheck/ directory)")
   .action(initCommand);
 
 program
   .command("infer <target>")
-  .description("Infer testable properties for target file(s) using LLM")
-  .option("--mock", "Use mock LLM client (no API key needed)")
-  .option("--model <model>", "LLM model to use")
-  .option("--provider <provider>", "LLM provider: anthropic or openai-compatible")
-  .option("--base-url <url>", "Base URL for LLM API (for proxies / OpenRouter)")
-  .option("--max-properties <n>", "Max properties per function", "5")
-  .option("--min-score <n>", "Minimum quality score (0-13)", "10")
-  .option("--function <names>", "Infer only specific functions (comma-separated names)")
-  .option("--skip-validation", "Skip trial-run validation of inferred properties")
-  .option("--refine", "Enable refinement loop (Round 2): strengthen weak properties")
+  .description("Discover rules about your code using AI (one-time, ~$0.05/file)")
+  .option("--mock", "Use built-in demo mode (no API key needed)")
+  .option("--model <model>", "AI model to use")
+  .option("--provider <provider>", "AI provider: anthropic or openai-compatible")
+  .option("--base-url <url>", "Custom API endpoint (for proxies / OpenRouter)")
+  .option("--max-properties <n>", "Max rules per function", "5")
+  .option("--min-score <n>", "Minimum quality score to keep (0-13)", "10")
+  .option("--function <names>", "Only analyze specific functions (comma-separated)")
+  .option("--skip-validation", "Skip trial-run validation of discovered rules")
+  .option("--refine", "Run a second AI pass to strengthen weak rules")
   .action(inferCommand);
 
 program
   .command("run [target]")
-  .description("Run property tests against target file(s)")
-  .option("--quick", "Quick mode: 100 iterations")
-  .option("--thorough", "Thorough mode: 10,000 iterations")
-  .option("--seed <n>", "Random seed for reproducibility")
-  .option("--json", "Output results as JSON")
-  .option("--changed", "Only run properties for git-changed files")
-  .option("--skip <ids>", "Comma-separated property IDs to skip")
-  .option("--only <ids>", "Comma-separated property IDs to run exclusively")
-  .option("--include-quarantined", "Run quarantined properties too")
+  .description("Test your code with random inputs (run after infer)")
+  .option("--quick", "Fast mode: 100 random inputs per rule")
+  .option("--thorough", "Deep mode: 10,000 random inputs per rule")
+  .option("--seed <n>", "Fixed random seed (for reproducible results)")
+  .option("--json", "Output results as JSON (for CI/CD)")
+  .option("--changed", "Only test files changed in git diff")
+  .option("--skip <ids>", "Skip specific rules by ID (comma-separated)")
+  .option("--only <ids>", "Only run specific rules by ID (comma-separated)")
+  .option("--include-quarantined", "Also test quarantined (fragile) rules")
   .action(runCommand);
 
 program
   .command("badge")
-  .description("Output markdown badge snippet for your README")
+  .description("Generate a README badge showing how many rules are verified")
   .action(badgeCommand);
 
 program
   .command("quality <target>")
-  .description("Measure property effectiveness via mutation testing")
+  .description("Check how good your rules are at catching bugs (mutation testing)")
   .action(qualityCommand);
 
 program
   .command("props [target]")
-  .description("List property inventory with status overview")
-  .option("--status <status>", "Filter by status: accepted, risky, refined, quarantined, dropped")
+  .description("List all discovered rules and their status")
+  .option("--status <status>", "Filter: accepted, risky, refined, quarantined, dropped")
   .option("--json", "Output as JSON")
   .action(propsCommand);
 
 program
   .command("property <target> <propertyId>")
-  .description("Inspect or update a single property")
-  .option("--status <status>", "Set new status (marks as humanVerified)")
+  .description("View or update a specific rule (e.g., mark as quarantined)")
+  .option("--status <status>", "Set new status (marks as human-reviewed)")
   .option("--json", "Output as JSON")
   .action(propertyCommand);
 
 program
   .command("fix <target>")
-  .description("Generate a fix for property violations found by `propcheck run`")
-  .option("--mock", "Use mock LLM client (no API key needed)")
-  .option("--model <model>", "LLM model to use")
-  .option("--provider <provider>", "LLM provider: anthropic or openai-compatible")
-  .option("--base-url <url>", "Base URL for LLM API")
-  .option("--apply", "Apply the fix directly without review")
-  .option("--property <id>", "Fix only a specific property violation")
+  .description("Auto-fix bugs found by propcheck run (uses AI to generate a patch)")
+  .option("--mock", "Use built-in demo mode (no API key needed)")
+  .option("--model <model>", "AI model to use")
+  .option("--provider <provider>", "AI provider: anthropic or openai-compatible")
+  .option("--base-url <url>", "Custom API endpoint")
+  .option("--apply", "Apply the fix directly (skip review)")
+  .option("--property <id>", "Fix only a specific rule violation")
   .option("--max-attempts <n>", "Maximum fix attempts (default: 3)", "3")
   .option("--json", "Output fix result as JSON")
   .action(fixCommand);

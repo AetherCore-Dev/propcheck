@@ -9,9 +9,27 @@ import type {
   PropertyDefinition,
   PropertySet,
   PropertyStatus,
+  PropertyRiskTag,
 } from "@propcheck/common";
 
 /* ── helpers ────────────────────────────────────── */
+
+/** User-friendly short labels for risk tags (shared with property-table). */
+const RISK_LABELS: Readonly<Record<PropertyRiskTag, string>> = {
+  float_exact_equality: "float ===",
+  tiny_abs_tolerance: "tight tolerance",
+  missing_precondition: "no precondition",
+  wide_numeric_domain: "wide range",
+  doc_domain_mismatch: "doc mismatch",
+  roundtrip_numeric_fragility: "roundtrip fragile",
+  metamorphic_scale_risk: "scale risk",
+};
+
+function formatRiskTags(tags: readonly PropertyRiskTag[]): string {
+  if (tags.length === 0) return "";
+  const labels = tags.map((t) => RISK_LABELS[t] ?? t);
+  return chalk.yellow(` (${labels.join(", ")})`);
+}
 
 function statusIcon(status: PropertyStatus): string {
   switch (status) {
@@ -96,10 +114,7 @@ export function reportPropertiesOverview(
       const desc = summarize(`${p.targetFunction}: ${p.description}`, 50);
       const badge = statusBadge(p.status);
       const verified = p.humanVerified ? chalk.green(" ✔ verified") : "";
-      const risk =
-        p.riskTags.length > 0
-          ? chalk.yellow(` risk:${p.riskTags.join(",")}`)
-          : "";
+      const risk = formatRiskTags(p.riskTags);
       console.log(`    ${icon} ${chalk.dim(p.id)} ${desc}  ${badge}${verified}${risk}`);
     }
 
@@ -181,7 +196,7 @@ export function reportPropertyDetail(
   console.log(`  Status     : ${statusBadge(property.status)}${property.humanVerified ? chalk.green(" ✔ verified") : ""}`);
   console.log(`  Score      : ${property.score}/13  risk: ${property.riskScore}`);
   if (property.riskTags.length > 0) {
-    console.log(`  Risk tags  : ${chalk.yellow(property.riskTags.join(", "))}`);
+    console.log(`  Risk tags  : ${chalk.yellow(property.riskTags.map((t) => RISK_LABELS[t] ?? t).join(", "))}`);
   }
   console.log(`  Confidence : ${(property.confidence * 100).toFixed(0)}%`);
   console.log(`  Evidence   : ${property.evidence}`);

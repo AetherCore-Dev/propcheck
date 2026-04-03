@@ -83,5 +83,17 @@ export function reportRunSummary(
 
   console.log("");
   console.log(`  ${formatSummary(result)}`);
+
+  // Next-step hints for failures
+  if (result.failed.length > 0) {
+    const failedIds = result.failed.map((f) => f.propertyId).join(",");
+    console.log("");
+    console.log(chalk.dim(`  Next steps:`));
+    console.log(chalk.dim(`    • Review the counterexample above — is this a real bug or a false positive?`));
+    console.log(chalk.dim(`    • Fix the bug:     propcheck fix ${filePath}`));
+    console.log(chalk.dim(`    • Skip this rule:  propcheck run --skip ${failedIds} ${filePath}`));
+    console.log(chalk.dim(`    • Quarantine it:   propcheck property ${filePath} ${result.failed[0].propertyId} --status quarantined`));
+  }
+
   console.log("");
 }

@@ -237,11 +237,11 @@ describe("formatCounterexample", () => {
 // ── formatPropertyLine ─────────────────────────────
 
 describe("formatPropertyLine", () => {
-  it("should format inference line with category and score", () => {
+  it("should format inference line with score indicator", () => {
     const line = formatPropertyLine(makeProp());
     assert.match(line, /add: Addition is commutative/);
-    assert.match(line, /equivalence/);
     assert.match(line, /13\/13/);
+    assert.match(line, /★/);
   });
 
   it("should format passed outcome", () => {

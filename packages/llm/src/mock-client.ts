@@ -611,10 +611,7 @@ export function createMockClient(): LlmClient {
         }
       }
 
-      if (matchedFunctions.length > 0) {
-        console.log(`  [MOCK] Generating properties for: ${matchedFunctions.join(", ")}`);
-      } else {
-        console.log("  [MOCK] No specific mock found, using generic response");
+      if (matchedFunctions.length === 0) {
         allProperties.push({
           targetFunction: promptFuncNames[0] ?? "unknown",
           description: "Output type is consistent",
