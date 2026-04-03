@@ -1,7 +1,7 @@
 # propcheck — Project Memory
 
 ## What is propcheck
-AI-powered Property-Based Testing CLI. LLM infers code properties → deterministic PBT engines (fast-check/Hypothesis) execute thousands of random inputs → find bugs your tests miss.
+AI-powered testing tool. AI reads your code once → discovers rules that should always be true → deterministic engines (fast-check/Hypothesis) throw thousands of random inputs at those rules → finds bugs your tests miss.
 
 ## Tech Stack
 - TypeScript monorepo (npm workspaces, 8 packages, CJS output)
@@ -13,7 +13,7 @@ AI-powered Property-Based Testing CLI. LLM infers code properties → determinis
 - Test runner: Node.js `--experimental-strip-types` for direct .ts import
 
 ## Project Status (2026-04-03)
-**Phase 1 MVP: COMPLETE + Hardening + UX Audit Pass** — full CLI pipeline verified end-to-end. 295 unit tests across all 8 packages with 0 failures. 14 bugs found and fixed across two audit rounds (0402 code audit + 0403 UX audit).
+**Phase 1 MVP: COMPLETE + Hardening + UX Audit + 3-Round UX Polish** — full CLI pipeline verified end-to-end. 295 unit tests across all 8 packages with 0 failures. 14 bugs fixed (0402 code audit + 0403 UX audit). README restructured for instant comprehension, CLI output purged of jargon, VHS demo optimized for viral potential.
 
 ### What's Done
 - Full CLI: `init`, `infer`, `run`, `badge`, `quality`, `props`, `property`, `fix` commands

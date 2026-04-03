@@ -10,6 +10,17 @@ All notable changes to propcheck are documented in this file.
 - **Custom object/optional/enum generators**: structured `fc.record()`, `fc.option()`, `fc.constantFrom()` codegen from LLM specs
 - **ESM `.cjs` compatibility**: generated fast-check test files use `.fc.cjs` extension in `"type": "module"` projects
 - **Property ID in run output**: `✓ [prop_002] applyDiscount: ...` — enables easy copy-paste to `--skip`/`--only`
+- **`--no-color` flag**: global flag to disable ANSI colors for CI log readability
+- **Next-step hints**: run output now shows actionable suggestions when rules fail (fix, skip, quarantine)
+
+### Improved (0403 UX Polish — 3 rounds)
+- **README restructured**: collapsed details, Quick Start is first section, first screen is clean (hook → try → how → CI)
+- **Zero-jargon output**: "properties" → "rules", "Inferred" → "Discovered", "Self-repaired" → "Fixed ... too strict", "trial run" → "quick test", "Tokens:" → "AI usage:"
+- **Human-friendly risk tags everywhere**: `risk:float_exact_equality` → `(float ===)` across run, props, property detail
+- **Score display**: `score: 11/13` → `★ 11/13` with color coding (green/yellow/red)
+- **Removed [MOCK] debug output** from mock client
+- **VHS demo rewritten**: 4-scene narrative (tests pass → discover → reveal → CTA), removed source code view and title card, added call-to-action ending
+- **CLI help rewritten**: all command descriptions and option text in user-first language
 
 ### Fixed (0402 Audit — 6 bugs)
 - **`--only` filter silent success**: `propcheck run --only typo_id` now exits 2 with clear error instead of silent exit 0 — prevents CI false green
