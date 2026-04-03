@@ -17,8 +17,6 @@ propcheck finds them.
 
 ![propcheck demo](demo.gif)
 
-> Demo uses `--mock` for a clean, deterministic recording. Real LLM inference is also validated against OpenAI-compatible `/v1` endpoints, with the current `examples/price-utils.ts` pipeline passing **15/15** inferred properties end-to-end.
-
 ### Before: All Tests Pass
 
 ```
@@ -59,16 +57,15 @@ $ propcheck run examples/price-utils.ts
 ## How It Works
 
 ```
-1. INFER — LLM discovers properties of your code          ($0.05, one-time)
-2. RUN   — 1,000 random inputs per property, every commit  ($0, forever)
-3. FAIL  — Shrink to minimal counterexample                (0.2 seconds)
+1. INFER — AI reads your code and figures out what should always be true    ($0.05, one-time)
+2. RUN   — Throws 1,000 random inputs at each rule, every commit           (free, forever)
+3. FAIL  — When a rule breaks, shows you the exact input that caused it    (0.2 seconds)
 ```
 
-The LLM is a **one-time cost**. After inference, properties persist in `.propcheck/properties.json`. Every CI run is free — pure deterministic fuzzing via [fast-check](https://github.com/dubzzz/fast-check) and [Hypothesis](https://hypothesis.readthedocs.io/).
+propcheck uses AI **once** to discover rules about your code (e.g., "prices should never be negative"). Those rules are saved locally. From then on, every test run is free — no AI needed, just fast random testing.
 
-Supports both **Anthropic direct API** and **OpenAI-compatible `/v1` endpoints** (OpenRouter, one-api/new-api, custom proxy gateways).
-
-Latest real-provider validation: **Claude Opus 4.6 → 15 inferred properties → 15/15 pass on `examples/price-utils.ts`**.
+> **Cost:** ~$0.05 per file for the one-time AI analysis. All subsequent runs are free.
+> **Privacy:** Your code is sent to the AI provider only during `infer`. All test execution happens locally.
 
 ## Quick Start
 
@@ -104,30 +101,28 @@ PROPCHECK_API_KEY=sk-or-... \
 
 </details>
 
-## What propcheck discovers
+## What propcheck catches
 
-| Category | Example | What it catches |
-|----------|---------|-----------------|
-| **boundary** | `result >= 0` | Negative prices, overflow |
-| **roundtrip** | `decode(encode(x)) === x` | Data loss in serialization |
-| **idempotent** | `sort(sort(x)) === sort(x)` | Unstable sorting |
-| **conservation** | `sum(transfer(a,b,n)) === sum(a)+sum(b)` | Money disappearing |
-| **monotonic** | `if a <= b then f(a) <= f(b)` | Ordering violations |
-| **metamorphic** | `f(2x) ~ 2*f(x)` | Scaling inconsistencies |
+| Rule Type | Example | Real Bug It Finds |
+|-----------|---------|-------------------|
+| **Boundary** | "Price should never be negative" | 150% discount → negative price |
+| **Roundtrip** | "Encode then decode gives back the same data" | Data lost during serialization |
+| **Idempotent** | "Sorting twice gives the same result as sorting once" | Unstable sort order |
+| **Conservation** | "Transfer money between accounts — total stays the same" | Money disappearing in transfers |
+| **Monotonic** | "Bigger input → bigger output" | Ordering violations |
+| **Scaling** | "Double the input → roughly double the output" | Broken scaling logic |
 
 ## Features
 
-- **Multi-language** — TypeScript, JavaScript, Python (Rust/Go planned)
-- **Multi-provider LLM support** — Anthropic direct API or OpenAI-compatible `/v1` endpoints
-- **Zero-config CI** — `propcheck run --changed` only tests git-modified files
-- **Mutation testing** — `propcheck quality` measures how strong your properties are
-- **Real-world validated** — Claude Opus 4.6 via an OpenAI-compatible proxy currently passes **15/15** inferred properties on `examples/price-utils.ts`
-- **Self-repair** — Trial-run validation auto-repairs generated test code for compile/runtime failures up to 3 rounds before persistence
-- **Risk-aware persistence** — properties now carry `status`, `riskTags`, `riskScore`, and validation evidence in `.propcheck/properties.json`
-- **Canary validation + auto-weakening** — risky numeric properties are canary-checked before persistence and fragile float assertions can be refined into tolerant checks automatically
-- **Refinement loop** — `--refine` strengthens weak properties via iterative LLM feedback and re-validation
-- **Property workflow** — `propcheck props` lists inventory, `propcheck property` inspects/updates status with `humanVerified` tracking
-- **PR Bot** — Auto-comments propcheck results on every Pull Request *(coming soon)*
+- **Works with your stack** — TypeScript, JavaScript, Python (Rust/Go planned)
+- **Bring your own AI** — Anthropic, OpenRouter, or any OpenAI-compatible API
+- **CI-ready** — `propcheck run --changed` only tests files you modified
+- **Self-healing** — auto-fixes flaky rules before saving them (e.g., relaxes exact float comparisons)
+- **Smart filtering** — noisy or fragile rules are flagged and can be reviewed, quarantined, or dropped
+- **Mutation testing** — `propcheck quality` checks if your rules are actually catching bugs
+- **Auto-fix** — `propcheck fix` diagnoses failures and generates minimal code fixes
+- **Property management** — `propcheck props` to review, `propcheck property` to inspect/update
+- **PR Bot** — auto-comments results on every Pull Request *(coming soon)*
 
 ## Run Modes
 
@@ -178,23 +173,19 @@ When propcheck infers properties, it tags potentially fragile ones:
 | `roundtrip_numeric_fragility` | Roundtrip test (parse → format → parse) with exact equality | Use approximate comparison |
 | `metamorphic_scale_risk` | Scale relationship test without tolerance margin | Add tolerance for floating-point scale tests |
 
-## Property lifecycle
+## Property Lifecycle
 
-Inferred properties are no longer treated as a flat list. propcheck now persists review metadata per property in `.propcheck/properties.json`:
+Every rule propcheck discovers goes through a quality check. You'll see these statuses:
 
-- `accepted` — normal property, safe to run
-- `risky` — kept, but tagged as fragile or domain-sensitive
-- `refined` — automatically weakened from an over-strong assertion into a more stable one
-- `quarantined` — excluded from normal `run` output unless you pass `--include-quarantined`
-- `dropped` — removed from execution after validation / repair could not make it runnable
+| Status | Icon | Meaning | Runs in CI? |
+|--------|------|---------|-------------|
+| `accepted` | ✅ | Validated and stable — safe to enforce | Yes |
+| `risky` | ⚠️ | Might be flaky (e.g., float precision) — review recommended | Yes |
+| `refined` | ♻️ | Was too strict, auto-relaxed to be more stable | Yes |
+| `quarantined` | 🔒 | Too fragile to run reliably — needs human review | No (use `--include-quarantined`) |
+| `dropped` | ❌ | Could not be made runnable — removed from execution | No |
 
-Additional metadata now includes:
-
-- `riskTags` — exact float equality, tiny tolerances, missing preconditions, wide numeric domains, and related heuristics
-- `riskScore` — risk-adjusted score used alongside the normal quality score
-- `validation` — smoke/canary evidence recorded at inference time
-
-This reduces CI noise: fragile properties are filtered or refined before they start failing every run.
+> **Why this matters:** Without lifecycle management, flaky rules would break your CI on every run. propcheck filters and stabilizes rules automatically, so CI stays green unless there's a *real* bug.
 
 ### Managing properties
 

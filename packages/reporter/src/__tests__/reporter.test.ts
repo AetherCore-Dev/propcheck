@@ -276,7 +276,7 @@ describe("formatPropertyLine", () => {
       riskTags: ["float_exact_equality"],
     }));
     assert.match(line, /risky/);
-    assert.match(line, /float_exact_equality/);
+    assert.match(line, /float ===/);
   });
 });
 
