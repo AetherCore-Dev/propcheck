@@ -347,11 +347,13 @@ export function generateFastCheckTest(
 
   if (useESM) {
     // ESM wrapper: top-level await with pathToFileURL
-    lines.push(`import { pathToFileURL } from "node:url";`);
-    lines.push(`import { resolve } from "node:path";`);
+    // Use fileURLToPath(import.meta.url) instead of import.meta.dirname for Node 18 compat
+    lines.push(`import { pathToFileURL, fileURLToPath } from "node:url";`);
+    lines.push(`import { resolve, dirname } from "node:path";`);
     lines.push(``);
     lines.push(fcImport);
-    lines.push(`const __targetPath = resolve(import.meta.dirname, "${importPathStr}");`);
+    lines.push(`const __dirname = dirname(fileURLToPath(import.meta.url));`);
+    lines.push(`const __targetPath = resolve(__dirname, "${importPathStr}");`);
     lines.push(`const target = await import(pathToFileURL(__targetPath).href);`);
   } else {
     lines.push(fcImport);
