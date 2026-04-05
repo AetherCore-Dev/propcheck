@@ -739,9 +739,13 @@ async function executeTrialRun(
   await fs.writeFile(testFilePath, generated.content, "utf8");
 
   try {
+    const fcGenerated = language !== "python" ? generated as { needsMtsCopy?: boolean } : null;
     return language === "python"
       ? await runHypothesisTest(testFilePath, properties, config)
-      : await runFastCheckTest(testFilePath, properties, config);
+      : await runFastCheckTest(testFilePath, properties, config, {
+          targetFile: targetPath,
+          needsMtsCopy: fcGenerated?.needsMtsCopy,
+        });
   } finally {
     try {
       await fs.unlink(testFilePath);

@@ -52,6 +52,33 @@ function isTypeModuleProject(targetFile: string): boolean {
   return false;
 }
 
+/**
+ * Detect whether the project has explicit "type": "commonjs" in package.json.
+ * This causes Node 24+ to reject `export` syntax in .ts files loaded via require().
+ */
+function isExplicitCJSProject(targetFile: string): boolean {
+  let dir = path.dirname(targetFile);
+
+  while (true) {
+    const packageJsonPath = path.join(dir, "package.json");
+    if (fs.existsSync(packageJsonPath)) {
+      try {
+        const raw = fs.readFileSync(packageJsonPath, "utf8");
+        const pkg = JSON.parse(raw) as { type?: string };
+        return pkg.type === "commonjs";
+      } catch {
+        return false;
+      }
+    }
+
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+
+  return false;
+}
+
 /** Maximum recursion depth for nested object generators. */
 const MAX_GENERATOR_DEPTH = 10;
 
@@ -258,15 +285,26 @@ export function generateFastCheckTest(
   targetFile: string,
   testDir: string,
   config: RunConfig,
-): { readonly content: string; readonly fileName: string } {
+): { readonly content: string; readonly fileName: string; readonly needsMtsCopy?: boolean } {
+  const isTS = targetFile.endsWith(".ts") || targetFile.endsWith(".tsx");
+  const explicitCJS = isExplicitCJSProject(targetFile);
+  const needsMtsCopy = isTS && explicitCJS;
+
+  // When project is explicit CJS + target is .ts, Node 24 can't require() TS files
+  // with export syntax. We generate ESM .mjs test files that import a .mts copy instead.
+  const useESM = needsMtsCopy;
+
   const relativeImport = toForwardSlash(
     path.relative(testDir, targetFile),
   ).replace(/\.(ts|tsx|js|jsx)$/, "");
 
-  // Keep the file extension for TypeScript files so Node.js --experimental-strip-types
-  // can resolve them. For JS files, strip the extension per Node.js convention.
   let importPathStr: string;
-  if (targetFile.endsWith(".ts") || targetFile.endsWith(".tsx")) {
+  if (useESM) {
+    // For ESM tests: import the .mts copy (same dir as original, .ts → .mts)
+    const mtsTarget = targetFile.replace(/\.ts$/, ".mts").replace(/\.tsx$/, ".mtsx");
+    importPathStr = toForwardSlash(path.relative(testDir, mtsTarget));
+    if (!importPathStr.startsWith(".")) importPathStr = `./${importPathStr}`;
+  } else if (isTS) {
     // Keep .ts extension — Node with --experimental-strip-types needs it
     importPathStr = toForwardSlash(path.relative(testDir, targetFile));
     if (!importPathStr.startsWith(".")) importPathStr = `./${importPathStr}`;
@@ -279,12 +317,24 @@ export function generateFastCheckTest(
   const functionNames = [...new Set(properties.map((p) => p.targetFunction.split(".").pop()!))];
 
   // Try to resolve fast-check absolute path for reliable loading
-  let fcRequire = `require("fast-check")`;
-  try {
-    const fcPath = require.resolve("fast-check");
-    fcRequire = `require(${JSON.stringify(toForwardSlash(fcPath))})`;
-  } catch {
-    // Fall back to relative require — user must have fast-check installed
+  let fcImport: string;
+  if (useESM) {
+    // ESM: use dynamic import for fast-check
+    try {
+      const fcPath = require.resolve("fast-check");
+      fcImport = `const { default: fc } = await import(${JSON.stringify("file:///" + toForwardSlash(fcPath))});`;
+    } catch {
+      fcImport = `const { default: fc } = await import("fast-check");`;
+    }
+  } else {
+    let fcRequire = `require("fast-check")`;
+    try {
+      const fcPath = require.resolve("fast-check");
+      fcRequire = `require(${JSON.stringify(toForwardSlash(fcPath))})`;
+    } catch {
+      // Fall back to relative require — user must have fast-check installed
+    }
+    fcImport = `const fc = ${fcRequire};`;
   }
 
   const lines: string[] = [];
@@ -294,8 +344,20 @@ export function generateFastCheckTest(
   lines.push(`// Target: ${toForwardSlash(targetFile)}`);
   lines.push(`// Generated: ${new Date().toISOString()}`);
   lines.push(``);
-  lines.push(`const fc = ${fcRequire};`);
-  lines.push(`const target = require("${importPathStr}");`);
+
+  if (useESM) {
+    // ESM wrapper: top-level await with pathToFileURL
+    lines.push(`import { pathToFileURL } from "node:url";`);
+    lines.push(`import { resolve } from "node:path";`);
+    lines.push(``);
+    lines.push(fcImport);
+    lines.push(`const __targetPath = resolve(import.meta.dirname, "${importPathStr}");`);
+    lines.push(`const target = await import(pathToFileURL(__targetPath).href);`);
+  } else {
+    lines.push(fcImport);
+    lines.push(`const target = require("${importPathStr}");`);
+  }
+
   lines.push(``);
   lines.push(`function approxEqual(a, b, absTol = 1e-9, relTol = 1e-6) {`);
   lines.push(`  return Math.abs(a - b) <= absTol + relTol * Math.max(1, Math.abs(a), Math.abs(b));`);
@@ -381,11 +443,19 @@ export function generateFastCheckTest(
   }
 
   const baseName = path.basename(targetFile, path.extname(targetFile));
-  const fileExt = isTypeModuleProject(targetFile) ? ".fc.cjs" : ".fc.js";
+  let fileExt: string;
+  if (useESM) {
+    fileExt = ".fc.mjs"; // ESM for CJS+TS projects
+  } else if (isTypeModuleProject(targetFile)) {
+    fileExt = ".fc.cjs"; // CJS test in ESM project
+  } else {
+    fileExt = ".fc.js";  // Default CJS test
+  }
   const fileName = `${baseName}${fileExt}`;
 
   return {
     content: lines.join("\n"),
     fileName,
+    needsMtsCopy: needsMtsCopy || undefined,
   };
 }

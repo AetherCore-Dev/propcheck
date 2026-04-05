@@ -11,6 +11,21 @@
  *   propcheck property <t> <id>      Inspect / update a property
  */
 
+// Check for required peer dependency before loading anything else
+try {
+  require.resolve("typescript");
+} catch {
+  console.error(`
+  Error: propcheck requires TypeScript to be installed.
+
+  Run: npm install typescript
+  Or:  npm install -D typescript
+
+  (TypeScript is used to analyze your code — even .js files benefit from it.)
+`);
+  process.exit(2);
+}
+
 import { Command } from "commander";
 import { initCommand } from "./commands/init";
 import { inferCommand } from "./commands/infer";

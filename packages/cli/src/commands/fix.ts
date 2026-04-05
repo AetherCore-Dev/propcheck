@@ -251,7 +251,10 @@ export async function fixCommand(
   const testFilePath = path.join(testsDir, generated.fileName);
   await fsPromises.writeFile(testFilePath, generated.content, "utf8");
 
-  const execResult = await runFastCheckTest(testFilePath, activeProperties, runConfig);
+  const execResult = await runFastCheckTest(testFilePath, activeProperties, runConfig, {
+    targetFile: targetPath,
+    needsMtsCopy: generated.needsMtsCopy,
+  });
 
   // Filter to specific property if requested
   let failures = execResult.failed;
@@ -385,6 +388,7 @@ export async function fixCommand(
         verifyTestPath,
         activeProperties,
         runConfig,
+        { targetFile: tmpPath, needsMtsCopy: verifyGenerated.needsMtsCopy },
       );
 
       // Clean up verify test file

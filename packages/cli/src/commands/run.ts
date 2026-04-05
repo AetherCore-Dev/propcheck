@@ -220,9 +220,13 @@ export async function runCommand(
     await fs.writeFile(testFilePath, generated.content, "utf8");
 
     // Run tests
+    const fcGenerated = !isPython ? generated as { needsMtsCopy?: boolean } : null;
     const result = isPython
       ? await runHypothesisTest(testFilePath, runnableProperties, runConfig)
-      : await runFastCheckTest(testFilePath, runnableProperties, runConfig);
+      : await runFastCheckTest(testFilePath, runnableProperties, runConfig, {
+          targetFile: filePath,
+          needsMtsCopy: fcGenerated?.needsMtsCopy,
+        });
     const enrichedResult = {
       ...result,
       skipped,
