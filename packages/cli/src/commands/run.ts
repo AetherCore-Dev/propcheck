@@ -23,6 +23,7 @@ import {
   toForwardSlash,
   RUN_MODE_ITERATIONS,
   getChangedFiles,
+  findSourceFiles,
 } from "@propcheck/common";
 import type { PropertySkip, RunConfig, PropertySet } from "@propcheck/common";
 
@@ -108,23 +109,41 @@ export async function runCommand(
   } else if (target) {
     const targetPath = path.resolve(projectRoot, target);
 
-    // Check file exists before looking up properties
+    // Check if target is a directory — scan for source files
+    let stat: import("node:fs").Stats;
     try {
-      await fs.access(targetPath);
+      stat = await fs.stat(targetPath);
     } catch {
       console.error(`\n  Error: File not found: ${target}\n`);
       process.exit(2);
     }
 
-    const moduleKey = toForwardSlash(path.relative(projectRoot, targetPath));
-    const ps = await getProperties(storeDir, moduleKey);
+    if (stat.isDirectory()) {
+      // Directory mode: find all source files, match against stored properties
+      const allSets = await getAllProperties(storeDir);
+      const sourceFiles = findSourceFiles(targetPath);
+      const sourceKeys = new Set(sourceFiles.map((f) => toForwardSlash(path.relative(projectRoot, f))));
+      propertySets = allSets.filter((ps) => sourceKeys.has(ps.filePath));
 
-    if (!ps) {
-      console.error(`\n  No properties found for ${target}`);
-      console.error("  Run: propcheck infer " + target + "\n");
-      process.exit(2);
+      if (propertySets.length === 0) {
+        console.error(`\n  No properties found for files in ${target}/`);
+        console.error(`  Run: propcheck infer <file> on source files first.\n`);
+        process.exit(2);
+      }
+
+      console.log(`\n  Running properties for ${propertySets.length} file(s) in ${target}/...\n`);
+    } else {
+      // Single file mode
+      const moduleKey = toForwardSlash(path.relative(projectRoot, targetPath));
+      const ps = await getProperties(storeDir, moduleKey);
+
+      if (!ps) {
+        console.error(`\n  No properties found for ${target}`);
+        console.error("  Run: propcheck infer " + target + "\n");
+        process.exit(2);
+      }
+      propertySets = [ps];
     }
-    propertySets = [ps];
   } else {
     propertySets = await getAllProperties(storeDir);
     if (propertySets.length === 0) {

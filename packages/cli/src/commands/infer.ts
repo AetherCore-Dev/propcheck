@@ -35,7 +35,7 @@ import {
   runHypothesisTest,
 } from "@propcheck/engines";
 import { reportInferResult } from "@propcheck/reporter";
-import { hashContent, toForwardSlash } from "@propcheck/common";
+import { hashContent, toForwardSlash, findSourceFiles, deepEqual } from "@propcheck/common";
 import type {
   PropertyDefinition,
   PropertySet,
@@ -62,6 +62,16 @@ interface InferOptions {
 }
 
 type TrialRunLanguage = "typescript" | "javascript" | "python";
+
+function isSupportedLanguage(lang: string | null): lang is TrialRunLanguage {
+  return lang === "typescript" || lang === "javascript" || lang === "python";
+}
+
+async function ensureTestsDir(storeDir: string): Promise<string> {
+  const testsDir = path.join(storeDir, "tests");
+  await fs.mkdir(testsDir, { recursive: true });
+  return testsDir;
+}
 
 // ---------------------------------------------------------------------------
 // --function helpers: filter AnalysisContext to specific functions
@@ -571,7 +581,7 @@ export function autoWeakenProperty(property: PropertyDefinition): PropertyDefini
 
   if (property.riskTags.includes("wide_numeric_domain")) {
     const tightened = tightenWideNumericGenerators(generators);
-    if (JSON.stringify(tightened) !== JSON.stringify(generators)) {
+    if (!deepEqual(tightened, generators)) {
       generators = tightened;
       changed = true;
     }
@@ -639,8 +649,7 @@ export async function canaryValidateProperties(
   storeDir: string,
   language: TrialRunLanguage,
 ): Promise<{ readonly validated: readonly PropertyDefinition[]; readonly quarantined: readonly { prop: PropertyDefinition; reason: string }[] }> {
-  const testsDir = path.join(storeDir, "tests");
-  await fs.mkdir(testsDir, { recursive: true });
+  const testsDir = await ensureTestsDir(storeDir);
 
   const canaryConfig: RunConfig = {
     mode: "quick",
@@ -764,8 +773,7 @@ async function trialRunValidation(
   isMock: boolean,
   language: TrialRunLanguage,
 ): Promise<{ readonly validated: readonly PropertyDefinition[]; readonly dropped: readonly { prop: PropertyDefinition; reason: string }[]; readonly repaired: number }> {
-  const testsDir = path.join(storeDir, "tests");
-  await fs.mkdir(testsDir, { recursive: true });
+  const testsDir = await ensureTestsDir(storeDir);
 
   const trialConfig: RunConfig = {
     mode: "quick",
@@ -877,16 +885,32 @@ export async function inferCommand(
     process.exit(2);
   }
 
+  // Check if target is a directory — recurse into source files
+  let targetStat: import("node:fs").Stats;
   try {
-    await fs.access(targetPath);
+    targetStat = await fs.stat(targetPath);
   } catch {
     console.error(`\n  Error: File not found: ${target}\n`);
     process.exit(2);
   }
 
+  if (targetStat.isDirectory()) {
+    const sourceFiles = findSourceFiles(targetPath);
+    if (sourceFiles.length === 0) {
+      console.error(`\n  No source files found in ${target}/\n`);
+      process.exit(2);
+    }
+    console.log(`\n  Found ${sourceFiles.length} source file(s) in ${target}/\n`);
+    for (const filePath of sourceFiles) {
+      const relPath = path.relative(projectRoot, filePath);
+      await inferCommand(relPath, options);
+    }
+    return;
+  }
+
   // Detect language early — before config validation
   const language = detectLanguage(targetPath);
-  if (!language || !["typescript", "javascript", "python"].includes(language)) {
+  if (!isSupportedLanguage(language)) {
     console.error(`\n  Error: Unsupported file type. Supported: .ts, .tsx, .js, .jsx, .py\n`);
     process.exit(2);
   }
@@ -992,8 +1016,7 @@ export async function inferCommand(
   // Trial-run validation with self-repair
   let finalProperties = result.properties;
   if (!options.skipValidation) {
-    const testsDir = path.join(storeDir, "tests");
-    await fs.mkdir(testsDir, { recursive: true });
+    const testsDir = await ensureTestsDir(storeDir);
 
     console.log(`  Validating ${result.properties.length} rules (quick test, 100 random inputs each)...`);
 
@@ -1011,7 +1034,7 @@ export async function inferCommand(
       source,
       llmClient,
       config.mock,
-      language as TrialRunLanguage,
+      language,
     );
 
     if (repaired > 0) {
@@ -1029,7 +1052,7 @@ export async function inferCommand(
       validated,
       targetPath,
       storeDir,
-      language as TrialRunLanguage,
+      language,
     );
 
     if (quarantined.length > 0) {
@@ -1059,7 +1082,7 @@ export async function inferCommand(
         targetPath,
         testsDir,
         fullConfig,
-        language as TrialRunLanguage,
+        language,
       );
 
       // Classify results
@@ -1103,13 +1126,13 @@ export async function inferCommand(
             source,
             llmClient,
             config.mock,
-            language as TrialRunLanguage,
+            language,
           );
           const { validated: improvedCanaryValidated, quarantined: improvedQuarantined } = await canaryValidateProperties(
             improvedValidated,
             targetPath,
             storeDir,
-            language as TrialRunLanguage,
+            language,
           );
 
           // Merge: keep strong originals + replace weak with improved + keep bug-finders
