@@ -22,6 +22,16 @@ All notable changes to propcheck are documented in this file.
 - **VHS demo rewritten**: 4-scene narrative (tests pass → discover → reveal → CTA), removed source code view and title card, added call-to-action ending
 - **CLI help rewritten**: all command descriptions and option text in user-first language
 
+### Fixed (0405 Compatibility — 3 critical + 4 code quality)
+- **P0: CJS+TS project support**: `"type": "commonjs"` projects (Node 24 default) now work — codegen generates ESM `.mjs` test files that import `.mts` copies of target files
+- **P1: Missing typescript crash**: friendly "npm install typescript" error instead of MODULE_NOT_FOUND crash
+- **P3: Directory scanning**: `propcheck run src/` and `propcheck infer src/` recursively scan for source files
+- **M2: Deep equality**: replaced `JSON.stringify` comparison with proper `deepEqual()` utility
+- **M3: Type guard**: added `isSupportedLanguage()` type guard, eliminated all `as TrialRunLanguage` casts
+- **M4: Dedup mkdir**: extracted `ensureTestsDir()` helper, removed 3 duplicate patterns
+- **P6: infer.ts split**: 1175 → 530 lines — extracted `infer/weakening.ts` (183 lines) and `infer/validation.ts` (303 lines)
+- **Node 18 compat**: ESM test files use `fileURLToPath(import.meta.url)` instead of `import.meta.dirname` (Node 21+)
+
 ### Fixed (0402 Audit — 6 bugs)
 - **`--only` filter silent success**: `propcheck run --only typo_id` now exits 2 with clear error instead of silent exit 0 — prevents CI false green
 - **`--changed` mode git failure**: `propcheck run --changed` in non-git directories now exits 2 with explicit error instead of reporting "no changes detected"

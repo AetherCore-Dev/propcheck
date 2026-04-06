@@ -12,8 +12,8 @@ AI-powered testing tool. AI reads your code once → discovers rules that should
 - Bundler: tsup (~273KB single-file bundle)
 - Test runner: Node.js `--experimental-strip-types` for direct .ts import
 
-## Project Status (2026-04-03)
-**Phase 1 MVP: COMPLETE + Hardening + UX Audit + 3-Round UX Polish** — full CLI pipeline verified end-to-end. 295 unit tests across all 8 packages with 0 failures. 14 bugs fixed (0402 code audit + 0403 UX audit). README restructured for instant comprehension, CLI output purged of jargon, VHS demo optimized for viral potential.
+## Project Status (2026-04-06)
+**Phase 1 MVP: COMPLETE + Production Hardening** — full CLI pipeline verified end-to-end across CJS/ESM/no-type project configurations. 295 unit tests, 0 failures. All identified P0-P6 issues resolved. `infer.ts` split from 1175→530 lines. npm 0.3.0 published.
 
 ### What's Done
 - Full CLI: `init`, `infer`, `run`, `badge`, `quality`, `props`, `property`, `fix` commands
@@ -82,7 +82,6 @@ AI-powered testing tool. AI reads your code once → discovers rules that should
 - Full E2E verified: infer --mock → trial-run → persist → run → report
 
 ### What's NOT Done (Phase 2)
-- npm publish 0.3.0 (version bump for fix command + all recent features)
 - Interactive confirmation mode for property review (`propcheck infer --confirm`)
 - PR Comment Bot (auto-comment propcheck results on PRs)
 - VS Code extension
@@ -160,8 +159,8 @@ cd packages/cli && npm publish
 ```
 
 ## Next Priority
-1. Rebuild tsup bundle + npm publish 0.3.0
-2. Split `infer.ts` (1136 lines → 3-4 focused modules) per coding standards
-3. Interactive confirmation mode (`propcheck infer --confirm`)
-4. CI coverage reporting (c8/istanbul) to track actual line coverage
-5. Phase 2 distribution work: PR Bot, VS Code extension
+1. npm publish 0.3.1 (CJS compatibility fix + P6 split + directory scanning)
+2. Interactive confirmation mode (`propcheck infer --confirm`)
+3. PR Comment Bot
+4. CI coverage reporting (c8/istanbul)
+5. VS Code extension
