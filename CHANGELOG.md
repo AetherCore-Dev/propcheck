@@ -2,7 +2,7 @@
 
 All notable changes to propcheck are documented in this file.
 
-## [Unreleased] - 2026-04-03
+## [Unreleased] - 2026-04-06
 
 ### Added
 - **`propcheck fix` command**: dual-agent auto-fix for property violations — Tester Agent diagnoses each failure (real bug vs false positive), Generator Agent produces minimal source fix, verification loop re-runs all properties against fixed code

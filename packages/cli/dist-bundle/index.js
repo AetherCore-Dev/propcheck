@@ -73,8 +73,8 @@ var require_property_store = __commonJS({
     exports2.setProperties = setProperties3;
     exports2.isStale = isStale;
     exports2.removeProperties = removeProperties;
-    var fs5 = __importStar(require("fs/promises"));
-    var path9 = __importStar(require("path"));
+    var fs6 = __importStar(require("fs/promises"));
+    var path10 = __importStar(require("path"));
     var crypto2 = __importStar(require("crypto"));
     var PROPERTIES_FILE = "properties.json";
     var FILE_VERSION = 2;
@@ -88,7 +88,7 @@ var require_property_store = __commonJS({
       metamorphic_scale_risk: 1
     };
     function propertiesPath(storeDir) {
-      return path9.join(storeDir, PROPERTIES_FILE);
+      return path10.join(storeDir, PROPERTIES_FILE);
     }
     function computeLegacyRiskScore(score, riskTags) {
       const penalty = riskTags.reduce((sum, tag) => sum + LEGACY_RISK_PENALTIES[tag], 0);
@@ -128,7 +128,7 @@ var require_property_store = __commonJS({
     async function readPropertiesFile(storeDir) {
       const filePath = propertiesPath(storeDir);
       try {
-        const content = await fs5.readFile(filePath, "utf8");
+        const content = await fs6.readFile(filePath, "utf8");
         return normalizePropertiesFile(JSON.parse(content));
       } catch (err) {
         if (err instanceof Error && "code" in err && err.code === "ENOENT") {
@@ -140,10 +140,10 @@ var require_property_store = __commonJS({
     async function writePropertiesFile(storeDir, data) {
       const filePath = propertiesPath(storeDir);
       const tmpName = `.tmp-${crypto2.randomBytes(8).toString("hex")}.json`;
-      const tmpPath = path9.join(storeDir, tmpName);
+      const tmpPath = path10.join(storeDir, tmpName);
       const content = JSON.stringify(data, null, 2);
-      await fs5.writeFile(tmpPath, content, "utf8");
-      await fs5.rename(tmpPath, filePath);
+      await fs6.writeFile(tmpPath, content, "utf8");
+      await fs6.rename(tmpPath, filePath);
     }
     async function getProperties6(storeDir, module3) {
       const file = await readPropertiesFile(storeDir);
@@ -221,27 +221,27 @@ var require_test_file_store = __commonJS({
     exports2.writeTestFile = writeTestFile;
     exports2.readTestFile = readTestFile;
     exports2.listTestFiles = listTestFiles;
-    var fs5 = __importStar(require("fs/promises"));
-    var path9 = __importStar(require("path"));
+    var fs6 = __importStar(require("fs/promises"));
+    var path10 = __importStar(require("path"));
     var TESTS_DIR = "tests";
     function testsPath(storeDir) {
-      return path9.join(storeDir, TESTS_DIR);
+      return path10.join(storeDir, TESTS_DIR);
     }
     async function writeTestFile(storeDir, fileName, content) {
       const dir = testsPath(storeDir);
-      await fs5.mkdir(dir, { recursive: true });
-      const filePath = path9.join(dir, fileName);
-      await fs5.writeFile(filePath, content, "utf8");
+      await fs6.mkdir(dir, { recursive: true });
+      const filePath = path10.join(dir, fileName);
+      await fs6.writeFile(filePath, content, "utf8");
       return filePath;
     }
     async function readTestFile(storeDir, fileName) {
-      const filePath = path9.join(testsPath(storeDir), fileName);
-      return fs5.readFile(filePath, "utf8");
+      const filePath = path10.join(testsPath(storeDir), fileName);
+      return fs6.readFile(filePath, "utf8");
     }
     async function listTestFiles(storeDir) {
       const dir = testsPath(storeDir);
       try {
-        const entries = await fs5.readdir(dir);
+        const entries = await fs6.readdir(dir);
         return entries.filter((e) => e.endsWith(".ts") || e.endsWith(".js") || e.endsWith(".py"));
       } catch {
         return [];
@@ -294,17 +294,17 @@ var require_corpus_store = __commonJS({
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.getSeeds = getSeeds;
     exports2.addSeeds = addSeeds;
-    var fs5 = __importStar(require("fs/promises"));
-    var path9 = __importStar(require("path"));
+    var fs6 = __importStar(require("fs/promises"));
+    var path10 = __importStar(require("path"));
     var CORPUS_DIR = "corpus";
     function corpusPath(storeDir, functionName) {
       const safeName = functionName.replace(/[^a-zA-Z0-9._-]/g, "_");
-      return path9.join(storeDir, CORPUS_DIR, `${safeName}.json`);
+      return path10.join(storeDir, CORPUS_DIR, `${safeName}.json`);
     }
     async function getSeeds(storeDir, functionName) {
       const filePath = corpusPath(storeDir, functionName);
       try {
-        const content = await fs5.readFile(filePath, "utf8");
+        const content = await fs6.readFile(filePath, "utf8");
         return JSON.parse(content);
       } catch {
         return [];
@@ -315,9 +315,9 @@ var require_corpus_store = __commonJS({
       const existingKeys = new Set(existing.map((s) => JSON.stringify(s.value)));
       const newSeeds = seeds.filter((s) => !existingKeys.has(JSON.stringify(s.value)));
       const merged = [...existing, ...newSeeds];
-      const dir = path9.join(storeDir, CORPUS_DIR);
-      await fs5.mkdir(dir, { recursive: true });
-      await fs5.writeFile(corpusPath(storeDir, functionName), JSON.stringify(merged, null, 2), "utf8");
+      const dir = path10.join(storeDir, CORPUS_DIR);
+      await fs6.mkdir(dir, { recursive: true });
+      await fs6.writeFile(corpusPath(storeDir, functionName), JSON.stringify(merged, null, 2), "utf8");
     }
   }
 });
@@ -365,27 +365,27 @@ var require_init = __commonJS({
     })();
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.initStore = initStore3;
-    var fs5 = __importStar(require("fs/promises"));
-    var path9 = __importStar(require("path"));
+    var fs6 = __importStar(require("fs/promises"));
+    var path10 = __importStar(require("path"));
     var SUBDIRS = ["tests", "corpus", "reports"];
     async function initStore3(projectRoot, storeDir = ".propcheck") {
-      const storePath = path9.join(projectRoot, storeDir);
+      const storePath = path10.join(projectRoot, storeDir);
       try {
-        const stat2 = await fs5.stat(storePath);
-        if (stat2.isDirectory()) {
+        const stat3 = await fs6.stat(storePath);
+        if (stat3.isDirectory()) {
           for (const sub of SUBDIRS) {
-            await fs5.mkdir(path9.join(storePath, sub), { recursive: true });
+            await fs6.mkdir(path10.join(storePath, sub), { recursive: true });
           }
           return { created: false, path: storePath };
         }
       } catch {
       }
-      await fs5.mkdir(storePath, { recursive: true });
+      await fs6.mkdir(storePath, { recursive: true });
       for (const sub of SUBDIRS) {
-        await fs5.mkdir(path9.join(storePath, sub), { recursive: true });
+        await fs6.mkdir(path10.join(storePath, sub), { recursive: true });
       }
-      const propertiesPath = path9.join(storePath, "properties.json");
-      await fs5.writeFile(propertiesPath, JSON.stringify({ version: 2, modules: {} }, null, 2), "utf8");
+      const propertiesPath = path10.join(storePath, "properties.json");
+      await fs6.writeFile(propertiesPath, JSON.stringify({ version: 2, modules: {} }, null, 2), "utf8");
       return { created: true, path: storePath };
     }
   }
@@ -503,8 +503,8 @@ var require_loader = __commonJS({
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.loadConfig = loadConfig8;
     exports2.validateConfig = validateConfig3;
-    var fs5 = __importStar(require("fs"));
-    var path9 = __importStar(require("path"));
+    var fs6 = __importStar(require("fs"));
+    var path10 = __importStar(require("path"));
     var zod_1 = require("zod");
     var defaults_1 = require_defaults();
     var PropcheckRcSchema = zod_1.z.object({
@@ -521,10 +521,10 @@ var require_loader = __commonJS({
     }).strict();
     function loadConfig8(projectRoot, overrides = {}) {
       let config = { ...defaults_1.DEFAULTS };
-      const rcPath = path9.join(projectRoot, ".propcheckrc");
-      if (fs5.existsSync(rcPath)) {
+      const rcPath = path10.join(projectRoot, ".propcheckrc");
+      if (fs6.existsSync(rcPath)) {
         try {
-          const rcContent = fs5.readFileSync(rcPath, "utf8");
+          const rcContent = fs6.readFileSync(rcPath, "utf8");
           const rawJson = JSON.parse(rcContent);
           const parsed = PropcheckRcSchema.safeParse(rawJson);
           if (parsed.success) {
@@ -1298,19 +1298,19 @@ var require_path = __commonJS({
     exports2.resolveForward = resolveForward;
     exports2.relativeForward = relativeForward;
     exports2.importPath = importPath;
-    var path9 = __importStar(require("path"));
+    var path10 = __importStar(require("path"));
     function toForwardSlash7(filePath) {
       return filePath.replace(/\\/g, "/");
     }
     function resolveForward(...segments) {
-      return toForwardSlash7(path9.resolve(...segments));
+      return toForwardSlash7(path10.resolve(...segments));
     }
     function relativeForward(from, to) {
-      const rel = path9.relative(from, to);
+      const rel = path10.relative(from, to);
       return toForwardSlash7(rel);
     }
     function importPath(fromFile, toFile) {
-      const fromDir = path9.dirname(fromFile);
+      const fromDir = path10.dirname(fromFile);
       let rel = relativeForward(fromDir, toFile);
       rel = rel.replace(/\.(ts|tsx|js|jsx|mts|mjs)$/, "");
       if (!rel.startsWith(".")) {
@@ -1470,12 +1470,133 @@ var require_assertion_sanitizer = __commonJS({
   }
 });
 
+// ../common/dist/utils/file-scanner.js
+var require_file_scanner = __commonJS({
+  "../common/dist/utils/file-scanner.js"(exports2) {
+    "use strict";
+    var __createBinding = exports2 && exports2.__createBinding || (Object.create ? (function(o, m, k, k2) {
+      if (k2 === void 0) k2 = k;
+      var desc = Object.getOwnPropertyDescriptor(m, k);
+      if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+        desc = { enumerable: true, get: function() {
+          return m[k];
+        } };
+      }
+      Object.defineProperty(o, k2, desc);
+    }) : (function(o, m, k, k2) {
+      if (k2 === void 0) k2 = k;
+      o[k2] = m[k];
+    }));
+    var __setModuleDefault = exports2 && exports2.__setModuleDefault || (Object.create ? (function(o, v) {
+      Object.defineProperty(o, "default", { enumerable: true, value: v });
+    }) : function(o, v) {
+      o["default"] = v;
+    });
+    var __importStar = exports2 && exports2.__importStar || /* @__PURE__ */ (function() {
+      var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function(o2) {
+          var ar = [];
+          for (var k in o2) if (Object.prototype.hasOwnProperty.call(o2, k)) ar[ar.length] = k;
+          return ar;
+        };
+        return ownKeys(o);
+      };
+      return function(mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) {
+          for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        }
+        __setModuleDefault(result, mod);
+        return result;
+      };
+    })();
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.findSourceFiles = findSourceFiles3;
+    var fs6 = __importStar(require("fs"));
+    var path10 = __importStar(require("path"));
+    var SOURCE_EXTENSIONS = /* @__PURE__ */ new Set([".ts", ".tsx", ".js", ".jsx", ".py"]);
+    var IGNORED_DIRS = /* @__PURE__ */ new Set([
+      "node_modules",
+      ".propcheck",
+      "dist",
+      "dist-bundle",
+      "build",
+      ".git",
+      ".next",
+      ".nuxt",
+      "__pycache__",
+      ".venv",
+      "venv",
+      "coverage",
+      ".turbo",
+      ".cache"
+    ]);
+    function findSourceFiles3(dir) {
+      const results = [];
+      function walk(currentDir) {
+        let entries;
+        try {
+          entries = fs6.readdirSync(currentDir, { withFileTypes: true });
+        } catch {
+          return;
+        }
+        for (const entry of entries) {
+          if (entry.isDirectory()) {
+            if (!IGNORED_DIRS.has(entry.name) && !entry.name.startsWith(".")) {
+              walk(path10.join(currentDir, entry.name));
+            }
+          } else if (entry.isFile()) {
+            const ext = path10.extname(entry.name);
+            if (SOURCE_EXTENSIONS.has(ext) && !entry.name.endsWith(".d.ts") && !entry.name.endsWith(".test.ts") && !entry.name.endsWith(".spec.ts") && !entry.name.endsWith(".test.js") && !entry.name.endsWith(".spec.js")) {
+              results.push(path10.join(currentDir, entry.name));
+            }
+          }
+        }
+      }
+      walk(dir);
+      return results;
+    }
+  }
+});
+
+// ../common/dist/utils/deep-equal.js
+var require_deep_equal = __commonJS({
+  "../common/dist/utils/deep-equal.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.deepEqual = deepEqual2;
+    function deepEqual2(a, b) {
+      if (a === b)
+        return true;
+      if (a === null || b === null)
+        return false;
+      if (typeof a !== typeof b)
+        return false;
+      if (typeof a !== "object")
+        return false;
+      if (Array.isArray(a)) {
+        if (!Array.isArray(b))
+          return false;
+        if (a.length !== b.length)
+          return false;
+        return a.every((val, i) => deepEqual2(val, b[i]));
+      }
+      const keysA = Object.keys(a);
+      const keysB = Object.keys(b);
+      if (keysA.length !== keysB.length)
+        return false;
+      return keysA.every((key) => deepEqual2(a[key], b[key]));
+    }
+  }
+});
+
 // ../common/dist/index.js
 var require_dist4 = __commonJS({
   "../common/dist/index.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.validateGeneratorKey = exports2.validateAssertion = exports2.getChangedFunctions = exports2.getChangedFiles = exports2.importPath = exports2.relativeForward = exports2.resolveForward = exports2.toForwardSlash = exports2.hashContent = exports2.EngineError = exports2.LlmError = exports2.ParseError = exports2.PropcheckError = exports2.DEFAULT_CONFIG = exports2.RUN_MODE_ITERATIONS = void 0;
+    exports2.deepEqual = exports2.findSourceFiles = exports2.validateGeneratorKey = exports2.validateAssertion = exports2.getChangedFunctions = exports2.getChangedFiles = exports2.importPath = exports2.relativeForward = exports2.resolveForward = exports2.toForwardSlash = exports2.hashContent = exports2.EngineError = exports2.LlmError = exports2.ParseError = exports2.PropcheckError = exports2.DEFAULT_CONFIG = exports2.RUN_MODE_ITERATIONS = void 0;
     var execution_1 = require_execution();
     Object.defineProperty(exports2, "RUN_MODE_ITERATIONS", { enumerable: true, get: function() {
       return execution_1.RUN_MODE_ITERATIONS;
@@ -1530,6 +1651,14 @@ var require_dist4 = __commonJS({
     } });
     Object.defineProperty(exports2, "validateGeneratorKey", { enumerable: true, get: function() {
       return assertion_sanitizer_1.validateGeneratorKey;
+    } });
+    var file_scanner_1 = require_file_scanner();
+    Object.defineProperty(exports2, "findSourceFiles", { enumerable: true, get: function() {
+      return file_scanner_1.findSourceFiles;
+    } });
+    var deep_equal_1 = require_deep_equal();
+    Object.defineProperty(exports2, "deepEqual", { enumerable: true, get: function() {
+      return deep_equal_1.deepEqual;
     } });
   }
 });
@@ -3752,1198 +3881,6 @@ var require_dist5 = __commonJS({
   }
 });
 
-// ../engines/dist/fast-check/fc-codegen.js
-var require_fc_codegen = __commonJS({
-  "../engines/dist/fast-check/fc-codegen.js"(exports2) {
-    "use strict";
-    var __createBinding = exports2 && exports2.__createBinding || (Object.create ? (function(o, m, k, k2) {
-      if (k2 === void 0) k2 = k;
-      var desc = Object.getOwnPropertyDescriptor(m, k);
-      if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-        desc = { enumerable: true, get: function() {
-          return m[k];
-        } };
-      }
-      Object.defineProperty(o, k2, desc);
-    }) : (function(o, m, k, k2) {
-      if (k2 === void 0) k2 = k;
-      o[k2] = m[k];
-    }));
-    var __setModuleDefault = exports2 && exports2.__setModuleDefault || (Object.create ? (function(o, v) {
-      Object.defineProperty(o, "default", { enumerable: true, value: v });
-    }) : function(o, v) {
-      o["default"] = v;
-    });
-    var __importStar = exports2 && exports2.__importStar || /* @__PURE__ */ (function() {
-      var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function(o2) {
-          var ar = [];
-          for (var k in o2) if (Object.prototype.hasOwnProperty.call(o2, k)) ar[ar.length] = k;
-          return ar;
-        };
-        return ownKeys(o);
-      };
-      return function(mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) {
-          for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        }
-        __setModuleDefault(result, mod);
-        return result;
-      };
-    })();
-    Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.generateFastCheckTest = generateFastCheckTest4;
-    var common_1 = require_dist4();
-    var fs5 = __importStar(require("fs"));
-    var path9 = __importStar(require("path"));
-    function toSafeComment(s) {
-      return s.replace(/[\r\n\u2028\u2029]/g, " ").slice(0, 200);
-    }
-    function isTypeModuleProject(targetFile) {
-      let dir = path9.dirname(targetFile);
-      while (true) {
-        const packageJsonPath = path9.join(dir, "package.json");
-        if (fs5.existsSync(packageJsonPath)) {
-          try {
-            const raw = fs5.readFileSync(packageJsonPath, "utf8");
-            const pkg = JSON.parse(raw);
-            return pkg.type === "module";
-          } catch {
-            return false;
-          }
-        }
-        const parent = path9.dirname(dir);
-        if (parent === dir)
-          break;
-        dir = parent;
-      }
-      return false;
-    }
-    function isExplicitCJSProject(targetFile) {
-      let dir = path9.dirname(targetFile);
-      while (true) {
-        const packageJsonPath = path9.join(dir, "package.json");
-        if (fs5.existsSync(packageJsonPath)) {
-          try {
-            const raw = fs5.readFileSync(packageJsonPath, "utf8");
-            const pkg = JSON.parse(raw);
-            return pkg.type === "commonjs";
-          } catch {
-            return false;
-          }
-        }
-        const parent = path9.dirname(dir);
-        if (parent === dir)
-          break;
-        dir = parent;
-      }
-      return false;
-    }
-    var MAX_GENERATOR_DEPTH = 10;
-    function mapGenerator(spec, depth = 0) {
-      if (depth > MAX_GENERATOR_DEPTH) {
-        return "fc.anything()";
-      }
-      const c = spec.constraints ?? {};
-      switch (spec.type) {
-        case "constant":
-          return `fc.constant(${JSON.stringify(c.value ?? null)})`;
-        case "integer":
-        case "int":
-          if (c.min !== void 0 || c.max !== void 0) {
-            const parts = [];
-            if (c.min !== void 0)
-              parts.push(`min: ${Number(c.min)}`);
-            if (c.max !== void 0)
-              parts.push(`max: ${Number(c.max)}`);
-            return `fc.integer({ ${parts.join(", ")} })`;
-          }
-          return "fc.integer()";
-        case "float":
-        case "number":
-          if (c.min !== void 0 || c.max !== void 0) {
-            const parts = [];
-            if (c.min !== void 0)
-              parts.push(`min: ${Number(c.min)}`);
-            if (c.max !== void 0)
-              parts.push(`max: ${Number(c.max)}`);
-            return `fc.double({ ${parts.join(", ")}, noNaN: true, noDefaultInfinity: true })`;
-          }
-          return "fc.double({ min: 0, noNaN: true, noDefaultInfinity: true })";
-        case "string":
-          if (c.maxLength !== void 0) {
-            return `fc.string({ maxLength: ${Number(c.maxLength)} })`;
-          }
-          return "fc.string()";
-        case "boolean":
-          return "fc.boolean()";
-        case "array": {
-          const items = c.items;
-          const elementType = c.element ?? c.elementType;
-          let element;
-          if (items && typeof items === "object" && typeof items.type === "string") {
-            element = mapGenerator({ type: items.type, constraints: items.constraints }, depth + 1);
-          } else if (elementType) {
-            const nestedConstraints = c.elementConstraints && typeof c.elementConstraints === "object" ? c.elementConstraints : {
-              ...(c.elementMin ?? c.min) !== void 0 ? { min: c.elementMin ?? c.min } : {},
-              ...(c.elementMax ?? c.max) !== void 0 ? { max: c.elementMax ?? c.max } : {},
-              ...c.elementMaxLength !== void 0 ? { maxLength: c.elementMaxLength } : {}
-            };
-            element = mapGenerator({
-              type: String(elementType).replace(/[^a-zA-Z0-9_]/g, ""),
-              ...Object.keys(nestedConstraints).length > 0 ? { constraints: nestedConstraints } : {}
-            }, depth + 1);
-          } else {
-            element = "fc.anything()";
-          }
-          const maxLen = c.maxLength ? `, { maxLength: ${Number(c.maxLength)} }` : "";
-          return `fc.array(${element}${maxLen})`;
-        }
-        case "record":
-          return "fc.dictionary(fc.string(), fc.anything())";
-        case "object": {
-          const fields = c.fields;
-          if (fields && typeof fields === "object") {
-            const entries = Object.entries(fields);
-            if (entries.length === 0) {
-              return "fc.record({})";
-            }
-            const fieldExprs = entries.map(([name, fieldSpec]) => {
-              const fs6 = fieldSpec;
-              const safeName = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(name) ? name : JSON.stringify(name);
-              return `${safeName}: ${mapGenerator({ type: fs6.type, constraints: fs6.constraints }, depth + 1)}`;
-            });
-            return `fc.record({ ${fieldExprs.join(", ")} })`;
-          }
-          return "fc.dictionary(fc.string(), fc.anything())";
-        }
-        case "optional": {
-          const inner = c.inner;
-          if (inner && typeof inner === "object" && typeof inner.type === "string") {
-            return `fc.option(${mapGenerator({ type: inner.type, constraints: inner.constraints }, depth + 1)})`;
-          }
-          return "fc.option(fc.anything())";
-        }
-        case "enum": {
-          const values = c.values;
-          if (Array.isArray(values) && values.length > 0) {
-            return `fc.constantFrom(${values.map((v) => JSON.stringify(v)).join(", ")})`;
-          }
-          return "fc.anything()";
-        }
-        default: {
-          const fields = c.fields;
-          if (fields && typeof fields === "object" && Object.keys(fields).length > 0) {
-            return mapGenerator({ type: "object", constraints: spec.constraints }, depth);
-          }
-          return "fc.anything()";
-        }
-      }
-    }
-    function normalizeAssertionSyntax(assertion) {
-      let depth = 0;
-      let quote = null;
-      let escaped = false;
-      for (let i = 0; i < assertion.length; i++) {
-        const ch = assertion[i];
-        if (quote) {
-          if (escaped) {
-            escaped = false;
-            continue;
-          }
-          if (ch === "\\") {
-            escaped = true;
-            continue;
-          }
-          if (ch === quote) {
-            quote = null;
-          }
-          continue;
-        }
-        if (ch === "'" || ch === '"' || ch === "`") {
-          quote = ch;
-          continue;
-        }
-        if (ch === "(" || ch === "[" || ch === "{") {
-          depth++;
-          continue;
-        }
-        if (ch === ")" || ch === "]" || ch === "}") {
-          depth = Math.max(0, depth - 1);
-          continue;
-        }
-        if (depth === 0 && assertion.startsWith("implies", i) && /\s/.test(assertion[i - 1] ?? "") && /\s/.test(assertion[i + "implies".length] ?? "")) {
-          const left = assertion.slice(0, i).trim();
-          const right = assertion.slice(i + "implies".length).trim();
-          if (!left || !right) {
-            return assertion;
-          }
-          return `!(${normalizeAssertionSyntax(left)}) || (${normalizeAssertionSyntax(right)})`;
-        }
-      }
-      return assertion;
-    }
-    function generateFastCheckTest4(properties, targetFile, testDir, config) {
-      const isTS = targetFile.endsWith(".ts") || targetFile.endsWith(".tsx");
-      const explicitCJS = isExplicitCJSProject(targetFile);
-      const needsMtsCopy = isTS && explicitCJS;
-      const useESM = needsMtsCopy;
-      const relativeImport = (0, common_1.toForwardSlash)(path9.relative(testDir, targetFile)).replace(/\.(ts|tsx|js|jsx)$/, "");
-      let importPathStr;
-      if (useESM) {
-        const mtsTarget = targetFile.replace(/\.ts$/, ".mts").replace(/\.tsx$/, ".mtsx");
-        importPathStr = (0, common_1.toForwardSlash)(path9.relative(testDir, mtsTarget));
-        if (!importPathStr.startsWith("."))
-          importPathStr = `./${importPathStr}`;
-      } else if (isTS) {
-        importPathStr = (0, common_1.toForwardSlash)(path9.relative(testDir, targetFile));
-        if (!importPathStr.startsWith("."))
-          importPathStr = `./${importPathStr}`;
-      } else {
-        const noExt = relativeImport.startsWith(".") ? relativeImport : `./${relativeImport}`;
-        importPathStr = noExt;
-      }
-      const functionNames = [...new Set(properties.map((p) => p.targetFunction.split(".").pop()))];
-      let fcImport;
-      if (useESM) {
-        try {
-          const fcPath = require.resolve("fast-check");
-          fcImport = `const { default: fc } = await import(${JSON.stringify("file:///" + (0, common_1.toForwardSlash)(fcPath))});`;
-        } catch {
-          fcImport = `const { default: fc } = await import("fast-check");`;
-        }
-      } else {
-        let fcRequire = `require("fast-check")`;
-        try {
-          const fcPath = require.resolve("fast-check");
-          fcRequire = `require(${JSON.stringify((0, common_1.toForwardSlash)(fcPath))})`;
-        } catch {
-        }
-        fcImport = `const fc = ${fcRequire};`;
-      }
-      const lines = [];
-      lines.push(`// Auto-generated by propcheck \u2014 do not edit manually`);
-      lines.push(`// Target: ${(0, common_1.toForwardSlash)(targetFile)}`);
-      lines.push(`// Generated: ${(/* @__PURE__ */ new Date()).toISOString()}`);
-      lines.push(``);
-      if (useESM) {
-        lines.push(`import { pathToFileURL } from "node:url";`);
-        lines.push(`import { resolve } from "node:path";`);
-        lines.push(``);
-        lines.push(fcImport);
-        lines.push(`const __targetPath = resolve(import.meta.dirname, "${importPathStr}");`);
-        lines.push(`const target = await import(pathToFileURL(__targetPath).href);`);
-      } else {
-        lines.push(fcImport);
-        lines.push(`const target = require("${importPathStr}");`);
-      }
-      lines.push(``);
-      lines.push(`function approxEqual(a, b, absTol = 1e-9, relTol = 1e-6) {`);
-      lines.push(`  return Math.abs(a - b) <= absTol + relTol * Math.max(1, Math.abs(a), Math.abs(b));`);
-      lines.push(`}`);
-      lines.push(``);
-      lines.push(`const numRuns = ${config.iterations};`);
-      lines.push(``);
-      for (const prop of properties) {
-        const generators = Object.entries(prop.generators);
-        const arbNames = generators.map(([name]) => name);
-        const arbExprs = generators.map(([, spec]) => mapGenerator(spec));
-        let assertion = normalizeAssertionSyntax(prop.assertion);
-        for (const fn of functionNames) {
-          assertion = assertion.replace(new RegExp(`(?<!\\.)\\b${fn}\\(`, "g"), `target.${fn}(`);
-        }
-        lines.push(`// ${prop.id}: ${toSafeComment(prop.description)}`);
-        lines.push(`// Category: ${toSafeComment(prop.category)}`);
-        lines.push(`// Evidence: ${toSafeComment(prop.evidence)}`);
-        lines.push(`try {`);
-        if (generators.length === 0) {
-          lines.push(`  fc.assert(`);
-          lines.push(`    fc.property(`);
-          lines.push(`      fc.constant(null),`);
-          lines.push(`      () => {`);
-          lines.push(`        return ${assertion};`);
-          lines.push(`      }`);
-          lines.push(`    ),`);
-          lines.push(`    { numRuns: 1 }`);
-          lines.push(`  );`);
-          lines.push(`  console.log(JSON.stringify({ propertyId: "${prop.id}", status: "passed", iterations: 1 }));`);
-        } else {
-          lines.push(`  fc.assert(`);
-          lines.push(`    fc.property(`);
-          for (let i = 0; i < arbExprs.length; i++) {
-            lines.push(`      ${arbExprs[i]},`);
-          }
-          lines.push(`      (${arbNames.join(", ")}) => {`);
-          lines.push(`        return ${assertion};`);
-          lines.push(`      }`);
-          lines.push(`    ),`);
-          lines.push(`    { numRuns${config.seed !== void 0 ? `, seed: ${config.seed}` : ""} }`);
-          lines.push(`  );`);
-          lines.push(`  console.log(JSON.stringify({ propertyId: "${prop.id}", status: "passed", iterations: numRuns }));`);
-        }
-        lines.push(`} catch (e) {`);
-        lines.push(`  // Parse counterexample from fast-check error message`);
-        lines.push(`  let counterexample = null;`);
-        lines.push(`  let shrinkSteps = 0;`);
-        lines.push(`  const msg = e.message ?? String(e);`);
-        lines.push(`  const ceMatch = msg.match(/Counterexample: (\\[.*?\\])/);`);
-        lines.push(`  if (ceMatch) { try { counterexample = JSON.parse(ceMatch[1]); } catch {} }`);
-        lines.push(`  const shrinkMatch = msg.match(/Shrunk (\\d+) time/);`);
-        lines.push(`  if (shrinkMatch) { shrinkSteps = parseInt(shrinkMatch[1], 10); }`);
-        lines.push(`  console.log(JSON.stringify({`);
-        lines.push(`    propertyId: "${prop.id}",`);
-        lines.push(`    status: "failed",`);
-        lines.push(`    counterexample,`);
-        lines.push(`    errorMessage: msg,`);
-        lines.push(`    shrinkSteps`);
-        lines.push(`  }));`);
-        lines.push(`}`);
-        lines.push(``);
-      }
-      const baseName = path9.basename(targetFile, path9.extname(targetFile));
-      let fileExt;
-      if (useESM) {
-        fileExt = ".fc.mjs";
-      } else if (isTypeModuleProject(targetFile)) {
-        fileExt = ".fc.cjs";
-      } else {
-        fileExt = ".fc.js";
-      }
-      const fileName = `${baseName}${fileExt}`;
-      return {
-        content: lines.join("\n"),
-        fileName,
-        needsMtsCopy: needsMtsCopy || void 0
-      };
-    }
-  }
-});
-
-// ../engines/dist/shared/process-runner.js
-var require_process_runner = __commonJS({
-  "../engines/dist/shared/process-runner.js"(exports2) {
-    "use strict";
-    Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.runProcess = runProcess;
-    var node_child_process_1 = require("child_process");
-    var common_1 = require_dist4();
-    var MAX_OUTPUT_BYTES = 10 * 1024 * 1024;
-    function runProcess(command, args, options = {}) {
-      const timeout = options.timeout ?? 6e4;
-      return new Promise((resolve7, reject) => {
-        const proc = (0, node_child_process_1.spawn)(command, args, {
-          cwd: options.cwd,
-          env: {
-            // Only forward safe env vars — never leak API keys to generated test code
-            PATH: process.env["PATH"] ?? "",
-            HOME: process.env["HOME"] ?? process.env["USERPROFILE"] ?? "",
-            TEMP: process.env["TEMP"] ?? process.env["TMPDIR"] ?? "/tmp",
-            TMP: process.env["TMP"] ?? "",
-            LANG: process.env["LANG"] ?? "",
-            TERM: process.env["TERM"] ?? "",
-            SHELL: process.env["SHELL"] ?? "",
-            // Windows-specific
-            SYSTEMROOT: process.env["SYSTEMROOT"] ?? "",
-            APPDATA: process.env["APPDATA"] ?? "",
-            LOCALAPPDATA: process.env["LOCALAPPDATA"] ?? "",
-            PROGRAMFILES: process.env["PROGRAMFILES"] ?? "",
-            COMSPEC: process.env["COMSPEC"] ?? "",
-            // Python-specific
-            PYTHONPATH: process.env["PYTHONPATH"] ?? "",
-            VIRTUAL_ENV: process.env["VIRTUAL_ENV"] ?? "",
-            // Caller overrides (e.g. NODE_PATH)
-            ...options.env
-          },
-          shell: false,
-          stdio: ["ignore", "pipe", "pipe"]
-        });
-        let stdout = "";
-        let stderr = "";
-        let killed = false;
-        proc.stdout.on("data", (data) => {
-          if (stdout.length < MAX_OUTPUT_BYTES) {
-            stdout += data.toString();
-          }
-        });
-        proc.stderr.on("data", (data) => {
-          if (stderr.length < MAX_OUTPUT_BYTES) {
-            stderr += data.toString();
-          }
-        });
-        const timer = setTimeout(() => {
-          killed = true;
-          proc.kill("SIGTERM");
-          setTimeout(() => proc.kill("SIGKILL"), 5e3);
-        }, timeout);
-        proc.on("close", (code) => {
-          clearTimeout(timer);
-          if (killed) {
-            reject(new common_1.EngineError(`Process timed out after ${timeout}ms`, {
-              command,
-              args,
-              stdout: stdout.slice(0, 500),
-              stderr: stderr.slice(0, 500)
-            }));
-            return;
-          }
-          resolve7({ stdout, stderr, exitCode: code ?? 1 });
-        });
-        proc.on("error", (err) => {
-          clearTimeout(timer);
-          reject(new common_1.EngineError(`Failed to spawn process: ${err.message}`, {
-            command,
-            args
-          }));
-        });
-      });
-    }
-  }
-});
-
-// ../engines/dist/shared/result-parser.js
-var require_result_parser = __commonJS({
-  "../engines/dist/shared/result-parser.js"(exports2) {
-    "use strict";
-    Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.parseJsonLines = parseJsonLines;
-    exports2.mapResults = mapResults;
-    function parseJsonLines(stdout) {
-      const results = [];
-      for (const line of stdout.split("\n")) {
-        const trimmed = line.trim();
-        if (!trimmed.startsWith("{"))
-          continue;
-        try {
-          const parsed = JSON.parse(trimmed);
-          if (parsed.propertyId && (parsed.status === "passed" || parsed.status === "failed")) {
-            results.push(parsed);
-          }
-        } catch {
-        }
-      }
-      return results;
-    }
-    function mapResults(rawResults, properties, config, duration, stderrSnippet, errorPrefix) {
-      const passed = [];
-      const failed = [];
-      const errors = [];
-      const resultMap = new Map(rawResults.map((r) => [r.propertyId, r]));
-      for (const prop of properties) {
-        const raw = resultMap.get(prop.id);
-        if (!raw) {
-          errors.push({
-            propertyId: prop.id,
-            status: "error",
-            errorMessage: stderrSnippet ? `${errorPrefix}: ${stderrSnippet.slice(0, 200)}` : "Property produced no output",
-            duration: 0
-          });
-          continue;
-        }
-        if (raw.status === "passed") {
-          passed.push({
-            propertyId: prop.id,
-            status: "passed",
-            iterations: raw.iterations ?? config.iterations,
-            duration: 0,
-            seed: config.seed ?? 0
-          });
-        } else if (raw.status === "failed") {
-          failed.push({
-            propertyId: prop.id,
-            status: "failed",
-            counterexample: raw.counterexample ?? null,
-            shrinkSteps: raw.shrinkSteps ?? 0,
-            originalInput: raw.counterexample,
-            errorMessage: raw.errorMessage ?? "Property violated",
-            seed: config.seed ?? 0,
-            duration: 0
-          });
-        } else {
-          errors.push({
-            propertyId: prop.id,
-            status: "error",
-            errorMessage: `Unexpected status in test output: "${String(raw.status)}"`,
-            duration: 0
-          });
-        }
-      }
-      return {
-        passed,
-        failed,
-        errors,
-        skipped: [],
-        duration,
-        totalIterations: passed.reduce((sum, p) => sum + p.iterations, 0),
-        properties
-      };
-    }
-  }
-});
-
-// ../engines/dist/fast-check/fc-runner.js
-var require_fc_runner = __commonJS({
-  "../engines/dist/fast-check/fc-runner.js"(exports2) {
-    "use strict";
-    var __createBinding = exports2 && exports2.__createBinding || (Object.create ? (function(o, m, k, k2) {
-      if (k2 === void 0) k2 = k;
-      var desc = Object.getOwnPropertyDescriptor(m, k);
-      if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-        desc = { enumerable: true, get: function() {
-          return m[k];
-        } };
-      }
-      Object.defineProperty(o, k2, desc);
-    }) : (function(o, m, k, k2) {
-      if (k2 === void 0) k2 = k;
-      o[k2] = m[k];
-    }));
-    var __setModuleDefault = exports2 && exports2.__setModuleDefault || (Object.create ? (function(o, v) {
-      Object.defineProperty(o, "default", { enumerable: true, value: v });
-    }) : function(o, v) {
-      o["default"] = v;
-    });
-    var __importStar = exports2 && exports2.__importStar || /* @__PURE__ */ (function() {
-      var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function(o2) {
-          var ar = [];
-          for (var k in o2) if (Object.prototype.hasOwnProperty.call(o2, k)) ar[ar.length] = k;
-          return ar;
-        };
-        return ownKeys(o);
-      };
-      return function(mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) {
-          for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        }
-        __setModuleDefault(result, mod);
-        return result;
-      };
-    })();
-    Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.runFastCheckTest = runFastCheckTest4;
-    var fs5 = __importStar(require("fs"));
-    var path9 = __importStar(require("path"));
-    var process_runner_1 = require_process_runner();
-    var result_parser_1 = require_result_parser();
-    async function runFastCheckTest4(testFilePath, properties, config, options) {
-      const startTime = Date.now();
-      const cwd = path9.dirname(testFilePath);
-      const isESM = testFilePath.endsWith(".mjs");
-      let mtsPath = null;
-      if (options?.needsMtsCopy && options.targetFile) {
-        mtsPath = options.targetFile.replace(/\.ts$/, ".mts").replace(/\.tsx$/, ".mtsx");
-        fs5.copyFileSync(options.targetFile, mtsPath);
-      }
-      try {
-        const nodeArgs = [
-          "--experimental-strip-types",
-          "--no-warnings",
-          testFilePath
-        ];
-        const result = await (0, process_runner_1.runProcess)("node", nodeArgs, {
-          cwd,
-          timeout: config.timeout * Math.max(properties.length, 1),
-          env: {
-            NODE_PATH: [
-              path9.join(cwd, "node_modules"),
-              path9.join(cwd, "..", "..", "node_modules"),
-              path9.join(cwd, "..", "..", "..", "node_modules"),
-              process.env["NODE_PATH"] ?? ""
-            ].join(path9.delimiter)
-          }
-        });
-        const rawResults = (0, result_parser_1.parseJsonLines)(result.stdout);
-        return (0, result_parser_1.mapResults)(rawResults, properties, config, Date.now() - startTime, result.stderr, "Test execution error");
-      } finally {
-        if (mtsPath) {
-          try {
-            fs5.unlinkSync(mtsPath);
-          } catch {
-          }
-        }
-      }
-    }
-  }
-});
-
-// ../engines/dist/hypothesis/hyp-codegen.js
-var require_hyp_codegen = __commonJS({
-  "../engines/dist/hypothesis/hyp-codegen.js"(exports2) {
-    "use strict";
-    var __createBinding = exports2 && exports2.__createBinding || (Object.create ? (function(o, m, k, k2) {
-      if (k2 === void 0) k2 = k;
-      var desc = Object.getOwnPropertyDescriptor(m, k);
-      if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-        desc = { enumerable: true, get: function() {
-          return m[k];
-        } };
-      }
-      Object.defineProperty(o, k2, desc);
-    }) : (function(o, m, k, k2) {
-      if (k2 === void 0) k2 = k;
-      o[k2] = m[k];
-    }));
-    var __setModuleDefault = exports2 && exports2.__setModuleDefault || (Object.create ? (function(o, v) {
-      Object.defineProperty(o, "default", { enumerable: true, value: v });
-    }) : function(o, v) {
-      o["default"] = v;
-    });
-    var __importStar = exports2 && exports2.__importStar || /* @__PURE__ */ (function() {
-      var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function(o2) {
-          var ar = [];
-          for (var k in o2) if (Object.prototype.hasOwnProperty.call(o2, k)) ar[ar.length] = k;
-          return ar;
-        };
-        return ownKeys(o);
-      };
-      return function(mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) {
-          for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        }
-        __setModuleDefault(result, mod);
-        return result;
-      };
-    })();
-    Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.generateHypothesisTest = generateHypothesisTest3;
-    var common_1 = require_dist4();
-    var path9 = __importStar(require("path"));
-    function toSafeComment(s) {
-      return s.replace(/[\r\n\u2028\u2029]/g, " ").slice(0, 200);
-    }
-    function toPythonLiteral(value) {
-      if (value === null || value === void 0)
-        return "None";
-      if (typeof value === "number") {
-        if (Number.isNaN(value))
-          return 'float("nan")';
-        if (!Number.isFinite(value))
-          return value > 0 ? 'float("inf")' : 'float("-inf")';
-        return Object.is(value, -0) ? "-0.0" : String(value);
-      }
-      if (typeof value === "boolean")
-        return value ? "True" : "False";
-      if (typeof value === "string")
-        return JSON.stringify(value);
-      if (Array.isArray(value))
-        return `[${value.map((item) => toPythonLiteral(item)).join(", ")}]`;
-      if (typeof value === "object") {
-        return `{${Object.entries(value).map(([key, item]) => `${JSON.stringify(key)}: ${toPythonLiteral(item)}`).join(", ")}}`;
-      }
-      return JSON.stringify(value);
-    }
-    var MAX_GENERATOR_DEPTH = 10;
-    function mapStrategy(spec, depth = 0) {
-      if (depth > MAX_GENERATOR_DEPTH) {
-        return "st.integers()";
-      }
-      const c = spec.constraints ?? {};
-      switch (spec.type) {
-        case "constant":
-          return `st.just(${toPythonLiteral(c.value ?? null)})`;
-        case "integer":
-        case "int": {
-          const parts = [];
-          if (c.min !== void 0)
-            parts.push(`min_value=${Number(c.min)}`);
-          if (c.max !== void 0)
-            parts.push(`max_value=${Number(c.max)}`);
-          return parts.length > 0 ? `st.integers(${parts.join(", ")})` : "st.integers()";
-        }
-        case "float":
-        case "number": {
-          const parts = ["allow_nan=False", "allow_infinity=False"];
-          if (c.min !== void 0)
-            parts.push(`min_value=${Number(c.min)}`);
-          if (c.max !== void 0)
-            parts.push(`max_value=${Number(c.max)}`);
-          return `st.floats(${parts.join(", ")})`;
-        }
-        case "string":
-        case "str": {
-          if (c.maxLength !== void 0) {
-            return `st.text(max_size=${Number(c.maxLength)})`;
-          }
-          return "st.text()";
-        }
-        case "boolean":
-        case "bool":
-          return "st.booleans()";
-        case "array":
-        case "list": {
-          const items = c.items;
-          const elementType = c.element ?? c.elementType;
-          let element;
-          if (items && typeof items === "object" && typeof items.type === "string") {
-            element = mapStrategy({ type: items.type, constraints: items.constraints }, depth + 1);
-          } else if (elementType) {
-            const nestedConstraints = c.elementConstraints && typeof c.elementConstraints === "object" ? c.elementConstraints : {
-              ...(c.elementMin ?? c.min) !== void 0 ? { min: c.elementMin ?? c.min } : {},
-              ...(c.elementMax ?? c.max) !== void 0 ? { max: c.elementMax ?? c.max } : {},
-              ...c.elementMaxLength !== void 0 ? { maxLength: c.elementMaxLength } : {}
-            };
-            element = mapStrategy({
-              type: String(elementType).replace(/[^a-zA-Z0-9_]/g, ""),
-              ...Object.keys(nestedConstraints).length > 0 ? { constraints: nestedConstraints } : {}
-            }, depth + 1);
-          } else {
-            element = "st.integers()";
-          }
-          const maxLen = c.maxLength ? `, max_size=${Number(c.maxLength)}` : "";
-          return `st.lists(${element}${maxLen})`;
-        }
-        case "dict":
-        case "record":
-          return "st.dictionaries(st.text(min_size=1, max_size=10), st.integers())";
-        case "object": {
-          const fields = c.fields;
-          if (fields && typeof fields === "object") {
-            const entries = Object.entries(fields);
-            if (entries.length === 0) {
-              return "st.fixed_dictionaries({})";
-            }
-            const fieldExprs = entries.map(([name, fieldSpec]) => {
-              const fs5 = fieldSpec;
-              return `${JSON.stringify(name)}: ${mapStrategy({ type: fs5.type, constraints: fs5.constraints }, depth + 1)}`;
-            });
-            return `st.fixed_dictionaries({${fieldExprs.join(", ")}})`;
-          }
-          return "st.dictionaries(st.text(min_size=1, max_size=10), st.integers())";
-        }
-        case "optional": {
-          const inner = c.inner;
-          if (inner && typeof inner === "object" && typeof inner.type === "string") {
-            return `st.one_of(st.just(None), ${mapStrategy({ type: inner.type, constraints: inner.constraints }, depth + 1)})`;
-          }
-          return "st.one_of(st.just(None), st.integers())";
-        }
-        case "enum": {
-          const values = c.values;
-          if (Array.isArray(values) && values.length > 0) {
-            return `st.sampled_from([${values.map((v) => toPythonLiteral(v)).join(", ")}])`;
-          }
-          return "st.integers()";
-        }
-        default: {
-          const fields = c.fields;
-          if (fields && typeof fields === "object" && Object.keys(fields).length > 0) {
-            return mapStrategy({ type: "object", constraints: spec.constraints }, depth);
-          }
-          return "st.integers()";
-        }
-      }
-    }
-    function translateAssertionToPython(assertion) {
-      let translated = assertion;
-      translated = translated.replace(/!==/g, "!=");
-      translated = translated.replace(/===/g, "==");
-      translated = translated.replace(/\btrue\b/g, "True");
-      translated = translated.replace(/\bfalse\b/g, "False");
-      translated = translated.replace(/\bnull\b/g, "None");
-      translated = translated.replace(/\bundefined\b/g, "None");
-      translated = translated.replace(/\bMath\.abs\s*\(/g, "abs(");
-      translated = translated.replace(/\bparseFloat\s*\(/g, "float(");
-      translated = translated.replace(/\bparseInt\s*\(/g, "int(");
-      translated = translated.replace(/\bapproxEqual\s*\(/g, "approx_equal(");
-      translated = translated.replace(/\s*&&\s*/g, " and ");
-      translated = translated.replace(/\s*\|\|\s*/g, " or ");
-      translated = translated.replace(/!\s*(?!=)\(/g, "not (");
-      translated = translated.replace(/!\s*(?!=)([A-Za-z_][\w.]*(?:\([^()\n]*\))?)/g, "not $1");
-      translated = translated.replace(/([A-Za-z_][\w.]*(?:\([^()\n]*\))?)\.length\b/g, "len($1)");
-      return translated;
-    }
-    function generateHypothesisTest3(properties, targetFile, testsDir, config) {
-      const targetDir = path9.dirname(targetFile);
-      const moduleName = path9.basename(targetFile, path9.extname(targetFile));
-      const relTargetDir = (0, common_1.toForwardSlash)(path9.relative(testsDir, targetDir));
-      const lines = [];
-      lines.push(`# Auto-generated by propcheck \u2014 do not edit manually`);
-      lines.push(`# Target: ${(0, common_1.toForwardSlash)(targetFile)}`);
-      lines.push(`# Generated: ${(/* @__PURE__ */ new Date()).toISOString()}`);
-      lines.push(``);
-      lines.push(`import sys`);
-      lines.push(`import json`);
-      lines.push(`from pathlib import Path`);
-      lines.push(``);
-      lines.push(`# Add target directory to Python path`);
-      lines.push(`sys.path.insert(0, str(Path(__file__).parent / ${JSON.stringify(relTargetDir)}))`);
-      lines.push(``);
-      lines.push(`from hypothesis import given, settings`);
-      lines.push(`from hypothesis import strategies as st`);
-      lines.push(`import ${moduleName} as target`);
-      lines.push(``);
-      lines.push(`def approx_equal(a, b, abs_tol=1e-9, rel_tol=1e-6):`);
-      lines.push(`    return abs(a - b) <= abs_tol + rel_tol * max(1, abs(a), abs(b))`);
-      lines.push(``);
-      lines.push(`MAX_EXAMPLES = ${config.iterations}`);
-      lines.push(``);
-      for (const prop of properties) {
-        const funcName = prop.targetFunction.split(".").pop();
-        const generators = Object.entries(prop.generators);
-        const givenArgs = generators.map(([name, spec]) => `${name}=${mapStrategy(spec)}`).join(", ");
-        const paramNames = generators.map(([name]) => name).join(", ");
-        let assertion = prop.assertion.replace(new RegExp(`\\b${funcName}\\(`, "g"), `target.${funcName}(`);
-        assertion = translateAssertionToPython(assertion);
-        lines.push(`# ${prop.id}: ${toSafeComment(prop.description)}`);
-        lines.push(`# Category: ${toSafeComment(prop.category)}`);
-        lines.push(`# Evidence: ${toSafeComment(prop.evidence)}`);
-        lines.push(`def test_${prop.id}():`);
-        lines.push(`    try:`);
-        if (generators.length === 0) {
-          lines.push(`        assert ${assertion}`);
-        } else {
-          lines.push(`        @given(${givenArgs})`);
-          lines.push(`        @settings(max_examples=MAX_EXAMPLES)`);
-          lines.push(`        def inner(${paramNames}):`);
-          lines.push(`            assert ${assertion}`);
-          lines.push(`        inner()`);
-        }
-        lines.push(`        print(json.dumps({"propertyId": "${prop.id}", "status": "passed", "iterations": ${generators.length === 0 ? 1 : "MAX_EXAMPLES"}}))`);
-        lines.push(`    except AssertionError as e:`);
-        lines.push(`        print(json.dumps({"propertyId": "${prop.id}", "status": "failed", "counterexample": str(e), "errorMessage": str(e), "shrinkSteps": 0}))`);
-        lines.push(`    except Exception as e:`);
-        lines.push(`        msg = str(e)`);
-        lines.push(`        print(json.dumps({"propertyId": "${prop.id}", "status": "failed", "counterexample": msg[:200], "errorMessage": msg[:200], "shrinkSteps": 0}))`);
-        lines.push(``);
-      }
-      lines.push(`if __name__ == "__main__":`);
-      for (const prop of properties) {
-        lines.push(`    test_${prop.id}()`);
-      }
-      const fileName = `${moduleName}.hyp.py`;
-      return {
-        content: lines.join("\n"),
-        fileName
-      };
-    }
-  }
-});
-
-// ../engines/dist/hypothesis/hyp-runner.js
-var require_hyp_runner = __commonJS({
-  "../engines/dist/hypothesis/hyp-runner.js"(exports2) {
-    "use strict";
-    var __createBinding = exports2 && exports2.__createBinding || (Object.create ? (function(o, m, k, k2) {
-      if (k2 === void 0) k2 = k;
-      var desc = Object.getOwnPropertyDescriptor(m, k);
-      if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-        desc = { enumerable: true, get: function() {
-          return m[k];
-        } };
-      }
-      Object.defineProperty(o, k2, desc);
-    }) : (function(o, m, k, k2) {
-      if (k2 === void 0) k2 = k;
-      o[k2] = m[k];
-    }));
-    var __setModuleDefault = exports2 && exports2.__setModuleDefault || (Object.create ? (function(o, v) {
-      Object.defineProperty(o, "default", { enumerable: true, value: v });
-    }) : function(o, v) {
-      o["default"] = v;
-    });
-    var __importStar = exports2 && exports2.__importStar || /* @__PURE__ */ (function() {
-      var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function(o2) {
-          var ar = [];
-          for (var k in o2) if (Object.prototype.hasOwnProperty.call(o2, k)) ar[ar.length] = k;
-          return ar;
-        };
-        return ownKeys(o);
-      };
-      return function(mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) {
-          for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        }
-        __setModuleDefault(result, mod);
-        return result;
-      };
-    })();
-    Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.runHypothesisTest = runHypothesisTest3;
-    var path9 = __importStar(require("path"));
-    var process_runner_1 = require_process_runner();
-    var result_parser_1 = require_result_parser();
-    var _cachedPythonCmd = null;
-    async function findPython() {
-      if (_cachedPythonCmd !== null)
-        return _cachedPythonCmd;
-      for (const cmd of ["python", "python3"]) {
-        try {
-          const result = await (0, process_runner_1.runProcess)(cmd, ["--version"], { timeout: 5e3 });
-          if (result.exitCode === 0) {
-            _cachedPythonCmd = cmd;
-            return cmd;
-          }
-        } catch {
-        }
-      }
-      throw new Error("Python not found. Install Python 3.8+ to use Hypothesis engine.");
-    }
-    async function runHypothesisTest3(testFilePath, properties, config) {
-      const startTime = Date.now();
-      const python = await findPython();
-      const result = await (0, process_runner_1.runProcess)(python, [testFilePath], {
-        cwd: path9.dirname(testFilePath),
-        timeout: config.timeout * Math.max(properties.length, 1)
-      });
-      const rawResults = (0, result_parser_1.parseJsonLines)(result.stdout);
-      return (0, result_parser_1.mapResults)(rawResults, properties, config, Date.now() - startTime, result.stderr, "Python error");
-    }
-  }
-});
-
-// ../engines/dist/mutation/operators.js
-var require_operators = __commonJS({
-  "../engines/dist/mutation/operators.js"(exports2) {
-    "use strict";
-    Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.generateMutants = generateMutants2;
-    var MUTATION_OPERATORS = [
-      // Arithmetic
-      { name: "ARITH_PLUS_TO_MINUS", description: "+ \u2192 -", pattern: /(?<=[^+=])\+(?!=)/g, replacement: "-" },
-      { name: "ARITH_MINUS_TO_PLUS", description: "- \u2192 +", pattern: /(?<=[^-=])-(?!=)/g, replacement: "+" },
-      { name: "ARITH_MUL_TO_DIV", description: "* \u2192 /", pattern: /\*(?!=)/g, replacement: "/" },
-      { name: "ARITH_DIV_TO_MUL", description: "/ \u2192 *", pattern: /\/(?!=)/g, replacement: "*" },
-      // Relational
-      { name: "REL_GT_TO_GTE", description: "> \u2192 >=", pattern: /(?<!=)>(?!=)/g, replacement: ">=" },
-      { name: "REL_LT_TO_LTE", description: "< \u2192 <=", pattern: /(?<!=)<(?!=)/g, replacement: "<=" },
-      { name: "REL_GTE_TO_GT", description: ">= \u2192 >", pattern: />=/g, replacement: ">" },
-      { name: "REL_LTE_TO_LT", description: "<= \u2192 <", pattern: /<=/g, replacement: "<" },
-      { name: "REL_EQ_TO_NEQ", description: "=== \u2192 !==", pattern: /===/g, replacement: "!==" },
-      { name: "REL_NEQ_TO_EQ", description: "!== \u2192 ===", pattern: /!==/g, replacement: "===" },
-      // Boundary (off-by-one)
-      { name: "BOUND_ZERO_TO_ONE", description: "0 \u2192 1", pattern: /(?<=[\s(,=])0(?=[\s),;])/g, replacement: "1" },
-      { name: "BOUND_ONE_TO_ZERO", description: "1 \u2192 0", pattern: /(?<=[\s(,=])1(?=[\s),;])/g, replacement: "0" },
-      { name: "BOUND_100_TO_99", description: "100 \u2192 99", pattern: /\b100\b/g, replacement: "99" },
-      // Logical
-      { name: "LOGIC_AND_TO_OR", description: "&& \u2192 ||", pattern: /&&/g, replacement: "||" },
-      { name: "LOGIC_OR_TO_AND", description: "|| \u2192 &&", pattern: /\|\|/g, replacement: "&&" },
-      { name: "LOGIC_TRUE_TO_FALSE", description: "true \u2192 false", pattern: /\btrue\b/g, replacement: "false" },
-      { name: "LOGIC_FALSE_TO_TRUE", description: "false \u2192 true", pattern: /\bfalse\b/g, replacement: "true" },
-      // Return value
-      { name: "RET_EMPTY_STRING", description: 'return "..." \u2192 return ""', pattern: /return\s+"[^"]*"/g, replacement: 'return ""' },
-      { name: "RET_ZERO", description: "return N \u2192 return 0", pattern: /return\s+\d+/g, replacement: "return 0" }
-    ];
-    function generateMutants2(source, filePath) {
-      const mutants = [];
-      const lines = source.split("\n");
-      let mutantId = 0;
-      for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
-        const line = lines[lineIdx];
-        const trimmed = line.trim();
-        if (trimmed.startsWith("//") || trimmed.startsWith("/*") || trimmed.startsWith("*") || trimmed.startsWith("import ") || trimmed.startsWith("export function") || trimmed.startsWith("export async function") || trimmed.startsWith("export type") || trimmed.startsWith("export interface") || trimmed === "" || trimmed === "}" || trimmed === "{" || trimmed.startsWith("/**")) {
-          continue;
-        }
-        for (const op of MUTATION_OPERATORS) {
-          const regex = new RegExp(op.pattern.source, op.pattern.flags);
-          let match;
-          while ((match = regex.exec(line)) !== null) {
-            const original = match[0];
-            const replacement = typeof op.replacement === "function" ? op.replacement(original) : op.replacement;
-            if (original === replacement)
-              continue;
-            const mutatedLine = line.slice(0, match.index) + replacement + line.slice(match.index + original.length);
-            const mutatedLines = [...lines];
-            mutatedLines[lineIdx] = mutatedLine;
-            const mutatedSource = mutatedLines.join("\n");
-            mutants.push({
-              id: `mut_${mutantId++}`,
-              operator: op.name,
-              description: `Line ${lineIdx + 1}: ${op.description} \u2014 "${original}" \u2192 "${replacement}"`,
-              line: lineIdx + 1,
-              original,
-              replacement,
-              mutatedSource
-            });
-          }
-        }
-      }
-      return mutants;
-    }
-  }
-});
-
-// ../engines/dist/mutation/runner.js
-var require_runner = __commonJS({
-  "../engines/dist/mutation/runner.js"(exports2) {
-    "use strict";
-    var __createBinding = exports2 && exports2.__createBinding || (Object.create ? (function(o, m, k, k2) {
-      if (k2 === void 0) k2 = k;
-      var desc = Object.getOwnPropertyDescriptor(m, k);
-      if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-        desc = { enumerable: true, get: function() {
-          return m[k];
-        } };
-      }
-      Object.defineProperty(o, k2, desc);
-    }) : (function(o, m, k, k2) {
-      if (k2 === void 0) k2 = k;
-      o[k2] = m[k];
-    }));
-    var __setModuleDefault = exports2 && exports2.__setModuleDefault || (Object.create ? (function(o, v) {
-      Object.defineProperty(o, "default", { enumerable: true, value: v });
-    }) : function(o, v) {
-      o["default"] = v;
-    });
-    var __importStar = exports2 && exports2.__importStar || /* @__PURE__ */ (function() {
-      var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function(o2) {
-          var ar = [];
-          for (var k in o2) if (Object.prototype.hasOwnProperty.call(o2, k)) ar[ar.length] = k;
-          return ar;
-        };
-        return ownKeys(o);
-      };
-      return function(mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) {
-          for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        }
-        __setModuleDefault(result, mod);
-        return result;
-      };
-    })();
-    Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.runMutationTesting = runMutationTesting2;
-    var fs5 = __importStar(require("fs/promises"));
-    var path9 = __importStar(require("path"));
-    var fc_codegen_1 = require_fc_codegen();
-    var fc_runner_1 = require_fc_runner();
-    var operators_1 = require_operators();
-    async function runMutationTesting2(sourceFilePath, source, properties, storeDir) {
-      const startTime = Date.now();
-      const mutants = (0, operators_1.generateMutants)(source, sourceFilePath);
-      if (mutants.length === 0) {
-        return {
-          totalMutants: 0,
-          killed: 0,
-          survived: 0,
-          errors: 0,
-          mutationScore: 1,
-          results: [],
-          survivingMutants: [],
-          duration: Date.now() - startTime
-        };
-      }
-      const testsDir = path9.join(storeDir, "tests");
-      await fs5.mkdir(testsDir, { recursive: true });
-      const quickConfig = {
-        mode: "quick",
-        iterations: 50,
-        // Fewer iterations per mutant for speed
-        timeout: 1e4,
-        verbose: false
-      };
-      const results = [];
-      const survivingMutants = [];
-      for (const mutant of mutants) {
-        const ext = path9.extname(sourceFilePath);
-        const mutantFileName = `_mutant_${mutant.id}${ext}`;
-        const mutantFilePath = path9.join(testsDir, mutantFileName);
-        try {
-          await fs5.writeFile(mutantFilePath, mutant.mutatedSource, "utf8");
-          const generated = (0, fc_codegen_1.generateFastCheckTest)(properties, mutantFilePath, testsDir, quickConfig);
-          const testFilePath = path9.join(testsDir, `_mut_test_${mutant.id}.js`);
-          await fs5.writeFile(testFilePath, generated.content, "utf8");
-          const result = await (0, fc_runner_1.runFastCheckTest)(testFilePath, properties, quickConfig);
-          if (result.failed.length > 0) {
-            results.push({
-              mutantId: mutant.id,
-              status: "killed",
-              killedBy: result.failed[0].propertyId
-            });
-          } else if (result.errors.length > 0 && result.passed.length === 0) {
-            results.push({
-              mutantId: mutant.id,
-              status: "killed"
-            });
-          } else {
-            results.push({
-              mutantId: mutant.id,
-              status: "survived"
-            });
-            survivingMutants.push(mutant);
-          }
-          try {
-            await fs5.unlink(testFilePath);
-          } catch {
-          }
-        } catch {
-          results.push({
-            mutantId: mutant.id,
-            status: "error"
-          });
-        } finally {
-          try {
-            await fs5.unlink(mutantFilePath);
-          } catch {
-          }
-        }
-      }
-      const killed = results.filter((r) => r.status === "killed").length;
-      const survived = results.filter((r) => r.status === "survived").length;
-      const errors = results.filter((r) => r.status === "error").length;
-      return {
-        totalMutants: mutants.length,
-        killed,
-        survived,
-        errors,
-        mutationScore: killed + survived > 0 ? killed / (killed + survived) : 1,
-        results,
-        survivingMutants,
-        duration: Date.now() - startTime
-      };
-    }
-  }
-});
-
-// ../engines/dist/index.js
-var require_dist6 = __commonJS({
-  "../engines/dist/index.js"(exports2) {
-    "use strict";
-    Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.runMutationTesting = exports2.generateMutants = exports2.runProcess = exports2.runHypothesisTest = exports2.generateHypothesisTest = exports2.runFastCheckTest = exports2.generateFastCheckTest = void 0;
-    var fc_codegen_1 = require_fc_codegen();
-    Object.defineProperty(exports2, "generateFastCheckTest", { enumerable: true, get: function() {
-      return fc_codegen_1.generateFastCheckTest;
-    } });
-    var fc_runner_1 = require_fc_runner();
-    Object.defineProperty(exports2, "runFastCheckTest", { enumerable: true, get: function() {
-      return fc_runner_1.runFastCheckTest;
-    } });
-    var hyp_codegen_1 = require_hyp_codegen();
-    Object.defineProperty(exports2, "generateHypothesisTest", { enumerable: true, get: function() {
-      return hyp_codegen_1.generateHypothesisTest;
-    } });
-    var hyp_runner_1 = require_hyp_runner();
-    Object.defineProperty(exports2, "runHypothesisTest", { enumerable: true, get: function() {
-      return hyp_runner_1.runHypothesisTest;
-    } });
-    var process_runner_1 = require_process_runner();
-    Object.defineProperty(exports2, "runProcess", { enumerable: true, get: function() {
-      return process_runner_1.runProcess;
-    } });
-    var operators_1 = require_operators();
-    Object.defineProperty(exports2, "generateMutants", { enumerable: true, get: function() {
-      return operators_1.generateMutants;
-    } });
-    var runner_1 = require_runner();
-    Object.defineProperty(exports2, "runMutationTesting", { enumerable: true, get: function() {
-      return runner_1.runMutationTesting;
-    } });
-  }
-});
-
 // ../reporter/dist/formatters/property-table.js
 var require_property_table = __commonJS({
   "../reporter/dist/formatters/property-table.js"(exports2) {
@@ -5388,7 +4325,7 @@ var require_property_workflow_reporter = __commonJS({
 });
 
 // ../reporter/dist/index.js
-var require_dist7 = __commonJS({
+var require_dist6 = __commonJS({
   "../reporter/dist/index.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
@@ -5438,6 +4375,1199 @@ var require_dist7 = __commonJS({
   }
 });
 
+// ../engines/dist/fast-check/fc-codegen.js
+var require_fc_codegen = __commonJS({
+  "../engines/dist/fast-check/fc-codegen.js"(exports2) {
+    "use strict";
+    var __createBinding = exports2 && exports2.__createBinding || (Object.create ? (function(o, m, k, k2) {
+      if (k2 === void 0) k2 = k;
+      var desc = Object.getOwnPropertyDescriptor(m, k);
+      if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+        desc = { enumerable: true, get: function() {
+          return m[k];
+        } };
+      }
+      Object.defineProperty(o, k2, desc);
+    }) : (function(o, m, k, k2) {
+      if (k2 === void 0) k2 = k;
+      o[k2] = m[k];
+    }));
+    var __setModuleDefault = exports2 && exports2.__setModuleDefault || (Object.create ? (function(o, v) {
+      Object.defineProperty(o, "default", { enumerable: true, value: v });
+    }) : function(o, v) {
+      o["default"] = v;
+    });
+    var __importStar = exports2 && exports2.__importStar || /* @__PURE__ */ (function() {
+      var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function(o2) {
+          var ar = [];
+          for (var k in o2) if (Object.prototype.hasOwnProperty.call(o2, k)) ar[ar.length] = k;
+          return ar;
+        };
+        return ownKeys(o);
+      };
+      return function(mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) {
+          for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        }
+        __setModuleDefault(result, mod);
+        return result;
+      };
+    })();
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.generateFastCheckTest = generateFastCheckTest4;
+    var common_1 = require_dist4();
+    var fs6 = __importStar(require("fs"));
+    var path10 = __importStar(require("path"));
+    function toSafeComment(s) {
+      return s.replace(/[\r\n\u2028\u2029]/g, " ").slice(0, 200);
+    }
+    function isTypeModuleProject(targetFile) {
+      let dir = path10.dirname(targetFile);
+      while (true) {
+        const packageJsonPath = path10.join(dir, "package.json");
+        if (fs6.existsSync(packageJsonPath)) {
+          try {
+            const raw = fs6.readFileSync(packageJsonPath, "utf8");
+            const pkg = JSON.parse(raw);
+            return pkg.type === "module";
+          } catch {
+            return false;
+          }
+        }
+        const parent = path10.dirname(dir);
+        if (parent === dir)
+          break;
+        dir = parent;
+      }
+      return false;
+    }
+    function isExplicitCJSProject(targetFile) {
+      let dir = path10.dirname(targetFile);
+      while (true) {
+        const packageJsonPath = path10.join(dir, "package.json");
+        if (fs6.existsSync(packageJsonPath)) {
+          try {
+            const raw = fs6.readFileSync(packageJsonPath, "utf8");
+            const pkg = JSON.parse(raw);
+            return pkg.type === "commonjs";
+          } catch {
+            return false;
+          }
+        }
+        const parent = path10.dirname(dir);
+        if (parent === dir)
+          break;
+        dir = parent;
+      }
+      return false;
+    }
+    var MAX_GENERATOR_DEPTH = 10;
+    function mapGenerator(spec, depth = 0) {
+      if (depth > MAX_GENERATOR_DEPTH) {
+        return "fc.anything()";
+      }
+      const c = spec.constraints ?? {};
+      switch (spec.type) {
+        case "constant":
+          return `fc.constant(${JSON.stringify(c.value ?? null)})`;
+        case "integer":
+        case "int":
+          if (c.min !== void 0 || c.max !== void 0) {
+            const parts = [];
+            if (c.min !== void 0)
+              parts.push(`min: ${Number(c.min)}`);
+            if (c.max !== void 0)
+              parts.push(`max: ${Number(c.max)}`);
+            return `fc.integer({ ${parts.join(", ")} })`;
+          }
+          return "fc.integer()";
+        case "float":
+        case "number":
+          if (c.min !== void 0 || c.max !== void 0) {
+            const parts = [];
+            if (c.min !== void 0)
+              parts.push(`min: ${Number(c.min)}`);
+            if (c.max !== void 0)
+              parts.push(`max: ${Number(c.max)}`);
+            return `fc.double({ ${parts.join(", ")}, noNaN: true, noDefaultInfinity: true })`;
+          }
+          return "fc.double({ min: 0, noNaN: true, noDefaultInfinity: true })";
+        case "string":
+          if (c.maxLength !== void 0) {
+            return `fc.string({ maxLength: ${Number(c.maxLength)} })`;
+          }
+          return "fc.string()";
+        case "boolean":
+          return "fc.boolean()";
+        case "array": {
+          const items = c.items;
+          const elementType = c.element ?? c.elementType;
+          let element;
+          if (items && typeof items === "object" && typeof items.type === "string") {
+            element = mapGenerator({ type: items.type, constraints: items.constraints }, depth + 1);
+          } else if (elementType) {
+            const nestedConstraints = c.elementConstraints && typeof c.elementConstraints === "object" ? c.elementConstraints : {
+              ...(c.elementMin ?? c.min) !== void 0 ? { min: c.elementMin ?? c.min } : {},
+              ...(c.elementMax ?? c.max) !== void 0 ? { max: c.elementMax ?? c.max } : {},
+              ...c.elementMaxLength !== void 0 ? { maxLength: c.elementMaxLength } : {}
+            };
+            element = mapGenerator({
+              type: String(elementType).replace(/[^a-zA-Z0-9_]/g, ""),
+              ...Object.keys(nestedConstraints).length > 0 ? { constraints: nestedConstraints } : {}
+            }, depth + 1);
+          } else {
+            element = "fc.anything()";
+          }
+          const maxLen = c.maxLength ? `, { maxLength: ${Number(c.maxLength)} }` : "";
+          return `fc.array(${element}${maxLen})`;
+        }
+        case "record":
+          return "fc.dictionary(fc.string(), fc.anything())";
+        case "object": {
+          const fields = c.fields;
+          if (fields && typeof fields === "object") {
+            const entries = Object.entries(fields);
+            if (entries.length === 0) {
+              return "fc.record({})";
+            }
+            const fieldExprs = entries.map(([name, fieldSpec]) => {
+              const fs7 = fieldSpec;
+              const safeName = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(name) ? name : JSON.stringify(name);
+              return `${safeName}: ${mapGenerator({ type: fs7.type, constraints: fs7.constraints }, depth + 1)}`;
+            });
+            return `fc.record({ ${fieldExprs.join(", ")} })`;
+          }
+          return "fc.dictionary(fc.string(), fc.anything())";
+        }
+        case "optional": {
+          const inner = c.inner;
+          if (inner && typeof inner === "object" && typeof inner.type === "string") {
+            return `fc.option(${mapGenerator({ type: inner.type, constraints: inner.constraints }, depth + 1)})`;
+          }
+          return "fc.option(fc.anything())";
+        }
+        case "enum": {
+          const values = c.values;
+          if (Array.isArray(values) && values.length > 0) {
+            return `fc.constantFrom(${values.map((v) => JSON.stringify(v)).join(", ")})`;
+          }
+          return "fc.anything()";
+        }
+        default: {
+          const fields = c.fields;
+          if (fields && typeof fields === "object" && Object.keys(fields).length > 0) {
+            return mapGenerator({ type: "object", constraints: spec.constraints }, depth);
+          }
+          return "fc.anything()";
+        }
+      }
+    }
+    function normalizeAssertionSyntax(assertion) {
+      let depth = 0;
+      let quote = null;
+      let escaped = false;
+      for (let i = 0; i < assertion.length; i++) {
+        const ch = assertion[i];
+        if (quote) {
+          if (escaped) {
+            escaped = false;
+            continue;
+          }
+          if (ch === "\\") {
+            escaped = true;
+            continue;
+          }
+          if (ch === quote) {
+            quote = null;
+          }
+          continue;
+        }
+        if (ch === "'" || ch === '"' || ch === "`") {
+          quote = ch;
+          continue;
+        }
+        if (ch === "(" || ch === "[" || ch === "{") {
+          depth++;
+          continue;
+        }
+        if (ch === ")" || ch === "]" || ch === "}") {
+          depth = Math.max(0, depth - 1);
+          continue;
+        }
+        if (depth === 0 && assertion.startsWith("implies", i) && /\s/.test(assertion[i - 1] ?? "") && /\s/.test(assertion[i + "implies".length] ?? "")) {
+          const left = assertion.slice(0, i).trim();
+          const right = assertion.slice(i + "implies".length).trim();
+          if (!left || !right) {
+            return assertion;
+          }
+          return `!(${normalizeAssertionSyntax(left)}) || (${normalizeAssertionSyntax(right)})`;
+        }
+      }
+      return assertion;
+    }
+    function generateFastCheckTest4(properties, targetFile, testDir, config) {
+      const isTS = targetFile.endsWith(".ts") || targetFile.endsWith(".tsx");
+      const explicitCJS = isExplicitCJSProject(targetFile);
+      const needsMtsCopy = isTS && explicitCJS;
+      const useESM = needsMtsCopy;
+      const relativeImport = (0, common_1.toForwardSlash)(path10.relative(testDir, targetFile)).replace(/\.(ts|tsx|js|jsx)$/, "");
+      let importPathStr;
+      if (useESM) {
+        const mtsTarget = targetFile.replace(/\.ts$/, ".mts").replace(/\.tsx$/, ".mtsx");
+        importPathStr = (0, common_1.toForwardSlash)(path10.relative(testDir, mtsTarget));
+        if (!importPathStr.startsWith("."))
+          importPathStr = `./${importPathStr}`;
+      } else if (isTS) {
+        importPathStr = (0, common_1.toForwardSlash)(path10.relative(testDir, targetFile));
+        if (!importPathStr.startsWith("."))
+          importPathStr = `./${importPathStr}`;
+      } else {
+        const noExt = relativeImport.startsWith(".") ? relativeImport : `./${relativeImport}`;
+        importPathStr = noExt;
+      }
+      const functionNames = [...new Set(properties.map((p) => p.targetFunction.split(".").pop()))];
+      let fcImport;
+      if (useESM) {
+        try {
+          const fcPath = require.resolve("fast-check");
+          fcImport = `const { default: fc } = await import(${JSON.stringify("file:///" + (0, common_1.toForwardSlash)(fcPath))});`;
+        } catch {
+          fcImport = `const { default: fc } = await import("fast-check");`;
+        }
+      } else {
+        let fcRequire = `require("fast-check")`;
+        try {
+          const fcPath = require.resolve("fast-check");
+          fcRequire = `require(${JSON.stringify((0, common_1.toForwardSlash)(fcPath))})`;
+        } catch {
+        }
+        fcImport = `const fc = ${fcRequire};`;
+      }
+      const lines = [];
+      lines.push(`// Auto-generated by propcheck \u2014 do not edit manually`);
+      lines.push(`// Target: ${(0, common_1.toForwardSlash)(targetFile)}`);
+      lines.push(`// Generated: ${(/* @__PURE__ */ new Date()).toISOString()}`);
+      lines.push(``);
+      if (useESM) {
+        lines.push(`import { pathToFileURL, fileURLToPath } from "node:url";`);
+        lines.push(`import { resolve, dirname } from "node:path";`);
+        lines.push(``);
+        lines.push(fcImport);
+        lines.push(`const __dirname = dirname(fileURLToPath(import.meta.url));`);
+        lines.push(`const __targetPath = resolve(__dirname, "${importPathStr}");`);
+        lines.push(`const target = await import(pathToFileURL(__targetPath).href);`);
+      } else {
+        lines.push(fcImport);
+        lines.push(`const target = require("${importPathStr}");`);
+      }
+      lines.push(``);
+      lines.push(`function approxEqual(a, b, absTol = 1e-9, relTol = 1e-6) {`);
+      lines.push(`  return Math.abs(a - b) <= absTol + relTol * Math.max(1, Math.abs(a), Math.abs(b));`);
+      lines.push(`}`);
+      lines.push(``);
+      lines.push(`const numRuns = ${config.iterations};`);
+      lines.push(``);
+      for (const prop of properties) {
+        const generators = Object.entries(prop.generators);
+        const arbNames = generators.map(([name]) => name);
+        const arbExprs = generators.map(([, spec]) => mapGenerator(spec));
+        let assertion = normalizeAssertionSyntax(prop.assertion);
+        for (const fn of functionNames) {
+          assertion = assertion.replace(new RegExp(`(?<!\\.)\\b${fn}\\(`, "g"), `target.${fn}(`);
+        }
+        lines.push(`// ${prop.id}: ${toSafeComment(prop.description)}`);
+        lines.push(`// Category: ${toSafeComment(prop.category)}`);
+        lines.push(`// Evidence: ${toSafeComment(prop.evidence)}`);
+        lines.push(`try {`);
+        if (generators.length === 0) {
+          lines.push(`  fc.assert(`);
+          lines.push(`    fc.property(`);
+          lines.push(`      fc.constant(null),`);
+          lines.push(`      () => {`);
+          lines.push(`        return ${assertion};`);
+          lines.push(`      }`);
+          lines.push(`    ),`);
+          lines.push(`    { numRuns: 1 }`);
+          lines.push(`  );`);
+          lines.push(`  console.log(JSON.stringify({ propertyId: "${prop.id}", status: "passed", iterations: 1 }));`);
+        } else {
+          lines.push(`  fc.assert(`);
+          lines.push(`    fc.property(`);
+          for (let i = 0; i < arbExprs.length; i++) {
+            lines.push(`      ${arbExprs[i]},`);
+          }
+          lines.push(`      (${arbNames.join(", ")}) => {`);
+          lines.push(`        return ${assertion};`);
+          lines.push(`      }`);
+          lines.push(`    ),`);
+          lines.push(`    { numRuns${config.seed !== void 0 ? `, seed: ${config.seed}` : ""} }`);
+          lines.push(`  );`);
+          lines.push(`  console.log(JSON.stringify({ propertyId: "${prop.id}", status: "passed", iterations: numRuns }));`);
+        }
+        lines.push(`} catch (e) {`);
+        lines.push(`  // Parse counterexample from fast-check error message`);
+        lines.push(`  let counterexample = null;`);
+        lines.push(`  let shrinkSteps = 0;`);
+        lines.push(`  const msg = e.message ?? String(e);`);
+        lines.push(`  const ceMatch = msg.match(/Counterexample: (\\[.*?\\])/);`);
+        lines.push(`  if (ceMatch) { try { counterexample = JSON.parse(ceMatch[1]); } catch {} }`);
+        lines.push(`  const shrinkMatch = msg.match(/Shrunk (\\d+) time/);`);
+        lines.push(`  if (shrinkMatch) { shrinkSteps = parseInt(shrinkMatch[1], 10); }`);
+        lines.push(`  console.log(JSON.stringify({`);
+        lines.push(`    propertyId: "${prop.id}",`);
+        lines.push(`    status: "failed",`);
+        lines.push(`    counterexample,`);
+        lines.push(`    errorMessage: msg,`);
+        lines.push(`    shrinkSteps`);
+        lines.push(`  }));`);
+        lines.push(`}`);
+        lines.push(``);
+      }
+      const baseName = path10.basename(targetFile, path10.extname(targetFile));
+      let fileExt;
+      if (useESM) {
+        fileExt = ".fc.mjs";
+      } else if (isTypeModuleProject(targetFile)) {
+        fileExt = ".fc.cjs";
+      } else {
+        fileExt = ".fc.js";
+      }
+      const fileName = `${baseName}${fileExt}`;
+      return {
+        content: lines.join("\n"),
+        fileName,
+        needsMtsCopy: needsMtsCopy || void 0
+      };
+    }
+  }
+});
+
+// ../engines/dist/shared/process-runner.js
+var require_process_runner = __commonJS({
+  "../engines/dist/shared/process-runner.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.runProcess = runProcess;
+    var node_child_process_1 = require("child_process");
+    var common_1 = require_dist4();
+    var MAX_OUTPUT_BYTES = 10 * 1024 * 1024;
+    function runProcess(command, args, options = {}) {
+      const timeout = options.timeout ?? 6e4;
+      return new Promise((resolve7, reject) => {
+        const proc = (0, node_child_process_1.spawn)(command, args, {
+          cwd: options.cwd,
+          env: {
+            // Only forward safe env vars — never leak API keys to generated test code
+            PATH: process.env["PATH"] ?? "",
+            HOME: process.env["HOME"] ?? process.env["USERPROFILE"] ?? "",
+            TEMP: process.env["TEMP"] ?? process.env["TMPDIR"] ?? "/tmp",
+            TMP: process.env["TMP"] ?? "",
+            LANG: process.env["LANG"] ?? "",
+            TERM: process.env["TERM"] ?? "",
+            SHELL: process.env["SHELL"] ?? "",
+            // Windows-specific
+            SYSTEMROOT: process.env["SYSTEMROOT"] ?? "",
+            APPDATA: process.env["APPDATA"] ?? "",
+            LOCALAPPDATA: process.env["LOCALAPPDATA"] ?? "",
+            PROGRAMFILES: process.env["PROGRAMFILES"] ?? "",
+            COMSPEC: process.env["COMSPEC"] ?? "",
+            // Python-specific
+            PYTHONPATH: process.env["PYTHONPATH"] ?? "",
+            VIRTUAL_ENV: process.env["VIRTUAL_ENV"] ?? "",
+            // Caller overrides (e.g. NODE_PATH)
+            ...options.env
+          },
+          shell: false,
+          stdio: ["ignore", "pipe", "pipe"]
+        });
+        let stdout = "";
+        let stderr = "";
+        let killed = false;
+        proc.stdout.on("data", (data) => {
+          if (stdout.length < MAX_OUTPUT_BYTES) {
+            stdout += data.toString();
+          }
+        });
+        proc.stderr.on("data", (data) => {
+          if (stderr.length < MAX_OUTPUT_BYTES) {
+            stderr += data.toString();
+          }
+        });
+        const timer = setTimeout(() => {
+          killed = true;
+          proc.kill("SIGTERM");
+          setTimeout(() => proc.kill("SIGKILL"), 5e3);
+        }, timeout);
+        proc.on("close", (code) => {
+          clearTimeout(timer);
+          if (killed) {
+            reject(new common_1.EngineError(`Process timed out after ${timeout}ms`, {
+              command,
+              args,
+              stdout: stdout.slice(0, 500),
+              stderr: stderr.slice(0, 500)
+            }));
+            return;
+          }
+          resolve7({ stdout, stderr, exitCode: code ?? 1 });
+        });
+        proc.on("error", (err) => {
+          clearTimeout(timer);
+          reject(new common_1.EngineError(`Failed to spawn process: ${err.message}`, {
+            command,
+            args
+          }));
+        });
+      });
+    }
+  }
+});
+
+// ../engines/dist/shared/result-parser.js
+var require_result_parser = __commonJS({
+  "../engines/dist/shared/result-parser.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.parseJsonLines = parseJsonLines;
+    exports2.mapResults = mapResults;
+    function parseJsonLines(stdout) {
+      const results = [];
+      for (const line of stdout.split("\n")) {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith("{"))
+          continue;
+        try {
+          const parsed = JSON.parse(trimmed);
+          if (parsed.propertyId && (parsed.status === "passed" || parsed.status === "failed")) {
+            results.push(parsed);
+          }
+        } catch {
+        }
+      }
+      return results;
+    }
+    function mapResults(rawResults, properties, config, duration, stderrSnippet, errorPrefix) {
+      const passed = [];
+      const failed = [];
+      const errors = [];
+      const resultMap = new Map(rawResults.map((r) => [r.propertyId, r]));
+      for (const prop of properties) {
+        const raw = resultMap.get(prop.id);
+        if (!raw) {
+          errors.push({
+            propertyId: prop.id,
+            status: "error",
+            errorMessage: stderrSnippet ? `${errorPrefix}: ${stderrSnippet.slice(0, 200)}` : "Property produced no output",
+            duration: 0
+          });
+          continue;
+        }
+        if (raw.status === "passed") {
+          passed.push({
+            propertyId: prop.id,
+            status: "passed",
+            iterations: raw.iterations ?? config.iterations,
+            duration: 0,
+            seed: config.seed ?? 0
+          });
+        } else if (raw.status === "failed") {
+          failed.push({
+            propertyId: prop.id,
+            status: "failed",
+            counterexample: raw.counterexample ?? null,
+            shrinkSteps: raw.shrinkSteps ?? 0,
+            originalInput: raw.counterexample,
+            errorMessage: raw.errorMessage ?? "Property violated",
+            seed: config.seed ?? 0,
+            duration: 0
+          });
+        } else {
+          errors.push({
+            propertyId: prop.id,
+            status: "error",
+            errorMessage: `Unexpected status in test output: "${String(raw.status)}"`,
+            duration: 0
+          });
+        }
+      }
+      return {
+        passed,
+        failed,
+        errors,
+        skipped: [],
+        duration,
+        totalIterations: passed.reduce((sum, p) => sum + p.iterations, 0),
+        properties
+      };
+    }
+  }
+});
+
+// ../engines/dist/fast-check/fc-runner.js
+var require_fc_runner = __commonJS({
+  "../engines/dist/fast-check/fc-runner.js"(exports2) {
+    "use strict";
+    var __createBinding = exports2 && exports2.__createBinding || (Object.create ? (function(o, m, k, k2) {
+      if (k2 === void 0) k2 = k;
+      var desc = Object.getOwnPropertyDescriptor(m, k);
+      if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+        desc = { enumerable: true, get: function() {
+          return m[k];
+        } };
+      }
+      Object.defineProperty(o, k2, desc);
+    }) : (function(o, m, k, k2) {
+      if (k2 === void 0) k2 = k;
+      o[k2] = m[k];
+    }));
+    var __setModuleDefault = exports2 && exports2.__setModuleDefault || (Object.create ? (function(o, v) {
+      Object.defineProperty(o, "default", { enumerable: true, value: v });
+    }) : function(o, v) {
+      o["default"] = v;
+    });
+    var __importStar = exports2 && exports2.__importStar || /* @__PURE__ */ (function() {
+      var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function(o2) {
+          var ar = [];
+          for (var k in o2) if (Object.prototype.hasOwnProperty.call(o2, k)) ar[ar.length] = k;
+          return ar;
+        };
+        return ownKeys(o);
+      };
+      return function(mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) {
+          for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        }
+        __setModuleDefault(result, mod);
+        return result;
+      };
+    })();
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.runFastCheckTest = runFastCheckTest4;
+    var fs6 = __importStar(require("fs"));
+    var path10 = __importStar(require("path"));
+    var process_runner_1 = require_process_runner();
+    var result_parser_1 = require_result_parser();
+    async function runFastCheckTest4(testFilePath, properties, config, options) {
+      const startTime = Date.now();
+      const cwd = path10.dirname(testFilePath);
+      const isESM = testFilePath.endsWith(".mjs");
+      let mtsPath = null;
+      if (options?.needsMtsCopy && options.targetFile) {
+        mtsPath = options.targetFile.replace(/\.ts$/, ".mts").replace(/\.tsx$/, ".mtsx");
+        fs6.copyFileSync(options.targetFile, mtsPath);
+      }
+      try {
+        const nodeArgs = [
+          "--experimental-strip-types",
+          "--no-warnings",
+          testFilePath
+        ];
+        const result = await (0, process_runner_1.runProcess)("node", nodeArgs, {
+          cwd,
+          timeout: config.timeout * Math.max(properties.length, 1),
+          env: {
+            NODE_PATH: [
+              path10.join(cwd, "node_modules"),
+              path10.join(cwd, "..", "..", "node_modules"),
+              path10.join(cwd, "..", "..", "..", "node_modules"),
+              process.env["NODE_PATH"] ?? ""
+            ].join(path10.delimiter)
+          }
+        });
+        const rawResults = (0, result_parser_1.parseJsonLines)(result.stdout);
+        return (0, result_parser_1.mapResults)(rawResults, properties, config, Date.now() - startTime, result.stderr, "Test execution error");
+      } finally {
+        if (mtsPath) {
+          try {
+            fs6.unlinkSync(mtsPath);
+          } catch {
+          }
+        }
+      }
+    }
+  }
+});
+
+// ../engines/dist/hypothesis/hyp-codegen.js
+var require_hyp_codegen = __commonJS({
+  "../engines/dist/hypothesis/hyp-codegen.js"(exports2) {
+    "use strict";
+    var __createBinding = exports2 && exports2.__createBinding || (Object.create ? (function(o, m, k, k2) {
+      if (k2 === void 0) k2 = k;
+      var desc = Object.getOwnPropertyDescriptor(m, k);
+      if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+        desc = { enumerable: true, get: function() {
+          return m[k];
+        } };
+      }
+      Object.defineProperty(o, k2, desc);
+    }) : (function(o, m, k, k2) {
+      if (k2 === void 0) k2 = k;
+      o[k2] = m[k];
+    }));
+    var __setModuleDefault = exports2 && exports2.__setModuleDefault || (Object.create ? (function(o, v) {
+      Object.defineProperty(o, "default", { enumerable: true, value: v });
+    }) : function(o, v) {
+      o["default"] = v;
+    });
+    var __importStar = exports2 && exports2.__importStar || /* @__PURE__ */ (function() {
+      var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function(o2) {
+          var ar = [];
+          for (var k in o2) if (Object.prototype.hasOwnProperty.call(o2, k)) ar[ar.length] = k;
+          return ar;
+        };
+        return ownKeys(o);
+      };
+      return function(mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) {
+          for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        }
+        __setModuleDefault(result, mod);
+        return result;
+      };
+    })();
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.generateHypothesisTest = generateHypothesisTest3;
+    var common_1 = require_dist4();
+    var path10 = __importStar(require("path"));
+    function toSafeComment(s) {
+      return s.replace(/[\r\n\u2028\u2029]/g, " ").slice(0, 200);
+    }
+    function toPythonLiteral(value) {
+      if (value === null || value === void 0)
+        return "None";
+      if (typeof value === "number") {
+        if (Number.isNaN(value))
+          return 'float("nan")';
+        if (!Number.isFinite(value))
+          return value > 0 ? 'float("inf")' : 'float("-inf")';
+        return Object.is(value, -0) ? "-0.0" : String(value);
+      }
+      if (typeof value === "boolean")
+        return value ? "True" : "False";
+      if (typeof value === "string")
+        return JSON.stringify(value);
+      if (Array.isArray(value))
+        return `[${value.map((item) => toPythonLiteral(item)).join(", ")}]`;
+      if (typeof value === "object") {
+        return `{${Object.entries(value).map(([key, item]) => `${JSON.stringify(key)}: ${toPythonLiteral(item)}`).join(", ")}}`;
+      }
+      return JSON.stringify(value);
+    }
+    var MAX_GENERATOR_DEPTH = 10;
+    function mapStrategy(spec, depth = 0) {
+      if (depth > MAX_GENERATOR_DEPTH) {
+        return "st.integers()";
+      }
+      const c = spec.constraints ?? {};
+      switch (spec.type) {
+        case "constant":
+          return `st.just(${toPythonLiteral(c.value ?? null)})`;
+        case "integer":
+        case "int": {
+          const parts = [];
+          if (c.min !== void 0)
+            parts.push(`min_value=${Number(c.min)}`);
+          if (c.max !== void 0)
+            parts.push(`max_value=${Number(c.max)}`);
+          return parts.length > 0 ? `st.integers(${parts.join(", ")})` : "st.integers()";
+        }
+        case "float":
+        case "number": {
+          const parts = ["allow_nan=False", "allow_infinity=False"];
+          if (c.min !== void 0)
+            parts.push(`min_value=${Number(c.min)}`);
+          if (c.max !== void 0)
+            parts.push(`max_value=${Number(c.max)}`);
+          return `st.floats(${parts.join(", ")})`;
+        }
+        case "string":
+        case "str": {
+          if (c.maxLength !== void 0) {
+            return `st.text(max_size=${Number(c.maxLength)})`;
+          }
+          return "st.text()";
+        }
+        case "boolean":
+        case "bool":
+          return "st.booleans()";
+        case "array":
+        case "list": {
+          const items = c.items;
+          const elementType = c.element ?? c.elementType;
+          let element;
+          if (items && typeof items === "object" && typeof items.type === "string") {
+            element = mapStrategy({ type: items.type, constraints: items.constraints }, depth + 1);
+          } else if (elementType) {
+            const nestedConstraints = c.elementConstraints && typeof c.elementConstraints === "object" ? c.elementConstraints : {
+              ...(c.elementMin ?? c.min) !== void 0 ? { min: c.elementMin ?? c.min } : {},
+              ...(c.elementMax ?? c.max) !== void 0 ? { max: c.elementMax ?? c.max } : {},
+              ...c.elementMaxLength !== void 0 ? { maxLength: c.elementMaxLength } : {}
+            };
+            element = mapStrategy({
+              type: String(elementType).replace(/[^a-zA-Z0-9_]/g, ""),
+              ...Object.keys(nestedConstraints).length > 0 ? { constraints: nestedConstraints } : {}
+            }, depth + 1);
+          } else {
+            element = "st.integers()";
+          }
+          const maxLen = c.maxLength ? `, max_size=${Number(c.maxLength)}` : "";
+          return `st.lists(${element}${maxLen})`;
+        }
+        case "dict":
+        case "record":
+          return "st.dictionaries(st.text(min_size=1, max_size=10), st.integers())";
+        case "object": {
+          const fields = c.fields;
+          if (fields && typeof fields === "object") {
+            const entries = Object.entries(fields);
+            if (entries.length === 0) {
+              return "st.fixed_dictionaries({})";
+            }
+            const fieldExprs = entries.map(([name, fieldSpec]) => {
+              const fs6 = fieldSpec;
+              return `${JSON.stringify(name)}: ${mapStrategy({ type: fs6.type, constraints: fs6.constraints }, depth + 1)}`;
+            });
+            return `st.fixed_dictionaries({${fieldExprs.join(", ")}})`;
+          }
+          return "st.dictionaries(st.text(min_size=1, max_size=10), st.integers())";
+        }
+        case "optional": {
+          const inner = c.inner;
+          if (inner && typeof inner === "object" && typeof inner.type === "string") {
+            return `st.one_of(st.just(None), ${mapStrategy({ type: inner.type, constraints: inner.constraints }, depth + 1)})`;
+          }
+          return "st.one_of(st.just(None), st.integers())";
+        }
+        case "enum": {
+          const values = c.values;
+          if (Array.isArray(values) && values.length > 0) {
+            return `st.sampled_from([${values.map((v) => toPythonLiteral(v)).join(", ")}])`;
+          }
+          return "st.integers()";
+        }
+        default: {
+          const fields = c.fields;
+          if (fields && typeof fields === "object" && Object.keys(fields).length > 0) {
+            return mapStrategy({ type: "object", constraints: spec.constraints }, depth);
+          }
+          return "st.integers()";
+        }
+      }
+    }
+    function translateAssertionToPython(assertion) {
+      let translated = assertion;
+      translated = translated.replace(/!==/g, "!=");
+      translated = translated.replace(/===/g, "==");
+      translated = translated.replace(/\btrue\b/g, "True");
+      translated = translated.replace(/\bfalse\b/g, "False");
+      translated = translated.replace(/\bnull\b/g, "None");
+      translated = translated.replace(/\bundefined\b/g, "None");
+      translated = translated.replace(/\bMath\.abs\s*\(/g, "abs(");
+      translated = translated.replace(/\bparseFloat\s*\(/g, "float(");
+      translated = translated.replace(/\bparseInt\s*\(/g, "int(");
+      translated = translated.replace(/\bapproxEqual\s*\(/g, "approx_equal(");
+      translated = translated.replace(/\s*&&\s*/g, " and ");
+      translated = translated.replace(/\s*\|\|\s*/g, " or ");
+      translated = translated.replace(/!\s*(?!=)\(/g, "not (");
+      translated = translated.replace(/!\s*(?!=)([A-Za-z_][\w.]*(?:\([^()\n]*\))?)/g, "not $1");
+      translated = translated.replace(/([A-Za-z_][\w.]*(?:\([^()\n]*\))?)\.length\b/g, "len($1)");
+      return translated;
+    }
+    function generateHypothesisTest3(properties, targetFile, testsDir, config) {
+      const targetDir = path10.dirname(targetFile);
+      const moduleName = path10.basename(targetFile, path10.extname(targetFile));
+      const relTargetDir = (0, common_1.toForwardSlash)(path10.relative(testsDir, targetDir));
+      const lines = [];
+      lines.push(`# Auto-generated by propcheck \u2014 do not edit manually`);
+      lines.push(`# Target: ${(0, common_1.toForwardSlash)(targetFile)}`);
+      lines.push(`# Generated: ${(/* @__PURE__ */ new Date()).toISOString()}`);
+      lines.push(``);
+      lines.push(`import sys`);
+      lines.push(`import json`);
+      lines.push(`from pathlib import Path`);
+      lines.push(``);
+      lines.push(`# Add target directory to Python path`);
+      lines.push(`sys.path.insert(0, str(Path(__file__).parent / ${JSON.stringify(relTargetDir)}))`);
+      lines.push(``);
+      lines.push(`from hypothesis import given, settings`);
+      lines.push(`from hypothesis import strategies as st`);
+      lines.push(`import ${moduleName} as target`);
+      lines.push(``);
+      lines.push(`def approx_equal(a, b, abs_tol=1e-9, rel_tol=1e-6):`);
+      lines.push(`    return abs(a - b) <= abs_tol + rel_tol * max(1, abs(a), abs(b))`);
+      lines.push(``);
+      lines.push(`MAX_EXAMPLES = ${config.iterations}`);
+      lines.push(``);
+      for (const prop of properties) {
+        const funcName = prop.targetFunction.split(".").pop();
+        const generators = Object.entries(prop.generators);
+        const givenArgs = generators.map(([name, spec]) => `${name}=${mapStrategy(spec)}`).join(", ");
+        const paramNames = generators.map(([name]) => name).join(", ");
+        let assertion = prop.assertion.replace(new RegExp(`\\b${funcName}\\(`, "g"), `target.${funcName}(`);
+        assertion = translateAssertionToPython(assertion);
+        lines.push(`# ${prop.id}: ${toSafeComment(prop.description)}`);
+        lines.push(`# Category: ${toSafeComment(prop.category)}`);
+        lines.push(`# Evidence: ${toSafeComment(prop.evidence)}`);
+        lines.push(`def test_${prop.id}():`);
+        lines.push(`    try:`);
+        if (generators.length === 0) {
+          lines.push(`        assert ${assertion}`);
+        } else {
+          lines.push(`        @given(${givenArgs})`);
+          lines.push(`        @settings(max_examples=MAX_EXAMPLES)`);
+          lines.push(`        def inner(${paramNames}):`);
+          lines.push(`            assert ${assertion}`);
+          lines.push(`        inner()`);
+        }
+        lines.push(`        print(json.dumps({"propertyId": "${prop.id}", "status": "passed", "iterations": ${generators.length === 0 ? 1 : "MAX_EXAMPLES"}}))`);
+        lines.push(`    except AssertionError as e:`);
+        lines.push(`        print(json.dumps({"propertyId": "${prop.id}", "status": "failed", "counterexample": str(e), "errorMessage": str(e), "shrinkSteps": 0}))`);
+        lines.push(`    except Exception as e:`);
+        lines.push(`        msg = str(e)`);
+        lines.push(`        print(json.dumps({"propertyId": "${prop.id}", "status": "failed", "counterexample": msg[:200], "errorMessage": msg[:200], "shrinkSteps": 0}))`);
+        lines.push(``);
+      }
+      lines.push(`if __name__ == "__main__":`);
+      for (const prop of properties) {
+        lines.push(`    test_${prop.id}()`);
+      }
+      const fileName = `${moduleName}.hyp.py`;
+      return {
+        content: lines.join("\n"),
+        fileName
+      };
+    }
+  }
+});
+
+// ../engines/dist/hypothesis/hyp-runner.js
+var require_hyp_runner = __commonJS({
+  "../engines/dist/hypothesis/hyp-runner.js"(exports2) {
+    "use strict";
+    var __createBinding = exports2 && exports2.__createBinding || (Object.create ? (function(o, m, k, k2) {
+      if (k2 === void 0) k2 = k;
+      var desc = Object.getOwnPropertyDescriptor(m, k);
+      if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+        desc = { enumerable: true, get: function() {
+          return m[k];
+        } };
+      }
+      Object.defineProperty(o, k2, desc);
+    }) : (function(o, m, k, k2) {
+      if (k2 === void 0) k2 = k;
+      o[k2] = m[k];
+    }));
+    var __setModuleDefault = exports2 && exports2.__setModuleDefault || (Object.create ? (function(o, v) {
+      Object.defineProperty(o, "default", { enumerable: true, value: v });
+    }) : function(o, v) {
+      o["default"] = v;
+    });
+    var __importStar = exports2 && exports2.__importStar || /* @__PURE__ */ (function() {
+      var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function(o2) {
+          var ar = [];
+          for (var k in o2) if (Object.prototype.hasOwnProperty.call(o2, k)) ar[ar.length] = k;
+          return ar;
+        };
+        return ownKeys(o);
+      };
+      return function(mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) {
+          for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        }
+        __setModuleDefault(result, mod);
+        return result;
+      };
+    })();
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.runHypothesisTest = runHypothesisTest3;
+    var path10 = __importStar(require("path"));
+    var process_runner_1 = require_process_runner();
+    var result_parser_1 = require_result_parser();
+    var _cachedPythonCmd = null;
+    async function findPython() {
+      if (_cachedPythonCmd !== null)
+        return _cachedPythonCmd;
+      for (const cmd of ["python", "python3"]) {
+        try {
+          const result = await (0, process_runner_1.runProcess)(cmd, ["--version"], { timeout: 5e3 });
+          if (result.exitCode === 0) {
+            _cachedPythonCmd = cmd;
+            return cmd;
+          }
+        } catch {
+        }
+      }
+      throw new Error("Python not found. Install Python 3.8+ to use Hypothesis engine.");
+    }
+    async function runHypothesisTest3(testFilePath, properties, config) {
+      const startTime = Date.now();
+      const python = await findPython();
+      const result = await (0, process_runner_1.runProcess)(python, [testFilePath], {
+        cwd: path10.dirname(testFilePath),
+        timeout: config.timeout * Math.max(properties.length, 1)
+      });
+      const rawResults = (0, result_parser_1.parseJsonLines)(result.stdout);
+      return (0, result_parser_1.mapResults)(rawResults, properties, config, Date.now() - startTime, result.stderr, "Python error");
+    }
+  }
+});
+
+// ../engines/dist/mutation/operators.js
+var require_operators = __commonJS({
+  "../engines/dist/mutation/operators.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.generateMutants = generateMutants2;
+    var MUTATION_OPERATORS = [
+      // Arithmetic
+      { name: "ARITH_PLUS_TO_MINUS", description: "+ \u2192 -", pattern: /(?<=[^+=])\+(?!=)/g, replacement: "-" },
+      { name: "ARITH_MINUS_TO_PLUS", description: "- \u2192 +", pattern: /(?<=[^-=])-(?!=)/g, replacement: "+" },
+      { name: "ARITH_MUL_TO_DIV", description: "* \u2192 /", pattern: /\*(?!=)/g, replacement: "/" },
+      { name: "ARITH_DIV_TO_MUL", description: "/ \u2192 *", pattern: /\/(?!=)/g, replacement: "*" },
+      // Relational
+      { name: "REL_GT_TO_GTE", description: "> \u2192 >=", pattern: /(?<!=)>(?!=)/g, replacement: ">=" },
+      { name: "REL_LT_TO_LTE", description: "< \u2192 <=", pattern: /(?<!=)<(?!=)/g, replacement: "<=" },
+      { name: "REL_GTE_TO_GT", description: ">= \u2192 >", pattern: />=/g, replacement: ">" },
+      { name: "REL_LTE_TO_LT", description: "<= \u2192 <", pattern: /<=/g, replacement: "<" },
+      { name: "REL_EQ_TO_NEQ", description: "=== \u2192 !==", pattern: /===/g, replacement: "!==" },
+      { name: "REL_NEQ_TO_EQ", description: "!== \u2192 ===", pattern: /!==/g, replacement: "===" },
+      // Boundary (off-by-one)
+      { name: "BOUND_ZERO_TO_ONE", description: "0 \u2192 1", pattern: /(?<=[\s(,=])0(?=[\s),;])/g, replacement: "1" },
+      { name: "BOUND_ONE_TO_ZERO", description: "1 \u2192 0", pattern: /(?<=[\s(,=])1(?=[\s),;])/g, replacement: "0" },
+      { name: "BOUND_100_TO_99", description: "100 \u2192 99", pattern: /\b100\b/g, replacement: "99" },
+      // Logical
+      { name: "LOGIC_AND_TO_OR", description: "&& \u2192 ||", pattern: /&&/g, replacement: "||" },
+      { name: "LOGIC_OR_TO_AND", description: "|| \u2192 &&", pattern: /\|\|/g, replacement: "&&" },
+      { name: "LOGIC_TRUE_TO_FALSE", description: "true \u2192 false", pattern: /\btrue\b/g, replacement: "false" },
+      { name: "LOGIC_FALSE_TO_TRUE", description: "false \u2192 true", pattern: /\bfalse\b/g, replacement: "true" },
+      // Return value
+      { name: "RET_EMPTY_STRING", description: 'return "..." \u2192 return ""', pattern: /return\s+"[^"]*"/g, replacement: 'return ""' },
+      { name: "RET_ZERO", description: "return N \u2192 return 0", pattern: /return\s+\d+/g, replacement: "return 0" }
+    ];
+    function generateMutants2(source, filePath) {
+      const mutants = [];
+      const lines = source.split("\n");
+      let mutantId = 0;
+      for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
+        const line = lines[lineIdx];
+        const trimmed = line.trim();
+        if (trimmed.startsWith("//") || trimmed.startsWith("/*") || trimmed.startsWith("*") || trimmed.startsWith("import ") || trimmed.startsWith("export function") || trimmed.startsWith("export async function") || trimmed.startsWith("export type") || trimmed.startsWith("export interface") || trimmed === "" || trimmed === "}" || trimmed === "{" || trimmed.startsWith("/**")) {
+          continue;
+        }
+        for (const op of MUTATION_OPERATORS) {
+          const regex = new RegExp(op.pattern.source, op.pattern.flags);
+          let match;
+          while ((match = regex.exec(line)) !== null) {
+            const original = match[0];
+            const replacement = typeof op.replacement === "function" ? op.replacement(original) : op.replacement;
+            if (original === replacement)
+              continue;
+            const mutatedLine = line.slice(0, match.index) + replacement + line.slice(match.index + original.length);
+            const mutatedLines = [...lines];
+            mutatedLines[lineIdx] = mutatedLine;
+            const mutatedSource = mutatedLines.join("\n");
+            mutants.push({
+              id: `mut_${mutantId++}`,
+              operator: op.name,
+              description: `Line ${lineIdx + 1}: ${op.description} \u2014 "${original}" \u2192 "${replacement}"`,
+              line: lineIdx + 1,
+              original,
+              replacement,
+              mutatedSource
+            });
+          }
+        }
+      }
+      return mutants;
+    }
+  }
+});
+
+// ../engines/dist/mutation/runner.js
+var require_runner = __commonJS({
+  "../engines/dist/mutation/runner.js"(exports2) {
+    "use strict";
+    var __createBinding = exports2 && exports2.__createBinding || (Object.create ? (function(o, m, k, k2) {
+      if (k2 === void 0) k2 = k;
+      var desc = Object.getOwnPropertyDescriptor(m, k);
+      if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+        desc = { enumerable: true, get: function() {
+          return m[k];
+        } };
+      }
+      Object.defineProperty(o, k2, desc);
+    }) : (function(o, m, k, k2) {
+      if (k2 === void 0) k2 = k;
+      o[k2] = m[k];
+    }));
+    var __setModuleDefault = exports2 && exports2.__setModuleDefault || (Object.create ? (function(o, v) {
+      Object.defineProperty(o, "default", { enumerable: true, value: v });
+    }) : function(o, v) {
+      o["default"] = v;
+    });
+    var __importStar = exports2 && exports2.__importStar || /* @__PURE__ */ (function() {
+      var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function(o2) {
+          var ar = [];
+          for (var k in o2) if (Object.prototype.hasOwnProperty.call(o2, k)) ar[ar.length] = k;
+          return ar;
+        };
+        return ownKeys(o);
+      };
+      return function(mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) {
+          for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        }
+        __setModuleDefault(result, mod);
+        return result;
+      };
+    })();
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.runMutationTesting = runMutationTesting2;
+    var fs6 = __importStar(require("fs/promises"));
+    var path10 = __importStar(require("path"));
+    var fc_codegen_1 = require_fc_codegen();
+    var fc_runner_1 = require_fc_runner();
+    var operators_1 = require_operators();
+    async function runMutationTesting2(sourceFilePath, source, properties, storeDir) {
+      const startTime = Date.now();
+      const mutants = (0, operators_1.generateMutants)(source, sourceFilePath);
+      if (mutants.length === 0) {
+        return {
+          totalMutants: 0,
+          killed: 0,
+          survived: 0,
+          errors: 0,
+          mutationScore: 1,
+          results: [],
+          survivingMutants: [],
+          duration: Date.now() - startTime
+        };
+      }
+      const testsDir = path10.join(storeDir, "tests");
+      await fs6.mkdir(testsDir, { recursive: true });
+      const quickConfig = {
+        mode: "quick",
+        iterations: 50,
+        // Fewer iterations per mutant for speed
+        timeout: 1e4,
+        verbose: false
+      };
+      const results = [];
+      const survivingMutants = [];
+      for (const mutant of mutants) {
+        const ext = path10.extname(sourceFilePath);
+        const mutantFileName = `_mutant_${mutant.id}${ext}`;
+        const mutantFilePath = path10.join(testsDir, mutantFileName);
+        try {
+          await fs6.writeFile(mutantFilePath, mutant.mutatedSource, "utf8");
+          const generated = (0, fc_codegen_1.generateFastCheckTest)(properties, mutantFilePath, testsDir, quickConfig);
+          const testFilePath = path10.join(testsDir, `_mut_test_${mutant.id}.js`);
+          await fs6.writeFile(testFilePath, generated.content, "utf8");
+          const result = await (0, fc_runner_1.runFastCheckTest)(testFilePath, properties, quickConfig);
+          if (result.failed.length > 0) {
+            results.push({
+              mutantId: mutant.id,
+              status: "killed",
+              killedBy: result.failed[0].propertyId
+            });
+          } else if (result.errors.length > 0 && result.passed.length === 0) {
+            results.push({
+              mutantId: mutant.id,
+              status: "killed"
+            });
+          } else {
+            results.push({
+              mutantId: mutant.id,
+              status: "survived"
+            });
+            survivingMutants.push(mutant);
+          }
+          try {
+            await fs6.unlink(testFilePath);
+          } catch {
+          }
+        } catch {
+          results.push({
+            mutantId: mutant.id,
+            status: "error"
+          });
+        } finally {
+          try {
+            await fs6.unlink(mutantFilePath);
+          } catch {
+          }
+        }
+      }
+      const killed = results.filter((r) => r.status === "killed").length;
+      const survived = results.filter((r) => r.status === "survived").length;
+      const errors = results.filter((r) => r.status === "error").length;
+      return {
+        totalMutants: mutants.length,
+        killed,
+        survived,
+        errors,
+        mutationScore: killed + survived > 0 ? killed / (killed + survived) : 1,
+        results,
+        survivingMutants,
+        duration: Date.now() - startTime
+      };
+    }
+  }
+});
+
+// ../engines/dist/index.js
+var require_dist7 = __commonJS({
+  "../engines/dist/index.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.runMutationTesting = exports2.generateMutants = exports2.runProcess = exports2.runHypothesisTest = exports2.generateHypothesisTest = exports2.runFastCheckTest = exports2.generateFastCheckTest = void 0;
+    var fc_codegen_1 = require_fc_codegen();
+    Object.defineProperty(exports2, "generateFastCheckTest", { enumerable: true, get: function() {
+      return fc_codegen_1.generateFastCheckTest;
+    } });
+    var fc_runner_1 = require_fc_runner();
+    Object.defineProperty(exports2, "runFastCheckTest", { enumerable: true, get: function() {
+      return fc_runner_1.runFastCheckTest;
+    } });
+    var hyp_codegen_1 = require_hyp_codegen();
+    Object.defineProperty(exports2, "generateHypothesisTest", { enumerable: true, get: function() {
+      return hyp_codegen_1.generateHypothesisTest;
+    } });
+    var hyp_runner_1 = require_hyp_runner();
+    Object.defineProperty(exports2, "runHypothesisTest", { enumerable: true, get: function() {
+      return hyp_runner_1.runHypothesisTest;
+    } });
+    var process_runner_1 = require_process_runner();
+    Object.defineProperty(exports2, "runProcess", { enumerable: true, get: function() {
+      return process_runner_1.runProcess;
+    } });
+    var operators_1 = require_operators();
+    Object.defineProperty(exports2, "generateMutants", { enumerable: true, get: function() {
+      return operators_1.generateMutants;
+    } });
+    var runner_1 = require_runner();
+    Object.defineProperty(exports2, "runMutationTesting", { enumerable: true, get: function() {
+      return runner_1.runMutationTesting;
+    } });
+  }
+});
+
 // src/index.ts
 var import_commander = require("commander");
 
@@ -5474,15 +5604,442 @@ async function initCommand() {
 }
 
 // src/commands/infer.ts
-var fs = __toESM(require("fs/promises"));
-var path2 = __toESM(require("path"));
+var fs2 = __toESM(require("fs/promises"));
+var path3 = __toESM(require("path"));
 var import_config = __toESM(require_dist2());
 var import_parser = __toESM(require_dist3());
-var import_llm = __toESM(require_dist5());
+var import_llm3 = __toESM(require_dist5());
 var import_store2 = __toESM(require_dist());
-var import_engines = __toESM(require_dist6());
-var import_reporter = __toESM(require_dist7());
+var import_reporter = __toESM(require_dist6());
+var import_common2 = __toESM(require_dist4());
+
+// src/commands/infer/weakening.ts
 var import_common = __toESM(require_dist4());
+var import_llm = __toESM(require_dist5());
+function isNumericSpec(spec) {
+  return spec.type === "float" || spec.type === "number" || spec.type === "integer" || spec.type === "int";
+}
+function getNumericBounds(spec) {
+  const c = spec.constraints ?? {};
+  const min = typeof c.min === "number" ? c.min : void 0;
+  const max = typeof c.max === "number" ? c.max : void 0;
+  return { ...min !== void 0 ? { min } : {}, ...max !== void 0 ? { max } : {} };
+}
+function findTopLevelOperator(expression, operators) {
+  let depth = 0;
+  let quote = null;
+  let escaped = false;
+  for (let i = 0; i < expression.length; i++) {
+    const ch = expression[i];
+    if (quote) {
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      if (ch === "\\") {
+        escaped = true;
+        continue;
+      }
+      if (ch === quote) {
+        quote = null;
+      }
+      continue;
+    }
+    if (ch === '"' || ch === "'" || ch === "`") {
+      quote = ch;
+      continue;
+    }
+    if (ch === "(" || ch === "[" || ch === "{") {
+      depth++;
+      continue;
+    }
+    if (ch === ")" || ch === "]" || ch === "}") {
+      depth = Math.max(0, depth - 1);
+      continue;
+    }
+    if (depth === 0) {
+      for (const operator of operators) {
+        if (expression.startsWith(operator, i)) {
+          return { left: expression.slice(0, i).trim(), operator, right: expression.slice(i + operator.length).trim() };
+        }
+      }
+    }
+  }
+  return null;
+}
+function weakenExactEquality(assertion) {
+  const match = findTopLevelOperator(assertion.trim(), ["!==", "==="]);
+  if (!match || !match.left || !match.right) return null;
+  return match.operator === "!==" ? `!approxEqual(${match.left}, ${match.right})` : `approxEqual(${match.left}, ${match.right})`;
+}
+function parseTinyTolerance(assertion) {
+  const trimmed = assertion.trim();
+  if (!trimmed.startsWith("Math.abs(")) return null;
+  const start = "Math.abs(".length;
+  let depth = 0;
+  let closeIndex = -1;
+  for (let i = start; i < trimmed.length; i++) {
+    const ch = trimmed[i];
+    if (ch === "(") depth++;
+    if (ch === ")") {
+      if (depth === 0) {
+        closeIndex = i;
+        break;
+      }
+      depth--;
+    }
+  }
+  if (closeIndex === -1) return null;
+  const body = trimmed.slice(start, closeIndex).trim();
+  const remainder = trimmed.slice(closeIndex + 1).trim();
+  if (!/^(?:<|<=)\s*1e-(?:9|[1-9]\d+)$/i.test(remainder)) return null;
+  const diff = findTopLevelOperator(body, ["-"]);
+  if (!diff || !diff.left || !diff.right) return null;
+  return { left: diff.left, right: diff.right };
+}
+function weakenTinyTolerance(assertion) {
+  const parsed = parseTinyTolerance(assertion);
+  if (!parsed) return null;
+  return `approxEqual(${parsed.left}, ${parsed.right}, 1e-6, 1e-6)`;
+}
+function weakenMissingPrecondition(assertion) {
+  const trimmed = assertion.trim();
+  if (!trimmed) return null;
+  if (/\btry\b|\bcatch\b/.test(trimmed)) return null;
+  return `(() => { try { return ${trimmed}; } catch { return true; } })()`;
+}
+function tightenWideNumericGenerators(generators) {
+  const next = Object.fromEntries(Object.entries(generators).map(([name, spec]) => {
+    if (isNumericSpec(spec)) {
+      const { min, max } = getNumericBounds(spec);
+      if (min === void 0 && max === void 0) {
+        return [name, { ...spec, constraints: { ...spec.constraints ?? {}, min: 0, max: 1e6 } }];
+      }
+      if (min !== void 0 && max !== void 0 && Math.abs(max - min) > 1e6) {
+        return [name, { ...spec, constraints: { ...spec.constraints ?? {}, min: Math.max(min, 0), max: Math.min(max, 1e6) } }];
+      }
+    }
+    if (spec.type === "array") {
+      const c = spec.constraints ?? {};
+      const elementType = c.element ?? c.elementType;
+      if (elementType === "float" || elementType === "number" || elementType === "integer" || elementType === "int") {
+        const eMin = typeof (c.elementMin ?? c.min) === "number" ? Number(c.elementMin ?? c.min) : void 0;
+        const eMax = typeof (c.elementMax ?? c.max) === "number" ? Number(c.elementMax ?? c.max) : void 0;
+        if (eMin === void 0 && eMax === void 0) {
+          return [name, { ...spec, constraints: { ...c, elementMin: 0, elementMax: 1e6 } }];
+        }
+        if (eMin !== void 0 && eMax !== void 0 && Math.abs(eMax - eMin) > 1e6) {
+          return [name, { ...spec, constraints: { ...c, elementMin: Math.max(eMin, 0), elementMax: Math.min(eMax, 1e6) } }];
+        }
+      }
+    }
+    return [name, spec];
+  }));
+  return Object.freeze(next);
+}
+function refreshRiskMetadata(property) {
+  const preservedTags = property.riskTags.filter((tag) => tag === "doc_domain_mismatch" || tag === "missing_precondition");
+  const riskTags = [.../* @__PURE__ */ new Set([...(0, import_llm.detectRiskTags)(property), ...preservedTags])];
+  return { ...property, riskTags, riskScore: (0, import_llm.computeRiskScore)(property, property.score, riskTags) };
+}
+function autoWeakenProperty(property) {
+  if (property.status === "refined") return null;
+  let assertion = property.assertion;
+  let generators = property.generators;
+  let changed = false;
+  if (property.riskTags.includes("float_exact_equality")) {
+    const weakened = weakenExactEquality(assertion);
+    if (weakened && weakened !== assertion) {
+      assertion = weakened;
+      changed = true;
+    }
+  }
+  if (property.riskTags.includes("tiny_abs_tolerance")) {
+    const weakened = weakenTinyTolerance(assertion);
+    if (weakened && weakened !== assertion) {
+      assertion = weakened;
+      changed = true;
+    }
+  }
+  if (property.riskTags.includes("wide_numeric_domain")) {
+    const tightened = tightenWideNumericGenerators(generators);
+    if (!(0, import_common.deepEqual)(tightened, generators)) {
+      generators = tightened;
+      changed = true;
+    }
+  }
+  if (property.riskTags.includes("missing_precondition")) {
+    const weakened = weakenMissingPrecondition(assertion);
+    if (weakened && weakened !== assertion) {
+      assertion = weakened;
+      changed = true;
+    }
+  }
+  if (!changed) return null;
+  return refreshRiskMetadata({ ...property, assertion, generators, status: "refined" });
+}
+function detectDocDomainRiskTags(property, context) {
+  const functionName = property.targetFunction.split(".").pop() ?? property.targetFunction;
+  const doc = context.signals.doc.find((entry) => entry.functionName === property.targetFunction || entry.functionName === functionName);
+  if (!doc) return [];
+  for (const [paramName, spec] of Object.entries(property.generators)) {
+    const docText = doc.paramDocs[paramName]?.toLowerCase();
+    if (!docText || !isNumericSpec(spec)) continue;
+    const { min, max } = getNumericBounds(spec);
+    if (/0\s*(?:-|to)\s*100|0-100|0 to 100|percentage|percent/.test(docText) && (min !== 0 || max !== 100)) return ["doc_domain_mismatch"];
+    if (/non-negative|nonnegative|>=\s*0|positive/.test(docText) && min === void 0) return ["doc_domain_mismatch"];
+  }
+  return [];
+}
+function applyRiskMetadata(properties, context) {
+  return properties.map((property) => {
+    const riskTags = [.../* @__PURE__ */ new Set([...property.riskTags, ...detectDocDomainRiskTags(property, context)])];
+    return { ...property, riskTags, riskScore: (0, import_llm.computeRiskScore)(property, property.score, riskTags), status: riskTags.length > 0 ? "risky" : "accepted" };
+  });
+}
+
+// src/commands/infer/validation.ts
+var fs = __toESM(require("fs/promises"));
+var path2 = __toESM(require("path"));
+var import_engines = __toESM(require_dist7());
+var import_llm2 = __toESM(require_dist5());
+var MAX_CANARY_CASES = 8;
+var MAX_REPAIR_ROUNDS = 3;
+async function ensureTestsDir(storeDir) {
+  const testsDir = path2.join(storeDir, "tests");
+  await fs.mkdir(testsDir, { recursive: true });
+  return testsDir;
+}
+function buildValidationEvidence(smokePasses, canaryPasses) {
+  return { smokePasses, canaryPasses, seedsTested: [], lastValidatedAt: (/* @__PURE__ */ new Date()).toISOString() };
+}
+function buildCandidateValues(spec) {
+  const c = spec.constraints ?? {};
+  if (spec.type === "boolean") return [false, true];
+  if (spec.type === "string") {
+    const maxSize = typeof c.maxLength === "number" ? Math.max(1, c.maxLength) : 1;
+    return ["", "x", "0".slice(0, maxSize)];
+  }
+  if (isNumericSpec(spec)) {
+    const defaults = spec.type === "integer" || spec.type === "int" ? [0, 1, -1, 42, -42, Number.MAX_SAFE_INTEGER - 1] : [0, Number.EPSILON, 0.1, 0.2, 0.3, 1e-12, 1e6];
+    const { min, max } = getNumericBounds(spec);
+    const filtered = defaults.filter((v) => {
+      if (!Number.isFinite(v)) return false;
+      if (min !== void 0 && v < min) return false;
+      if (max !== void 0 && v > max) return false;
+      return true;
+    });
+    if (filtered.length > 0) {
+      return [...new Set(filtered.map((v) => spec.type === "integer" || spec.type === "int" ? Math.trunc(v) : v))];
+    }
+    const fallback = [];
+    if (min !== void 0) fallback.push(spec.type === "integer" || spec.type === "int" ? Math.trunc(min) : min);
+    if (max !== void 0) fallback.push(spec.type === "integer" || spec.type === "int" ? Math.trunc(max) : max);
+    return fallback.length > 0 ? [...new Set(fallback)] : [spec.type === "integer" || spec.type === "int" ? 0 : 0];
+  }
+  if (spec.type === "array") {
+    const elementType = c.element ?? c.elementType;
+    const nestedSpec = {
+      type: typeof elementType === "string" ? elementType : "integer",
+      constraints: {
+        ...(c.elementMin ?? c.min) !== void 0 ? { min: c.elementMin ?? c.min } : {},
+        ...(c.elementMax ?? c.max) !== void 0 ? { max: c.elementMax ?? c.max } : {},
+        ...c.elementMaxLength !== void 0 ? { maxLength: c.elementMaxLength } : {}
+      }
+    };
+    const elementValues = buildCandidateValues(nestedSpec);
+    const singleton = elementValues[0] ?? 0;
+    const second = elementValues[1] ?? singleton;
+    const maxLength = typeof c.maxLength === "number" ? c.maxLength : void 0;
+    const arrays = [];
+    if (maxLength === void 0 || maxLength >= 0) arrays.push([]);
+    if (maxLength === void 0 || maxLength >= 1) arrays.push([singleton]);
+    if (maxLength === void 0 || maxLength >= 2) arrays.push([singleton, singleton]);
+    if (maxLength === void 0 || maxLength >= 2) arrays.push([singleton, second]);
+    return arrays;
+  }
+  if (spec.type === "object") {
+    const fields = c.fields;
+    if (fields && typeof fields === "object") {
+      const entries = Object.entries(fields);
+      const obj = {};
+      for (const [name, fieldSpec] of entries) {
+        const fSpec = fieldSpec;
+        const vals = buildCandidateValues({ type: fSpec.type, constraints: fSpec.constraints });
+        obj[name] = vals[0] ?? null;
+      }
+      return [obj];
+    }
+    return [{}];
+  }
+  if (spec.type === "optional") {
+    const inner = c.inner;
+    if (inner && typeof inner === "object" && typeof inner.type === "string") {
+      const vals = buildCandidateValues({ type: inner.type, constraints: inner.constraints });
+      return [void 0, vals[0] ?? null];
+    }
+    return [void 0, null];
+  }
+  if (spec.type === "enum") {
+    const values = c.values;
+    if (Array.isArray(values) && values.length > 0) return values;
+    return [];
+  }
+  return [];
+}
+function buildCanaryCases(property) {
+  const entries = Object.entries(property.generators);
+  if (entries.length === 0) return [{}];
+  const candidates = entries.map(([name, spec]) => [name, buildCandidateValues(spec)]);
+  if (candidates.some(([, values]) => values.length === 0)) return [];
+  const baseline = Object.fromEntries(candidates.map(([name, values]) => [name, values[0]]));
+  const cases = [baseline];
+  const seen = /* @__PURE__ */ new Set([JSON.stringify(baseline)]);
+  for (const [name, values] of candidates) {
+    for (const value of values.slice(1)) {
+      const nextCase = { ...baseline, [name]: value };
+      const key = JSON.stringify(nextCase);
+      if (!seen.has(key)) {
+        seen.add(key);
+        cases.push(nextCase);
+      }
+      if (cases.length >= MAX_CANARY_CASES) return cases;
+    }
+  }
+  return cases;
+}
+function buildConstantGenerators(input) {
+  return Object.freeze(Object.fromEntries(
+    Object.entries(input).map(([name, value]) => [name, { type: "constant", constraints: { value } }])
+  ));
+}
+async function executeTrialRun(properties, targetPath, testsDir, config, language) {
+  const generated = language === "python" ? (0, import_engines.generateHypothesisTest)(properties, targetPath, testsDir, config) : (0, import_engines.generateFastCheckTest)(properties, targetPath, testsDir, config);
+  const testFilePath = path2.join(testsDir, generated.fileName);
+  await fs.writeFile(testFilePath, generated.content, "utf8");
+  try {
+    const fcGenerated = language !== "python" ? generated : null;
+    return language === "python" ? await (0, import_engines.runHypothesisTest)(testFilePath, properties, config) : await (0, import_engines.runFastCheckTest)(testFilePath, properties, config, {
+      targetFile: targetPath,
+      needsMtsCopy: fcGenerated?.needsMtsCopy
+    });
+  } finally {
+    try {
+      await fs.unlink(testFilePath);
+    } catch {
+    }
+  }
+}
+async function canaryValidateProperties(properties, targetPath, storeDir, language) {
+  const testsDir = await ensureTestsDir(storeDir);
+  const canaryConfig = { mode: "quick", iterations: 1, timeout: 15e3, verbose: false };
+  const validated = [];
+  const quarantined = [];
+  for (const property of properties) {
+    if (property.riskTags.length === 0) {
+      validated.push({ ...property, validation: buildValidationEvidence(100, 0) });
+      continue;
+    }
+    const canaryCases = buildCanaryCases(property);
+    if (canaryCases.length === 0) {
+      validated.push({ ...property, status: property.status === "refined" ? "refined" : "risky", validation: buildValidationEvidence(100, 0) });
+      continue;
+    }
+    let canaryPasses = 0;
+    let failureReason = null;
+    for (const input of canaryCases) {
+      const canaryProperty = { ...property, generators: buildConstantGenerators(input) };
+      const result = await executeTrialRun([canaryProperty], targetPath, testsDir, canaryConfig, language);
+      const failed = result.failed[0];
+      const error = result.errors[0];
+      if (failed || error) {
+        failureReason = failed?.errorMessage ?? error?.errorMessage ?? `canary failed for ${JSON.stringify(input)}`;
+        break;
+      }
+      canaryPasses++;
+    }
+    if (failureReason) {
+      const weakened = autoWeakenProperty(property);
+      if (weakened) {
+        const rerun = await canaryValidateProperties([weakened], targetPath, storeDir, language);
+        if (rerun.validated.length > 0) {
+          validated.push(rerun.validated[0]);
+          continue;
+        }
+        if (rerun.quarantined.length > 0) {
+          quarantined.push(rerun.quarantined[0]);
+          continue;
+        }
+      }
+      quarantined.push({ prop: { ...property, status: "quarantined", validation: buildValidationEvidence(100, canaryPasses) }, reason: failureReason });
+      continue;
+    }
+    validated.push({ ...property, status: property.status === "refined" ? "refined" : "risky", validation: buildValidationEvidence(100, canaryPasses) });
+  }
+  return { validated, quarantined };
+}
+async function trialRunValidation(properties, targetPath, storeDir, sourceCode, llmClient, isMock, language) {
+  const testsDir = await ensureTestsDir(storeDir);
+  const trialConfig = { mode: "quick", iterations: 100, timeout: 15e3, verbose: false };
+  let currentProperties = [...properties];
+  const validated = [];
+  const dropped = [];
+  let totalRepaired = 0;
+  for (let round = 0; round <= MAX_REPAIR_ROUNDS; round++) {
+    if (currentProperties.length === 0) break;
+    const result = await executeTrialRun(currentProperties, targetPath, testsDir, trialConfig, language);
+    const passedIds = new Set(result.passed.map((p) => p.propertyId));
+    const failedIds = new Set(result.failed.map((f) => f.propertyId));
+    const errorIds = new Set(result.errors.map((e) => e.propertyId));
+    const needsRepair = [];
+    for (const prop of currentProperties) {
+      if (passedIds.has(prop.id)) {
+        validated.push(prop);
+      } else if (failedIds.has(prop.id)) {
+        if (round < MAX_REPAIR_ROUNDS) {
+          const weakened = autoWeakenProperty(prop);
+          if (weakened) {
+            needsRepair.push(weakened);
+            totalRepaired++;
+            console.log(`    \u21BB Adjusting: ${prop.targetFunction}: ${prop.description} \u2014 too strict, relaxing... (attempt ${round + 1})`);
+            continue;
+          }
+        }
+        validated.push(prop);
+      } else if (errorIds.has(prop.id)) {
+        const err = result.errors.find((e) => e.propertyId === prop.id);
+        const errorMsg = err?.errorMessage ?? "unknown error";
+        if (round < MAX_REPAIR_ROUNDS) {
+          const funcSig = `${prop.targetFunction}(...)`;
+          let repaired = null;
+          if (isMock) {
+            repaired = (0, import_llm2.mockRepairProperty)(prop, errorMsg);
+          } else if (llmClient) {
+            repaired = await (0, import_llm2.repairProperty)(llmClient, prop, errorMsg, sourceCode, funcSig);
+          }
+          if (repaired) {
+            needsRepair.push(repaired);
+            totalRepaired++;
+            console.log(`    \u21BB Repairing: ${prop.targetFunction}: ${prop.description} (round ${round + 1})`);
+          } else {
+            dropped.push({ prop, reason: `codegen error (repair failed round ${round + 1}): ${errorMsg}` });
+          }
+        } else {
+          dropped.push({ prop, reason: `codegen error (max ${MAX_REPAIR_ROUNDS} repairs): ${errorMsg}` });
+        }
+      } else {
+        dropped.push({ prop, reason: "no output from trial run" });
+      }
+    }
+    currentProperties = needsRepair;
+  }
+  return { validated, dropped, repaired: totalRepaired };
+}
+
+// src/commands/infer.ts
+function isSupportedLanguage(lang) {
+  return lang === "typescript" || lang === "javascript" || lang === "python";
+}
 function findReferencedTypeNames(functions, allTypes) {
   const typeNames = new Set(allTypes.map((t) => t.name));
   const referenced = /* @__PURE__ */ new Set();
@@ -5578,520 +6135,6 @@ function filterContextByFunctions(context, functionNames) {
     }
   };
 }
-var MAX_REPAIR_ROUNDS = 3;
-var MAX_CANARY_CASES = 8;
-function isNumericSpec(spec) {
-  return spec.type === "float" || spec.type === "number" || spec.type === "integer" || spec.type === "int";
-}
-function getNumericBounds(spec) {
-  const c = spec.constraints ?? {};
-  const min = typeof c.min === "number" ? c.min : void 0;
-  const max = typeof c.max === "number" ? c.max : void 0;
-  return { ...min !== void 0 ? { min } : {}, ...max !== void 0 ? { max } : {} };
-}
-function buildValidationEvidence(smokePasses, canaryPasses) {
-  return {
-    smokePasses,
-    canaryPasses,
-    seedsTested: [],
-    lastValidatedAt: (/* @__PURE__ */ new Date()).toISOString()
-  };
-}
-function buildCandidateValues(spec) {
-  const c = spec.constraints ?? {};
-  if (spec.type === "boolean") {
-    return [false, true];
-  }
-  if (spec.type === "string") {
-    const maxSize = typeof c.maxLength === "number" ? Math.max(1, c.maxLength) : 1;
-    return ["", "x", "0".slice(0, maxSize)];
-  }
-  if (isNumericSpec(spec)) {
-    const defaults = spec.type === "integer" || spec.type === "int" ? [0, 1, -1, 42, -42, Number.MAX_SAFE_INTEGER - 1] : [0, Number.EPSILON, 0.1, 0.2, 0.3, 1e-12, 1e6];
-    const { min, max } = getNumericBounds(spec);
-    const filtered = defaults.filter((value) => {
-      if (!Number.isFinite(value)) return false;
-      if (min !== void 0 && value < min) return false;
-      if (max !== void 0 && value > max) return false;
-      return true;
-    });
-    if (filtered.length > 0) {
-      return [...new Set(filtered.map((value) => spec.type === "integer" || spec.type === "int" ? Math.trunc(value) : value))];
-    }
-    const fallback = [];
-    if (min !== void 0) fallback.push(spec.type === "integer" || spec.type === "int" ? Math.trunc(min) : min);
-    if (max !== void 0) fallback.push(spec.type === "integer" || spec.type === "int" ? Math.trunc(max) : max);
-    return fallback.length > 0 ? [...new Set(fallback)] : [spec.type === "integer" || spec.type === "int" ? 0 : 0];
-  }
-  if (spec.type === "array") {
-    const elementType = c.element ?? c.elementType;
-    const nestedSpec = {
-      type: typeof elementType === "string" ? elementType : "integer",
-      constraints: {
-        ...(c.elementMin ?? c.min) !== void 0 ? { min: c.elementMin ?? c.min } : {},
-        ...(c.elementMax ?? c.max) !== void 0 ? { max: c.elementMax ?? c.max } : {},
-        ...c.elementMaxLength !== void 0 ? { maxLength: c.elementMaxLength } : {}
-      }
-    };
-    const elementValues = buildCandidateValues(nestedSpec);
-    const singleton = elementValues[0] ?? 0;
-    const second = elementValues[1] ?? singleton;
-    const maxLength = typeof c.maxLength === "number" ? c.maxLength : void 0;
-    const arrays = [];
-    if (maxLength === void 0 || maxLength >= 0) arrays.push([]);
-    if (maxLength === void 0 || maxLength >= 1) arrays.push([singleton]);
-    if (maxLength === void 0 || maxLength >= 2) arrays.push([singleton, singleton]);
-    if (maxLength === void 0 || maxLength >= 2) arrays.push([singleton, second]);
-    return arrays;
-  }
-  if (spec.type === "object") {
-    const fields = c.fields;
-    if (fields && typeof fields === "object") {
-      const entries = Object.entries(fields);
-      const obj = {};
-      for (const [name, fieldSpec] of entries) {
-        const fs5 = fieldSpec;
-        const vals = buildCandidateValues({ type: fs5.type, constraints: fs5.constraints });
-        obj[name] = vals[0] ?? null;
-      }
-      return [obj];
-    }
-    return [{}];
-  }
-  if (spec.type === "optional") {
-    const inner = c.inner;
-    if (inner && typeof inner === "object" && typeof inner.type === "string") {
-      const vals = buildCandidateValues({ type: inner.type, constraints: inner.constraints });
-      return [void 0, vals[0] ?? null];
-    }
-    return [void 0, null];
-  }
-  if (spec.type === "enum") {
-    const values = c.values;
-    if (Array.isArray(values) && values.length > 0) {
-      return values;
-    }
-    return [];
-  }
-  return [];
-}
-function buildCanaryCases(property) {
-  const entries = Object.entries(property.generators);
-  if (entries.length === 0) {
-    return [{}];
-  }
-  const candidates = entries.map(([name, spec]) => [name, buildCandidateValues(spec)]);
-  if (candidates.some(([, values]) => values.length === 0)) {
-    return [];
-  }
-  const baseline = Object.fromEntries(candidates.map(([name, values]) => [name, values[0]]));
-  const cases = [baseline];
-  const seen = /* @__PURE__ */ new Set([JSON.stringify(baseline)]);
-  for (const [name, values] of candidates) {
-    for (const value of values.slice(1)) {
-      const nextCase = { ...baseline, [name]: value };
-      const key = JSON.stringify(nextCase);
-      if (!seen.has(key)) {
-        seen.add(key);
-        cases.push(nextCase);
-      }
-      if (cases.length >= MAX_CANARY_CASES) {
-        return cases;
-      }
-    }
-  }
-  return cases;
-}
-function buildConstantGenerators(input) {
-  return Object.freeze(
-    Object.fromEntries(
-      Object.entries(input).map(([name, value]) => [name, { type: "constant", constraints: { value } }])
-    )
-  );
-}
-function findTopLevelOperator(expression, operators) {
-  let depth = 0;
-  let quote = null;
-  let escaped = false;
-  for (let i = 0; i < expression.length; i++) {
-    const ch = expression[i];
-    if (quote) {
-      if (escaped) {
-        escaped = false;
-        continue;
-      }
-      if (ch === "\\") {
-        escaped = true;
-        continue;
-      }
-      if (ch === quote) {
-        quote = null;
-      }
-      continue;
-    }
-    if (ch === '"' || ch === "'" || ch === "`") {
-      quote = ch;
-      continue;
-    }
-    if (ch === "(" || ch === "[" || ch === "{") {
-      depth++;
-      continue;
-    }
-    if (ch === ")" || ch === "]" || ch === "}") {
-      depth = Math.max(0, depth - 1);
-      continue;
-    }
-    if (depth === 0) {
-      for (const operator of operators) {
-        if (expression.startsWith(operator, i)) {
-          return {
-            left: expression.slice(0, i).trim(),
-            operator,
-            right: expression.slice(i + operator.length).trim()
-          };
-        }
-      }
-    }
-  }
-  return null;
-}
-function weakenExactEquality(assertion) {
-  const match = findTopLevelOperator(assertion.trim(), ["!==", "==="]);
-  if (!match || !match.left || !match.right) {
-    return null;
-  }
-  return match.operator === "!==" ? `!approxEqual(${match.left}, ${match.right})` : `approxEqual(${match.left}, ${match.right})`;
-}
-function parseTinyTolerance(assertion) {
-  const trimmed = assertion.trim();
-  if (!trimmed.startsWith("Math.abs(")) {
-    return null;
-  }
-  const start = "Math.abs(".length;
-  let depth = 0;
-  let closeIndex = -1;
-  for (let i = start; i < trimmed.length; i++) {
-    const ch = trimmed[i];
-    if (ch === "(") depth++;
-    if (ch === ")") {
-      if (depth === 0) {
-        closeIndex = i;
-        break;
-      }
-      depth--;
-    }
-  }
-  if (closeIndex === -1) {
-    return null;
-  }
-  const body = trimmed.slice(start, closeIndex).trim();
-  const remainder = trimmed.slice(closeIndex + 1).trim();
-  const toleranceMatch = remainder.match(/^(?:<|<=)\s*1e-(?:9|[1-9]\d+)$/i);
-  if (!toleranceMatch) {
-    return null;
-  }
-  const diff = findTopLevelOperator(body, ["-"]);
-  if (!diff || !diff.left || !diff.right) {
-    return null;
-  }
-  return {
-    left: diff.left,
-    right: diff.right
-  };
-}
-function weakenTinyTolerance(assertion) {
-  const parsed = parseTinyTolerance(assertion);
-  if (!parsed) {
-    return null;
-  }
-  return `approxEqual(${parsed.left}, ${parsed.right}, 1e-6, 1e-6)`;
-}
-function weakenMissingPrecondition(assertion) {
-  const trimmed = assertion.trim();
-  if (!trimmed) {
-    return null;
-  }
-  if (/\btry\b|\bcatch\b/.test(trimmed)) {
-    return null;
-  }
-  return `(() => { try { return ${trimmed}; } catch { return true; } })()`;
-}
-function tightenWideNumericGenerators(generators) {
-  const next = Object.fromEntries(Object.entries(generators).map(([name, spec]) => {
-    if (isNumericSpec(spec)) {
-      const { min, max } = getNumericBounds(spec);
-      if (min === void 0 && max === void 0) {
-        return [name, { ...spec, constraints: { ...spec.constraints ?? {}, min: 0, max: 1e6 } }];
-      }
-      if (min !== void 0 && max !== void 0 && Math.abs(max - min) > 1e6) {
-        return [name, { ...spec, constraints: { ...spec.constraints ?? {}, min: Math.max(min, 0), max: Math.min(max, 1e6) } }];
-      }
-    }
-    if (spec.type === "array") {
-      const c = spec.constraints ?? {};
-      const elementType = c.element ?? c.elementType;
-      if (elementType === "float" || elementType === "number" || elementType === "integer" || elementType === "int") {
-        const min = typeof (c.elementMin ?? c.min) === "number" ? Number(c.elementMin ?? c.min) : void 0;
-        const max = typeof (c.elementMax ?? c.max) === "number" ? Number(c.elementMax ?? c.max) : void 0;
-        if (min === void 0 && max === void 0) {
-          return [name, { ...spec, constraints: { ...c, elementMin: 0, elementMax: 1e6 } }];
-        }
-        if (min !== void 0 && max !== void 0 && Math.abs(max - min) > 1e6) {
-          return [name, { ...spec, constraints: { ...c, elementMin: Math.max(min, 0), elementMax: Math.min(max, 1e6) } }];
-        }
-      }
-    }
-    return [name, spec];
-  }));
-  return Object.freeze(next);
-}
-function refreshRiskMetadata(property) {
-  const preservedTags = property.riskTags.filter((tag) => tag === "doc_domain_mismatch" || tag === "missing_precondition");
-  const riskTags = [.../* @__PURE__ */ new Set([...(0, import_llm.detectRiskTags)(property), ...preservedTags])];
-  return {
-    ...property,
-    riskTags,
-    riskScore: (0, import_llm.computeRiskScore)(property, property.score, riskTags)
-  };
-}
-function autoWeakenProperty(property) {
-  if (property.status === "refined") {
-    return null;
-  }
-  let assertion = property.assertion;
-  let generators = property.generators;
-  let changed = false;
-  if (property.riskTags.includes("float_exact_equality")) {
-    const weakened = weakenExactEquality(assertion);
-    if (weakened && weakened !== assertion) {
-      assertion = weakened;
-      changed = true;
-    }
-  }
-  if (property.riskTags.includes("tiny_abs_tolerance")) {
-    const weakened = weakenTinyTolerance(assertion);
-    if (weakened && weakened !== assertion) {
-      assertion = weakened;
-      changed = true;
-    }
-  }
-  if (property.riskTags.includes("wide_numeric_domain")) {
-    const tightened = tightenWideNumericGenerators(generators);
-    if (JSON.stringify(tightened) !== JSON.stringify(generators)) {
-      generators = tightened;
-      changed = true;
-    }
-  }
-  if (property.riskTags.includes("missing_precondition")) {
-    const weakened = weakenMissingPrecondition(assertion);
-    if (weakened && weakened !== assertion) {
-      assertion = weakened;
-      changed = true;
-    }
-  }
-  if (!changed) {
-    return null;
-  }
-  return refreshRiskMetadata({
-    ...property,
-    assertion,
-    generators,
-    status: "refined"
-  });
-}
-function detectDocDomainRiskTags(property, context) {
-  const functionName = property.targetFunction.split(".").pop() ?? property.targetFunction;
-  const doc = context.signals.doc.find((entry) => entry.functionName === property.targetFunction || entry.functionName === functionName);
-  if (!doc) {
-    return [];
-  }
-  for (const [paramName, spec] of Object.entries(property.generators)) {
-    const docText = doc.paramDocs[paramName]?.toLowerCase();
-    if (!docText || !isNumericSpec(spec)) continue;
-    const { min, max } = getNumericBounds(spec);
-    const mentionsPercentageRange = /0\s*(?:-|to)\s*100|0-100|0 to 100|percentage|percent/.test(docText);
-    const mentionsNonNegative = /non-negative|nonnegative|>=\s*0|positive/.test(docText);
-    if (mentionsPercentageRange && (min !== 0 || max !== 100)) {
-      return ["doc_domain_mismatch"];
-    }
-    if (mentionsNonNegative && min === void 0) {
-      return ["doc_domain_mismatch"];
-    }
-  }
-  return [];
-}
-function applyRiskMetadata(properties, context) {
-  return properties.map((property) => {
-    const riskTags = [.../* @__PURE__ */ new Set([...property.riskTags, ...detectDocDomainRiskTags(property, context)])];
-    return {
-      ...property,
-      riskTags,
-      riskScore: (0, import_llm.computeRiskScore)(property, property.score, riskTags),
-      status: riskTags.length > 0 ? "risky" : "accepted"
-    };
-  });
-}
-async function canaryValidateProperties(properties, targetPath, storeDir, language) {
-  const testsDir = path2.join(storeDir, "tests");
-  await fs.mkdir(testsDir, { recursive: true });
-  const canaryConfig = {
-    mode: "quick",
-    iterations: 1,
-    timeout: 15e3,
-    verbose: false
-  };
-  const validated = [];
-  const quarantined = [];
-  for (const property of properties) {
-    if (property.riskTags.length === 0) {
-      validated.push({
-        ...property,
-        validation: buildValidationEvidence(100, 0)
-      });
-      continue;
-    }
-    const canaryCases = buildCanaryCases(property);
-    if (canaryCases.length === 0) {
-      validated.push({
-        ...property,
-        status: property.status === "refined" ? "refined" : "risky",
-        validation: buildValidationEvidence(100, 0)
-      });
-      continue;
-    }
-    let canaryPasses = 0;
-    let failureReason = null;
-    for (const input of canaryCases) {
-      const canaryProperty = {
-        ...property,
-        generators: buildConstantGenerators(input)
-      };
-      const result = await executeTrialRun([canaryProperty], targetPath, testsDir, canaryConfig, language);
-      const failed = result.failed[0];
-      const error = result.errors[0];
-      if (failed || error) {
-        failureReason = failed?.errorMessage ?? error?.errorMessage ?? `canary failed for ${JSON.stringify(input)}`;
-        break;
-      }
-      canaryPasses++;
-    }
-    if (failureReason) {
-      const weakened = autoWeakenProperty(property);
-      if (weakened) {
-        const rerun = await canaryValidateProperties([weakened], targetPath, storeDir, language);
-        if (rerun.validated.length > 0) {
-          validated.push(rerun.validated[0]);
-          continue;
-        }
-        if (rerun.quarantined.length > 0) {
-          quarantined.push(rerun.quarantined[0]);
-          continue;
-        }
-      }
-      quarantined.push({
-        prop: {
-          ...property,
-          status: "quarantined",
-          validation: buildValidationEvidence(100, canaryPasses)
-        },
-        reason: failureReason
-      });
-      continue;
-    }
-    validated.push({
-      ...property,
-      status: property.status === "refined" ? "refined" : "risky",
-      validation: buildValidationEvidence(100, canaryPasses)
-    });
-  }
-  return { validated, quarantined };
-}
-async function executeTrialRun(properties, targetPath, testsDir, config, language) {
-  const generated = language === "python" ? (0, import_engines.generateHypothesisTest)(properties, targetPath, testsDir, config) : (0, import_engines.generateFastCheckTest)(properties, targetPath, testsDir, config);
-  const testFilePath = path2.join(testsDir, generated.fileName);
-  await fs.writeFile(testFilePath, generated.content, "utf8");
-  try {
-    const fcGenerated = language !== "python" ? generated : null;
-    return language === "python" ? await (0, import_engines.runHypothesisTest)(testFilePath, properties, config) : await (0, import_engines.runFastCheckTest)(testFilePath, properties, config, {
-      targetFile: targetPath,
-      needsMtsCopy: fcGenerated?.needsMtsCopy
-    });
-  } finally {
-    try {
-      await fs.unlink(testFilePath);
-    } catch {
-    }
-  }
-}
-async function trialRunValidation(properties, targetPath, storeDir, sourceCode, llmClient, isMock, language) {
-  const testsDir = path2.join(storeDir, "tests");
-  await fs.mkdir(testsDir, { recursive: true });
-  const trialConfig = {
-    mode: "quick",
-    iterations: 100,
-    timeout: 15e3,
-    verbose: false
-  };
-  let currentProperties = [...properties];
-  const validated = [];
-  const dropped = [];
-  let totalRepaired = 0;
-  for (let round = 0; round <= MAX_REPAIR_ROUNDS; round++) {
-    if (currentProperties.length === 0) break;
-    const result = await executeTrialRun(
-      currentProperties,
-      targetPath,
-      testsDir,
-      trialConfig,
-      language
-    );
-    const passedIds = new Set(result.passed.map((p) => p.propertyId));
-    const failedIds = new Set(result.failed.map((f) => f.propertyId));
-    const errorIds = new Set(result.errors.map((e) => e.propertyId));
-    const needsRepair = [];
-    for (const prop of currentProperties) {
-      if (passedIds.has(prop.id)) {
-        validated.push(prop);
-      } else if (failedIds.has(prop.id)) {
-        if (round < MAX_REPAIR_ROUNDS) {
-          const weakened = autoWeakenProperty(prop);
-          if (weakened) {
-            needsRepair.push(weakened);
-            totalRepaired++;
-            console.log(`    \u21BB Adjusting: ${prop.targetFunction}: ${prop.description} \u2014 too strict, relaxing... (attempt ${round + 1})`);
-            continue;
-          }
-        }
-        validated.push(prop);
-      } else if (errorIds.has(prop.id)) {
-        const err = result.errors.find((e) => e.propertyId === prop.id);
-        const errorMsg = err?.errorMessage ?? "unknown error";
-        if (round < MAX_REPAIR_ROUNDS) {
-          const funcSig = `${prop.targetFunction}(...)`;
-          let repaired = null;
-          if (isMock) {
-            repaired = (0, import_llm.mockRepairProperty)(prop, errorMsg);
-          } else if (llmClient) {
-            repaired = await (0, import_llm.repairProperty)(llmClient, prop, errorMsg, sourceCode, funcSig);
-          }
-          if (repaired) {
-            needsRepair.push(repaired);
-            totalRepaired++;
-            console.log(`    \u21BB Repairing: ${prop.targetFunction}: ${prop.description} (round ${round + 1})`);
-          } else {
-            dropped.push({ prop, reason: `codegen error (repair failed round ${round + 1}): ${errorMsg}` });
-          }
-        } else {
-          dropped.push({ prop, reason: `codegen error (max ${MAX_REPAIR_ROUNDS} repairs): ${errorMsg}` });
-        }
-      } else {
-        dropped.push({ prop, reason: "no output from trial run" });
-      }
-    }
-    currentProperties = needsRepair;
-  }
-  return { validated, dropped, repaired: totalRepaired };
-}
 async function inferCommand(target, options) {
   const projectRoot = process.cwd();
   const config = (0, import_config.loadConfig)(projectRoot, {
@@ -6100,23 +6143,41 @@ async function inferCommand(target, options) {
     provider: options.provider,
     baseURL: options.baseUrl
   });
-  const targetPath = path2.resolve(projectRoot, target);
-  if (!targetPath.startsWith(projectRoot + path2.sep) && targetPath !== projectRoot) {
+  const targetPath = path3.resolve(projectRoot, target);
+  if (!targetPath.startsWith(projectRoot + path3.sep) && targetPath !== projectRoot) {
     console.error(`
   Error: Target file must be within the project root.
 `);
     process.exit(2);
   }
+  let targetStat;
   try {
-    await fs.access(targetPath);
+    targetStat = await fs2.stat(targetPath);
   } catch {
     console.error(`
   Error: File not found: ${target}
 `);
     process.exit(2);
   }
+  if (targetStat.isDirectory()) {
+    const sourceFiles = (0, import_common2.findSourceFiles)(targetPath);
+    if (sourceFiles.length === 0) {
+      console.error(`
+  No source files found in ${target}/
+`);
+      process.exit(2);
+    }
+    console.log(`
+  Found ${sourceFiles.length} source file(s) in ${target}/
+`);
+    for (const filePath of sourceFiles) {
+      const relPath = path3.relative(projectRoot, filePath);
+      await inferCommand(relPath, options);
+    }
+    return;
+  }
   const language = (0, import_parser.detectLanguage)(targetPath);
-  if (!language || !["typescript", "javascript", "python"].includes(language)) {
+  if (!isSupportedLanguage(language)) {
     console.error(`
   Error: Unsupported file type. Supported: .ts, .tsx, .js, .jsx, .py
 `);
@@ -6132,16 +6193,16 @@ async function inferCommand(target, options) {
     process.exit(2);
   }
   await (0, import_store2.initStore)(projectRoot, config.storeDir);
-  const storeDir = path2.join(projectRoot, config.storeDir);
+  const storeDir = path3.join(projectRoot, config.storeDir);
   const MAX_SOURCE_BYTES = 5e5;
-  const stat2 = await fs.stat(targetPath);
-  if (stat2.size > MAX_SOURCE_BYTES) {
+  const stat3 = await fs2.stat(targetPath);
+  if (stat3.size > MAX_SOURCE_BYTES) {
     console.error(`
-  Error: File too large (${stat2.size} bytes). Max: ${MAX_SOURCE_BYTES} bytes.
+  Error: File too large (${stat3.size} bytes). Max: ${MAX_SOURCE_BYTES} bytes.
 `);
     process.exit(2);
   }
-  const source = await fs.readFile(targetPath, "utf8");
+  const source = await fs2.readFile(targetPath, "utf8");
   const context = language === "python" ? (0, import_parser.analyzePythonFile)(targetPath, source) : (0, import_parser.analyzeFile)(targetPath, source, language);
   let inferContext = context;
   if (options.function) {
@@ -6185,7 +6246,7 @@ async function inferCommand(target, options) {
   const minScore = Math.min(Math.max(0, minScoreRaw || 10), 15);
   let result;
   try {
-    result = await (0, import_llm.inferProperties)(config.apiKey, config.model, inferContext, {
+    result = await (0, import_llm3.inferProperties)(config.apiKey, config.model, inferContext, {
       maxProperties,
       minScore,
       mock: config.mock,
@@ -6215,10 +6276,9 @@ async function inferCommand(target, options) {
   }
   let finalProperties = result.properties;
   if (!options.skipValidation) {
-    const testsDir = path2.join(storeDir, "tests");
-    await fs.mkdir(testsDir, { recursive: true });
+    const testsDir = await ensureTestsDir(storeDir);
     console.log(`  Validating ${result.properties.length} rules (quick test, 100 random inputs each)...`);
-    const llmClient = config.mock ? null : config.apiKey ? (0, import_llm.createClient)(config.apiKey, config.model, config.provider, config.baseURL) : null;
+    const llmClient = config.mock ? null : config.apiKey ? (0, import_llm3.createClient)(config.apiKey, config.model, config.provider, config.baseURL) : null;
     const { validated, dropped, repaired } = await trialRunValidation(
       result.properties,
       targetPath,
@@ -6266,9 +6326,9 @@ async function inferCommand(target, options) {
         fullConfig,
         language
       );
-      const classifications = (0, import_llm.classifyProperties)(activeProperties, execResult);
+      const classifications = (0, import_llm3.classifyProperties)(activeProperties, execResult);
       const functionNames = inferContext.functions.map((f) => f.qualifiedName);
-      const feedback = (0, import_llm.buildFeedbackSummary)(classifications, functionNames);
+      const feedback = (0, import_llm3.buildFeedbackSummary)(classifications, functionNames);
       const strong = classifications.filter((c) => c.kind === "strong");
       const weak = classifications.filter((c) => c.kind === "weak");
       const bugs = classifications.filter((c) => c.kind === "bug_found");
@@ -6276,9 +6336,9 @@ async function inferCommand(target, options) {
       if (weak.length > 0 || bugs.length > 0) {
         let improvedProperties;
         if (config.mock) {
-          improvedProperties = applyRiskMetadata((0, import_llm.mockRefineProperties)(classifications), inferContext);
+          improvedProperties = applyRiskMetadata((0, import_llm3.mockRefineProperties)(classifications), inferContext);
         } else if (llmClient) {
-          const refineResult = await (0, import_llm.refineProperties)(config.apiKey, config.model, inferContext, feedback, {
+          const refineResult = await (0, import_llm3.refineProperties)(config.apiKey, config.model, inferContext, feedback, {
             maxProperties,
             minScore,
             mock: false,
@@ -6319,13 +6379,13 @@ async function inferCommand(target, options) {
       }
     }
   }
-  const moduleKey = (0, import_common.toForwardSlash)(path2.relative(projectRoot, targetPath));
+  const moduleKey = (0, import_common2.toForwardSlash)(path3.relative(projectRoot, targetPath));
   const propertySet = {
     schemaVersion: 2,
     module: moduleKey,
     filePath: moduleKey,
     properties: finalProperties,
-    sourceHash: (0, import_common.hashContent)(source),
+    sourceHash: (0, import_common2.hashContent)(source),
     inferredAt: (/* @__PURE__ */ new Date()).toISOString()
   };
   await (0, import_store2.setProperties)(storeDir, moduleKey, propertySet);
@@ -6334,13 +6394,13 @@ async function inferCommand(target, options) {
 }
 
 // src/commands/run.ts
-var fs2 = __toESM(require("fs/promises"));
-var path3 = __toESM(require("path"));
+var fs3 = __toESM(require("fs/promises"));
+var path4 = __toESM(require("path"));
 var import_config2 = __toESM(require_dist2());
 var import_store3 = __toESM(require_dist());
-var import_engines2 = __toESM(require_dist6());
-var import_reporter2 = __toESM(require_dist7());
-var import_common2 = __toESM(require_dist4());
+var import_engines2 = __toESM(require_dist7());
+var import_reporter2 = __toESM(require_dist6());
+var import_common3 = __toESM(require_dist4());
 function parseIdList(input) {
   return new Set(
     (input ?? "").split(",").map((part) => part.trim()).filter(Boolean)
@@ -6349,18 +6409,18 @@ function parseIdList(input) {
 async function runCommand(target, options) {
   const projectRoot = process.cwd();
   const config = (0, import_config2.loadConfig)(projectRoot);
-  const storeDir = path3.join(projectRoot, config.storeDir);
+  const storeDir = path4.join(projectRoot, config.storeDir);
   const mode = options.quick ? "quick" : options.thorough ? "thorough" : "default";
   const runConfig = {
     mode,
-    iterations: import_common2.RUN_MODE_ITERATIONS[mode],
+    iterations: import_common3.RUN_MODE_ITERATIONS[mode],
     timeout: config.timeout,
     seed: options.seed ? Number.isNaN(parseInt(options.seed, 10)) ? void 0 : parseInt(options.seed, 10) : void 0,
     verbose: false
   };
   let propertySets;
   if (options.changed) {
-    const changedResult = (0, import_common2.getChangedFiles)(projectRoot);
+    const changedResult = (0, import_common3.getChangedFiles)(projectRoot);
     if (changedResult.status === "git_error") {
       console.error(`
   Error: git is not available or this is not a git repository.`);
@@ -6368,7 +6428,7 @@ async function runCommand(target, options) {
       process.exit(2);
     }
     const changedPaths = new Set(
-      changedResult.files.map((f) => (0, import_common2.toForwardSlash)(f.filePath)).filter(
+      changedResult.files.map((f) => (0, import_common3.toForwardSlash)(f.filePath)).filter(
         (p) => (
           // Exclude internal files, build artifacts, and non-source files
           !p.startsWith(".propcheck/") && !p.startsWith("node_modules/") && !p.includes("/dist/") && !p.includes("/dist-bundle/") && /\.(ts|tsx|js|jsx|py)$/.test(p)
@@ -6391,24 +6451,42 @@ async function runCommand(target, options) {
   Running properties for ${propertySets.length} changed file(s)...
 `);
   } else if (target) {
-    const targetPath = path3.resolve(projectRoot, target);
+    const targetPath = path4.resolve(projectRoot, target);
+    let stat3;
     try {
-      await fs2.access(targetPath);
+      stat3 = await fs3.stat(targetPath);
     } catch {
       console.error(`
   Error: File not found: ${target}
 `);
       process.exit(2);
     }
-    const moduleKey = (0, import_common2.toForwardSlash)(path3.relative(projectRoot, targetPath));
-    const ps = await (0, import_store3.getProperties)(storeDir, moduleKey);
-    if (!ps) {
-      console.error(`
+    if (stat3.isDirectory()) {
+      const allSets = await (0, import_store3.getAllProperties)(storeDir);
+      const sourceFiles = (0, import_common3.findSourceFiles)(targetPath);
+      const sourceKeys = new Set(sourceFiles.map((f) => (0, import_common3.toForwardSlash)(path4.relative(projectRoot, f))));
+      propertySets = allSets.filter((ps) => sourceKeys.has(ps.filePath));
+      if (propertySets.length === 0) {
+        console.error(`
+  No properties found for files in ${target}/`);
+        console.error(`  Run: propcheck infer <file> on source files first.
+`);
+        process.exit(2);
+      }
+      console.log(`
+  Running properties for ${propertySets.length} file(s) in ${target}/...
+`);
+    } else {
+      const moduleKey = (0, import_common3.toForwardSlash)(path4.relative(projectRoot, targetPath));
+      const ps = await (0, import_store3.getProperties)(storeDir, moduleKey);
+      if (!ps) {
+        console.error(`
   No properties found for ${target}`);
-      console.error("  Run: propcheck infer " + target + "\n");
-      process.exit(2);
+        console.error("  Run: propcheck infer " + target + "\n");
+        process.exit(2);
+      }
+      propertySets = [ps];
     }
-    propertySets = [ps];
   } else {
     propertySets = await (0, import_store3.getAllProperties)(storeDir);
     if (propertySets.length === 0) {
@@ -6422,10 +6500,10 @@ async function runCommand(target, options) {
   let exitCode = 0;
   let ranAnyProperties = false;
   for (const ps of propertySets) {
-    const filePath = path3.resolve(projectRoot, ps.filePath);
+    const filePath = path4.resolve(projectRoot, ps.filePath);
     try {
-      const currentSource = await fs2.readFile(filePath, "utf8");
-      const currentHash = (0, import_common2.hashContent)(currentSource);
+      const currentSource = await fs3.readFile(filePath, "utf8");
+      const currentHash = (0, import_common3.hashContent)(currentSource);
       if (ps.sourceHash !== currentHash) {
         console.log(`
   Warning: ${ps.filePath} has changed since properties were inferred.`);
@@ -6472,12 +6550,12 @@ async function runCommand(target, options) {
       continue;
     }
     ranAnyProperties = true;
-    const testsDir = path3.join(storeDir, "tests");
-    await fs2.mkdir(testsDir, { recursive: true });
+    const testsDir = path4.join(storeDir, "tests");
+    await fs3.mkdir(testsDir, { recursive: true });
     const isPython = ps.filePath.endsWith(".py");
     const generated = isPython ? (0, import_engines2.generateHypothesisTest)(runnableProperties, filePath, testsDir, runConfig) : (0, import_engines2.generateFastCheckTest)(runnableProperties, filePath, testsDir, runConfig);
-    const testFilePath = path3.join(testsDir, generated.fileName);
-    await fs2.writeFile(testFilePath, generated.content, "utf8");
+    const testFilePath = path4.join(testsDir, generated.fileName);
+    await fs3.writeFile(testFilePath, generated.content, "utf8");
     const fcGenerated = !isPython ? generated : null;
     const result = isPython ? await (0, import_engines2.runHypothesisTest)(testFilePath, runnableProperties, runConfig) : await (0, import_engines2.runFastCheckTest)(testFilePath, runnableProperties, runConfig, {
       targetFile: filePath,
@@ -6514,13 +6592,13 @@ async function runCommand(target, options) {
 }
 
 // src/commands/badge.ts
-var path4 = __toESM(require("path"));
+var path5 = __toESM(require("path"));
 var import_config3 = __toESM(require_dist2());
 var import_store4 = __toESM(require_dist());
 async function badgeCommand() {
   const projectRoot = process.cwd();
   const config = (0, import_config3.loadConfig)(projectRoot);
-  const storeDir = path4.join(projectRoot, config.storeDir);
+  const storeDir = path5.join(projectRoot, config.storeDir);
   const allProps = await (0, import_store4.getAllProperties)(storeDir);
   const totalProperties = allProps.reduce(
     (sum, ps) => sum + ps.properties.length,
@@ -6538,27 +6616,27 @@ async function badgeCommand() {
 }
 
 // src/commands/quality.ts
-var fs3 = __toESM(require("fs/promises"));
-var path5 = __toESM(require("path"));
+var fs4 = __toESM(require("fs/promises"));
+var path6 = __toESM(require("path"));
 var import_config4 = __toESM(require_dist2());
 var import_store5 = __toESM(require_dist());
-var import_engines3 = __toESM(require_dist6());
-var import_common3 = __toESM(require_dist4());
+var import_engines3 = __toESM(require_dist7());
+var import_common4 = __toESM(require_dist4());
 var import_chalk = __toESM(require("chalk"));
 async function qualityCommand(target) {
   const projectRoot = process.cwd();
   const config = (0, import_config4.loadConfig)(projectRoot);
-  const storeDir = path5.join(projectRoot, config.storeDir);
-  const targetPath = path5.resolve(projectRoot, target);
+  const storeDir = path6.join(projectRoot, config.storeDir);
+  const targetPath = path6.resolve(projectRoot, target);
   try {
-    await fs3.access(targetPath);
+    await fs4.access(targetPath);
   } catch {
     console.error(`
   Error: File not found: ${target}
 `);
     process.exit(2);
   }
-  const moduleKey = (0, import_common3.toForwardSlash)(path5.relative(projectRoot, targetPath));
+  const moduleKey = (0, import_common4.toForwardSlash)(path6.relative(projectRoot, targetPath));
   const ps = await (0, import_store5.getProperties)(storeDir, moduleKey);
   if (!ps || ps.properties.length === 0) {
     console.error(`
@@ -6566,7 +6644,7 @@ async function qualityCommand(target) {
     console.error("  Run: propcheck infer " + target + " first\n");
     process.exit(2);
   }
-  const source = await fs3.readFile(targetPath, "utf8");
+  const source = await fs4.readFile(targetPath, "utf8");
   const mutants = (0, import_engines3.generateMutants)(source, targetPath);
   console.log(`
   ${import_chalk.default.bold("Mutation Testing")}: ${target}`);
@@ -6614,11 +6692,11 @@ function printReport(report, target) {
 }
 
 // src/commands/props.ts
-var path6 = __toESM(require("path"));
+var path7 = __toESM(require("path"));
 var import_config5 = __toESM(require_dist2());
 var import_store6 = __toESM(require_dist());
-var import_reporter3 = __toESM(require_dist7());
-var import_common4 = __toESM(require_dist4());
+var import_reporter3 = __toESM(require_dist6());
+var import_common5 = __toESM(require_dist4());
 var VALID_STATUSES = /* @__PURE__ */ new Set([
   "accepted",
   "risky",
@@ -6629,7 +6707,7 @@ var VALID_STATUSES = /* @__PURE__ */ new Set([
 async function propsCommand(target, options) {
   const projectRoot = process.cwd();
   const config = (0, import_config5.loadConfig)(projectRoot);
-  const storeDir = path6.join(projectRoot, config.storeDir);
+  const storeDir = path7.join(projectRoot, config.storeDir);
   let statusFilter;
   if (options.status) {
     if (!VALID_STATUSES.has(options.status)) {
@@ -6643,8 +6721,8 @@ async function propsCommand(target, options) {
     statusFilter = options.status;
   }
   if (target) {
-    const targetPath = path6.resolve(projectRoot, target);
-    const moduleKey = (0, import_common4.toForwardSlash)(path6.relative(projectRoot, targetPath));
+    const targetPath = path7.resolve(projectRoot, target);
+    const moduleKey = (0, import_common5.toForwardSlash)(path7.relative(projectRoot, targetPath));
     const ps = await (0, import_store6.getProperties)(storeDir, moduleKey);
     if (!ps) {
       console.error(`
@@ -6676,11 +6754,11 @@ async function propsCommand(target, options) {
 }
 
 // src/commands/property.ts
-var path7 = __toESM(require("path"));
+var path8 = __toESM(require("path"));
 var import_config6 = __toESM(require_dist2());
 var import_store7 = __toESM(require_dist());
-var import_reporter4 = __toESM(require_dist7());
-var import_common5 = __toESM(require_dist4());
+var import_reporter4 = __toESM(require_dist6());
+var import_common6 = __toESM(require_dist4());
 var VALID_STATUSES2 = /* @__PURE__ */ new Set([
   "accepted",
   "risky",
@@ -6691,9 +6769,9 @@ var VALID_STATUSES2 = /* @__PURE__ */ new Set([
 async function propertyCommand(target, propertyId, options) {
   const projectRoot = process.cwd();
   const config = (0, import_config6.loadConfig)(projectRoot);
-  const storeDir = path7.join(projectRoot, config.storeDir);
-  const targetPath = path7.resolve(projectRoot, target);
-  const moduleKey = (0, import_common5.toForwardSlash)(path7.relative(projectRoot, targetPath));
+  const storeDir = path8.join(projectRoot, config.storeDir);
+  const targetPath = path8.resolve(projectRoot, target);
+  const moduleKey = (0, import_common6.toForwardSlash)(path8.relative(projectRoot, targetPath));
   const ps = await (0, import_store7.getProperties)(storeDir, moduleKey);
   if (!ps) {
     console.error(`
@@ -6747,15 +6825,15 @@ async function propertyCommand(target, propertyId, options) {
 }
 
 // src/commands/fix.ts
-var fs4 = __toESM(require("fs"));
+var fs5 = __toESM(require("fs"));
 var fsPromises = __toESM(require("fs/promises"));
 var crypto = __toESM(require("crypto"));
-var path8 = __toESM(require("path"));
+var path9 = __toESM(require("path"));
 var import_config7 = __toESM(require_dist2());
 var import_store8 = __toESM(require_dist());
-var import_engines4 = __toESM(require_dist6());
-var import_common6 = __toESM(require_dist4());
-var import_llm2 = __toESM(require_dist5());
+var import_engines4 = __toESM(require_dist7());
+var import_common7 = __toESM(require_dist4());
+var import_llm4 = __toESM(require_dist5());
 function computeDiff(oldText, newText) {
   const oldLines = oldText.split("\n");
   const newLines = newText.split("\n");
@@ -6857,8 +6935,8 @@ async function fixCommand(target, options) {
     provider: options.provider,
     baseURL: options.baseUrl
   });
-  const targetPath = path8.resolve(projectRoot, target);
-  if (!fs4.existsSync(targetPath)) {
+  const targetPath = path9.resolve(projectRoot, target);
+  if (!fs5.existsSync(targetPath)) {
     console.error(`
   Error: File not found: ${target}
 `);
@@ -6872,8 +6950,8 @@ async function fixCommand(target, options) {
     }
     process.exit(2);
   }
-  const moduleKey = (0, import_common6.toForwardSlash)(path8.relative(projectRoot, targetPath));
-  const storeDir = path8.join(projectRoot, config.storeDir);
+  const moduleKey = (0, import_common7.toForwardSlash)(path9.relative(projectRoot, targetPath));
+  const storeDir = path9.join(projectRoot, config.storeDir);
   const propertySet = await (0, import_store8.getProperties)(storeDir, moduleKey);
   if (!propertySet || propertySet.properties.length === 0) {
     console.error(`
@@ -6897,14 +6975,14 @@ async function fixCommand(target, options) {
   Running ${activeProperties.length} properties for ${target}...`);
   const runConfig = {
     mode: "default",
-    iterations: import_common6.RUN_MODE_ITERATIONS.default,
+    iterations: import_common7.RUN_MODE_ITERATIONS.default,
     timeout: config.timeout,
     verbose: false
   };
-  const testsDir = path8.join(storeDir, "tests");
+  const testsDir = path9.join(storeDir, "tests");
   await fsPromises.mkdir(testsDir, { recursive: true });
   const generated = (0, import_engines4.generateFastCheckTest)(activeProperties, targetPath, testsDir, runConfig);
-  const testFilePath = path8.join(testsDir, generated.fileName);
+  const testFilePath = path9.join(testsDir, generated.fileName);
   await fsPromises.writeFile(testFilePath, generated.content, "utf8");
   const execResult = await (0, import_engines4.runFastCheckTest)(testFilePath, activeProperties, runConfig, {
     targetFile: targetPath,
@@ -6936,7 +7014,7 @@ async function fixCommand(target, options) {
   }
   console.log(`  Found ${failures.length} violation(s).
 `);
-  const llmClient = config.mock ? null : (0, import_llm2.createClient)(config.apiKey, config.model, config.provider, config.baseURL);
+  const llmClient = config.mock ? null : (0, import_llm4.createClient)(config.apiKey, config.model, config.provider, config.baseURL);
   console.log("  Diagnosing violations...");
   const diagnoses = [];
   for (const failure of failures) {
@@ -6944,9 +7022,9 @@ async function fixCommand(target, options) {
     if (!property) continue;
     let diagnosis;
     if (config.mock || !llmClient) {
-      diagnosis = (0, import_llm2.mockDiagnoseViolation)(property, failure);
+      diagnosis = (0, import_llm4.mockDiagnoseViolation)(property, failure);
     } else {
-      diagnosis = await (0, import_llm2.diagnoseViolation)(llmClient, sourceCode, property, failure, language);
+      diagnosis = await (0, import_llm4.diagnoseViolation)(llmClient, sourceCode, property, failure, language);
     }
     if (diagnosis) {
       diagnoses.push(diagnosis);
@@ -6989,9 +7067,9 @@ async function fixCommand(target, options) {
     }
     let fix;
     if (config.mock || !llmClient) {
-      fix = (0, import_llm2.mockGenerateFix)(sourceCode, confirmedBugs);
+      fix = (0, import_llm4.mockGenerateFix)(sourceCode, confirmedBugs);
     } else {
-      fix = await (0, import_llm2.generateFix)(
+      fix = await (0, import_llm4.generateFix)(
         llmClient,
         sourceCode,
         confirmedBugs,
@@ -7006,10 +7084,10 @@ async function fixCommand(target, options) {
       continue;
     }
     bestFix = fix;
-    const ext = path8.extname(targetPath);
-    const base = path8.basename(targetPath, ext);
-    const dir = path8.dirname(targetPath);
-    const tmpPath = path8.join(dir, `${base}.fix.tmp.${crypto.randomBytes(4).toString("hex")}${ext}`);
+    const ext = path9.extname(targetPath);
+    const base = path9.basename(targetPath, ext);
+    const dir = path9.dirname(targetPath);
+    const tmpPath = path9.join(dir, `${base}.fix.tmp.${crypto.randomBytes(4).toString("hex")}${ext}`);
     try {
       await fsPromises.writeFile(tmpPath, fix.fixedSource, "utf8");
       const verifyGenerated = (0, import_engines4.generateFastCheckTest)(
@@ -7018,7 +7096,7 @@ async function fixCommand(target, options) {
         testsDir,
         runConfig
       );
-      const verifyTestPath = path8.join(testsDir, verifyGenerated.fileName);
+      const verifyTestPath = path9.join(testsDir, verifyGenerated.fileName);
       await fsPromises.writeFile(verifyTestPath, verifyGenerated.content, "utf8");
       verificationResult = await (0, import_engines4.runFastCheckTest)(
         verifyTestPath,
