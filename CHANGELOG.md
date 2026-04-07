@@ -2,6 +2,60 @@
 
 All notable changes to propcheck are documented in this file.
 
+## [0.4.2] - 2026-04-07
+
+### Improved
+- **`--function` error messages**: now show full function signatures (`add(a: number, b?: number): number`) instead of bare names
+- **`--status` validation errors**: show sorted lifecycle options with descriptions (e.g. `accepted — Verified and active`)
+- **Error message consistency**: all commands now use standardized `Error:` prefix formatting
+- **Shared status definitions**: extracted `status-info.ts` — single source of truth for `props` and `property` commands
+- **File size guard placement**: moved into `resolveTarget()` to use existing `stat` call (no redundant I/O)
+
+### Fixed
+- **`--max-attempts 0` silently defaulted to 3**: now properly rejected with `"must be an integer (1-5)"` error
+- **`mock-fix.ts` dead code**: removed `funcPattern` regex that always matched `"prop"` instead of the actual function name
+- **`fc-runner.ts` silent cleanup**: `.mts` cleanup errors now emit warnings (consistent with `fix.ts` pattern)
+- **`formatFunctionSignature` optional marker**: `?` now placed correctly before type (`name?: type` not `name: type?`)
+
+### Added
+- **37 new tests**: mock-fix (12), mock-refinement (10), fc-runner lifecycle (5), auto-weaken edge cases (10)
+
+## [0.4.1] - 2026-04-07
+
+### Security
+- **API key redaction**: error messages now strip Bearer tokens, `sk-*` keys, and `key=` params before display — prevents accidental key leakage in logs/terminals
+- **Import path escaping**: `importPathStr` in generated test files now uses `JSON.stringify` — prevents code injection via filenames containing quotes
+- **Fix command hardening**: source file size check (500KB limit) before LLM call; LLM response size limit (1MB); `.bak` backup before `--apply` (timestamped to prevent overwrite)
+- **Config security**: removed `apiKey` from `.propcheckrc` schema — keys must use env vars to prevent accidental git commits
+
+### Fixed
+- **Python yield detection**: `isGenerator` now correctly detects `yield` in function bodies while excluding nested `def` blocks
+- **Numeric option validation**: `--max-properties 5abc` now properly rejected (was silently parsed as 5)
+- **Exit code consistency**: `run --changed` with no properties now exits 2 (was 0, misleading CI)
+- **Stale file warning**: shows `--ignore-stale` hint; new `--ignore-stale` flag to suppress
+
+### Added
+- **`--ignore-stale` flag**: suppress stale source file warnings in `run` command
+- **Mock + API key warning**: `--mock` mode now notes when a real API key is set but unused
+- **Exit codes in help**: `propcheck --help` now documents exit codes 0/1/2
+- **Init directory descriptions**: `propcheck init` output explains each directory's purpose
+- **JSON schema documentation**: `docs/tutorial.md` now includes full JSON output schema for CI integration
+- **26 new tests**: fix command E2E (5), weakening metadata (9), init .gitignore (4), confirm interactive (8)
+
+## [0.4.0] - 2026-04-07
+
+### Added
+- **Adaptive mock property generator**: `--mock` mode now generates meaningful properties for ANY function, not just the ~11 hardcoded demo functions. Uses function signature analysis (param types, return type, function name) to select appropriate property categories and generate assertions that score ≥ 10/13 on the quality rubric. This was the #1 adoption blocker — new users running `propcheck infer --mock myFile.ts` no longer see "No properties inferred".
+- **Auto-configure .gitignore**: `propcheck init` now automatically adds `.propcheck/tests/`, `.propcheck/corpus/`, and `.propcheck/reports/` to `.gitignore` (idempotent — won't duplicate entries).
+- **Improved init next steps**: `propcheck init` output now shows 3 actionable commands (mock demo, real AI, run tests) instead of a generic "run infer" message.
+- **`propcheck infer --confirm`**: interactive confirmation mode — review each discovered property before saving. Accept, quarantine, or drop individual rules. Supports: `a` (accept), `q` (quarantine), `d` (drop), `A` (accept all remaining), `Q` (quit). Gracefully skips in non-TTY environments (CI/piped input).
+- **Tutorial**: `docs/tutorial.md` — step-by-step guide from install to CI integration.
+- **Real API validation script**: `scripts/validate-real-api.sh` for end-to-end testing with a real LLM provider.
+- **40 new tests**: comprehensive adaptive generator test suite (generator mapping, category selection, property building, scoring integration, prompt parsing, edge cases).
+
+### Fixed
+- Mock client no longer returns a tautology fallback (`typeof result !== 'undefined'`) for unknown functions — this always scored 7/13 and was filtered out, silently producing zero results.
+
 ## [Unreleased] - 2026-04-06
 
 ### Added

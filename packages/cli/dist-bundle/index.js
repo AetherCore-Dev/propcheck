@@ -73,7 +73,7 @@ var require_property_store = __commonJS({
     exports2.setProperties = setProperties3;
     exports2.isStale = isStale;
     exports2.removeProperties = removeProperties;
-    var fs6 = __importStar(require("fs/promises"));
+    var fs7 = __importStar(require("fs/promises"));
     var path10 = __importStar(require("path"));
     var crypto2 = __importStar(require("crypto"));
     var PROPERTIES_FILE = "properties.json";
@@ -128,7 +128,7 @@ var require_property_store = __commonJS({
     async function readPropertiesFile(storeDir) {
       const filePath = propertiesPath(storeDir);
       try {
-        const content = await fs6.readFile(filePath, "utf8");
+        const content = await fs7.readFile(filePath, "utf8");
         return normalizePropertiesFile(JSON.parse(content));
       } catch (err) {
         if (err instanceof Error && "code" in err && err.code === "ENOENT") {
@@ -142,8 +142,8 @@ var require_property_store = __commonJS({
       const tmpName = `.tmp-${crypto2.randomBytes(8).toString("hex")}.json`;
       const tmpPath = path10.join(storeDir, tmpName);
       const content = JSON.stringify(data, null, 2);
-      await fs6.writeFile(tmpPath, content, "utf8");
-      await fs6.rename(tmpPath, filePath);
+      await fs7.writeFile(tmpPath, content, "utf8");
+      await fs7.rename(tmpPath, filePath);
     }
     async function getProperties6(storeDir, module3) {
       const file = await readPropertiesFile(storeDir);
@@ -221,7 +221,7 @@ var require_test_file_store = __commonJS({
     exports2.writeTestFile = writeTestFile;
     exports2.readTestFile = readTestFile;
     exports2.listTestFiles = listTestFiles;
-    var fs6 = __importStar(require("fs/promises"));
+    var fs7 = __importStar(require("fs/promises"));
     var path10 = __importStar(require("path"));
     var TESTS_DIR = "tests";
     function testsPath(storeDir) {
@@ -229,19 +229,19 @@ var require_test_file_store = __commonJS({
     }
     async function writeTestFile(storeDir, fileName, content) {
       const dir = testsPath(storeDir);
-      await fs6.mkdir(dir, { recursive: true });
+      await fs7.mkdir(dir, { recursive: true });
       const filePath = path10.join(dir, fileName);
-      await fs6.writeFile(filePath, content, "utf8");
+      await fs7.writeFile(filePath, content, "utf8");
       return filePath;
     }
     async function readTestFile(storeDir, fileName) {
       const filePath = path10.join(testsPath(storeDir), fileName);
-      return fs6.readFile(filePath, "utf8");
+      return fs7.readFile(filePath, "utf8");
     }
     async function listTestFiles(storeDir) {
       const dir = testsPath(storeDir);
       try {
-        const entries = await fs6.readdir(dir);
+        const entries = await fs7.readdir(dir);
         return entries.filter((e) => e.endsWith(".ts") || e.endsWith(".js") || e.endsWith(".py"));
       } catch {
         return [];
@@ -294,7 +294,7 @@ var require_corpus_store = __commonJS({
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.getSeeds = getSeeds;
     exports2.addSeeds = addSeeds;
-    var fs6 = __importStar(require("fs/promises"));
+    var fs7 = __importStar(require("fs/promises"));
     var path10 = __importStar(require("path"));
     var CORPUS_DIR = "corpus";
     function corpusPath(storeDir, functionName) {
@@ -304,7 +304,7 @@ var require_corpus_store = __commonJS({
     async function getSeeds(storeDir, functionName) {
       const filePath = corpusPath(storeDir, functionName);
       try {
-        const content = await fs6.readFile(filePath, "utf8");
+        const content = await fs7.readFile(filePath, "utf8");
         return JSON.parse(content);
       } catch {
         return [];
@@ -316,8 +316,8 @@ var require_corpus_store = __commonJS({
       const newSeeds = seeds.filter((s) => !existingKeys.has(JSON.stringify(s.value)));
       const merged = [...existing, ...newSeeds];
       const dir = path10.join(storeDir, CORPUS_DIR);
-      await fs6.mkdir(dir, { recursive: true });
-      await fs6.writeFile(corpusPath(storeDir, functionName), JSON.stringify(merged, null, 2), "utf8");
+      await fs7.mkdir(dir, { recursive: true });
+      await fs7.writeFile(corpusPath(storeDir, functionName), JSON.stringify(merged, null, 2), "utf8");
     }
   }
 });
@@ -365,27 +365,27 @@ var require_init = __commonJS({
     })();
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.initStore = initStore3;
-    var fs6 = __importStar(require("fs/promises"));
+    var fs7 = __importStar(require("fs/promises"));
     var path10 = __importStar(require("path"));
     var SUBDIRS = ["tests", "corpus", "reports"];
     async function initStore3(projectRoot, storeDir = ".propcheck") {
       const storePath = path10.join(projectRoot, storeDir);
       try {
-        const stat3 = await fs6.stat(storePath);
+        const stat3 = await fs7.stat(storePath);
         if (stat3.isDirectory()) {
           for (const sub of SUBDIRS) {
-            await fs6.mkdir(path10.join(storePath, sub), { recursive: true });
+            await fs7.mkdir(path10.join(storePath, sub), { recursive: true });
           }
           return { created: false, path: storePath };
         }
       } catch {
       }
-      await fs6.mkdir(storePath, { recursive: true });
+      await fs7.mkdir(storePath, { recursive: true });
       for (const sub of SUBDIRS) {
-        await fs6.mkdir(path10.join(storePath, sub), { recursive: true });
+        await fs7.mkdir(path10.join(storePath, sub), { recursive: true });
       }
       const propertiesPath = path10.join(storePath, "properties.json");
-      await fs6.writeFile(propertiesPath, JSON.stringify({ version: 2, modules: {} }, null, 2), "utf8");
+      await fs7.writeFile(propertiesPath, JSON.stringify({ version: 2, modules: {} }, null, 2), "utf8");
       return { created: true, path: storePath };
     }
   }
@@ -503,12 +503,12 @@ var require_loader = __commonJS({
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.loadConfig = loadConfig8;
     exports2.validateConfig = validateConfig3;
-    var fs6 = __importStar(require("fs"));
+    var fs7 = __importStar(require("fs"));
     var path10 = __importStar(require("path"));
     var zod_1 = require("zod");
     var defaults_1 = require_defaults();
     var PropcheckRcSchema = zod_1.z.object({
-      apiKey: zod_1.z.string().optional(),
+      // apiKey intentionally excluded — use env vars to avoid accidental git commits
       model: zod_1.z.string().optional(),
       provider: zod_1.z.enum(["anthropic", "openai-compatible"]).optional(),
       baseURL: zod_1.z.string().url().optional(),
@@ -522,9 +522,9 @@ var require_loader = __commonJS({
     function loadConfig8(projectRoot, overrides = {}) {
       let config = { ...defaults_1.DEFAULTS };
       const rcPath = path10.join(projectRoot, ".propcheckrc");
-      if (fs6.existsSync(rcPath)) {
+      if (fs7.existsSync(rcPath)) {
         try {
-          const rcContent = fs6.readFileSync(rcPath, "utf8");
+          const rcContent = fs7.readFileSync(rcPath, "utf8");
           const rawJson = JSON.parse(rcContent);
           const parsed = PropcheckRcSchema.safeParse(rawJson);
           if (parsed.success) {
@@ -581,7 +581,7 @@ var require_loader = __commonJS({
     function validateConfig3(config, command) {
       const errors = [];
       if ((command === "infer" || command === "fix") && !config.mock && !config.apiKey) {
-        errors.push('API key is required for property inference.\nSet it via one of:\n  export PROPCHECK_API_KEY=sk-...      # any provider\n  export ANTHROPIC_API_KEY=sk-ant-...  # Anthropic direct\n  export OPENAI_API_KEY=sk-or-...      # OpenRouter / OpenAI-compatible\nOr add "apiKey" to .propcheckrc\nOr use --mock for offline testing with canned responses.');
+        errors.push("API key is required for property inference.\nSet it via one of:\n  export PROPCHECK_API_KEY=sk-...      # any provider\n  export ANTHROPIC_API_KEY=sk-ant-...  # Anthropic direct\n  export OPENAI_API_KEY=sk-or-...      # OpenRouter / OpenAI-compatible\nOr use --mock for offline testing with demo data.");
       }
       return errors;
     }
@@ -1018,6 +1018,31 @@ var require_python = __commonJS({
       const raw = docLines.join("\n");
       return raw.replace(/^\s*["']{3}/, "").replace(/["']{3}\s*$/, "").trim();
     }
+    function detectYield(source, funcEndIndex, funcIndent) {
+      const remaining = source.slice(funcEndIndex);
+      const bodyLines = remaining.split("\n").slice(1);
+      let skipUntilIndent = -1;
+      for (const line of bodyLines) {
+        const trimmed = line.trimStart();
+        if (trimmed.length === 0 || trimmed.startsWith("#"))
+          continue;
+        const lineIndent = line.length - line.trimStart().length;
+        if (lineIndent <= funcIndent && trimmed.length > 0)
+          break;
+        if (skipUntilIndent > 0 && lineIndent <= skipUntilIndent) {
+          skipUntilIndent = -1;
+        }
+        if (/^(?:async\s+)?def\s+\w+/.test(trimmed)) {
+          skipUntilIndent = lineIndent;
+          continue;
+        }
+        if (skipUntilIndent > 0)
+          continue;
+        if (/\byield\b/.test(trimmed))
+          return true;
+      }
+      return false;
+    }
     function analyzePythonFile2(filePath, source) {
       const functions = [];
       const lines = source.split("\n");
@@ -1039,6 +1064,7 @@ var require_python = __commonJS({
         const endLine = startLine + fullMatch.split("\n").length - 1;
         const funcEndIndex = match.index + fullMatch.length;
         const docstring = extractDocstring(source, funcEndIndex);
+        const isGenerator = detectYield(source, funcEndIndex, indent.length);
         let visibility = "public";
         if (name.startsWith("__") && !name.endsWith("__")) {
           visibility = "internal";
@@ -1053,8 +1079,7 @@ var require_python = __commonJS({
           docstring,
           visibility,
           isAsync,
-          isGenerator: false,
-          // TODO: detect yield
+          isGenerator,
           loc: {
             startLine,
             endLine,
@@ -1513,7 +1538,7 @@ var require_file_scanner = __commonJS({
     })();
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.findSourceFiles = findSourceFiles3;
-    var fs6 = __importStar(require("fs"));
+    var fs7 = __importStar(require("fs"));
     var path10 = __importStar(require("path"));
     var SOURCE_EXTENSIONS = /* @__PURE__ */ new Set([".ts", ".tsx", ".js", ".jsx", ".py"]);
     var IGNORED_DIRS = /* @__PURE__ */ new Set([
@@ -1537,7 +1562,7 @@ var require_file_scanner = __commonJS({
       function walk(currentDir) {
         let entries;
         try {
-          entries = fs6.readdirSync(currentDir, { withFileTypes: true });
+          entries = fs7.readdirSync(currentDir, { withFileTypes: true });
         } catch {
           return;
         }
@@ -1719,9 +1744,13 @@ var require_client = __commonJS({
               break;
             }
           }
-          throw new common_1.LlmError(`API call failed after ${RETRY_DELAYS.length + 1} attempts: ${String(lastError)}`, { attempts: RETRY_DELAYS.length + 1 });
+          throw new common_1.LlmError(`API call failed after ${RETRY_DELAYS.length + 1} attempts: ${sanitizeErrorMessage(lastError)}`, { attempts: RETRY_DELAYS.length + 1 });
         }
       };
+    }
+    function sanitizeErrorMessage(err) {
+      const raw = err instanceof Error ? err.message : String(err);
+      return raw.replace(/Bearer\s+\S+/gi, "Bearer [REDACTED]").replace(/sk-[a-zA-Z0-9_-]{10,}/g, "sk-[REDACTED]").replace(/key[=:]\s*\S+/gi, "key=[REDACTED]");
     }
     function sleep(ms) {
       return new Promise((resolve7) => setTimeout(resolve7, ms));
@@ -1798,7 +1827,7 @@ var require_openai_client = __commonJS({
                   await sleep(RETRY_DELAYS[attempt]);
                   continue;
                 }
-                throw new common_1.LlmError(`API request failed: ${response.status} ${response.statusText} - ${errorText.slice(0, 500)}`, { status: response.status });
+                throw new common_1.LlmError(`API request failed: ${response.status} ${response.statusText} - ${sanitizeErrorMessage(errorText.slice(0, 500))}`, { status: response.status });
               }
               const data = await response.json();
               const choice = data.choices?.[0];
@@ -1829,12 +1858,416 @@ var require_openai_client = __commonJS({
               break;
             }
           }
-          throw new common_1.LlmError(`API call failed after ${RETRY_DELAYS.length + 1} attempts: ${String(lastError)}`, { attempts: RETRY_DELAYS.length + 1 });
+          throw new common_1.LlmError(`API call failed after ${RETRY_DELAYS.length + 1} attempts: ${sanitizeErrorMessage(lastError)}`, { attempts: RETRY_DELAYS.length + 1 });
         }
       };
     }
+    function sanitizeErrorMessage(err) {
+      const raw = err instanceof Error ? err.message : typeof err === "string" ? err : String(err);
+      return raw.replace(/Bearer\s+\S+/gi, "Bearer [REDACTED]").replace(/sk-[a-zA-Z0-9_-]{10,}/g, "sk-[REDACTED]").replace(/key[=:]\s*\S+/gi, "key=[REDACTED]");
+    }
     function sleep(ms) {
       return new Promise((resolve7) => setTimeout(resolve7, ms));
+    }
+  }
+});
+
+// ../llm/dist/adaptive-generator.js
+var require_adaptive_generator = __commonJS({
+  "../llm/dist/adaptive-generator.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.mapParamGenerators = mapParamGenerators;
+    exports2.selectCategories = selectCategories;
+    exports2.buildSeedInputs = buildSeedInputs;
+    exports2.generateAdaptiveProperties = generateAdaptiveProperties;
+    var NAME_HEURISTICS = [
+      { pattern: /^(price|cost|amount|total|fee|balance|salary|revenue|budget)$/i, spec: { type: "float", constraints: { min: 0, max: 1e4 } } },
+      { pattern: /^(count|num|quantity|size|length|index|offset|limit|page)$/i, spec: { type: "integer", constraints: { min: 0, max: 1e3 } } },
+      { pattern: /^(name|label|title|text|str|message|description|prefix|suffix|key|tag)$/i, spec: { type: "string", constraints: { maxLength: 100 } } },
+      { pattern: /^(flag|is[A-Z]|has[A-Z]|enabled|disabled|active|visible|valid|checked)/, spec: { type: "boolean" } },
+      { pattern: /^(items|list|arr|elements|values|entries|records|rows|data)$/i, spec: { type: "array", constraints: { element: "integer", maxLength: 20 } } },
+      { pattern: /^(rate|ratio|percent|factor|probability|weight|alpha|opacity)$/i, spec: { type: "float", constraints: { min: 0, max: 1 } } },
+      { pattern: /^(age|year|month|day|hour|minute|second)$/i, spec: { type: "integer", constraints: { min: 0, max: 365 } } },
+      { pattern: /^(max|limit|cap|threshold|ceiling)$/i, spec: { type: "integer", constraints: { min: 1, max: 1e3 } } },
+      { pattern: /^(min|floor|lower)$/i, spec: { type: "integer", constraints: { min: 0, max: 100 } } }
+    ];
+    var DEFAULT_GENERATOR = { type: "integer", constraints: { min: -100, max: 100 } };
+    function isArrayType(type) {
+      return /\[\]$/.test(type) || /^Array</.test(type) || /^readonly\s+\w+\[\]$/.test(type);
+    }
+    function extractArrayElementType(type) {
+      const bracketMatch = type.match(/^(readonly\s+)?(\w+)\[\]$/);
+      if (bracketMatch)
+        return bracketMatch[2];
+      const genericMatch = type.match(/^(?:readonly\s+)?Array<(\w+)>/);
+      if (genericMatch)
+        return genericMatch[1];
+      return null;
+    }
+    function typeToGenerator(type) {
+      const t = type.trim();
+      if (t === "number")
+        return { type: "float", constraints: { min: -1e3, max: 1e3 } };
+      if (t === "string")
+        return { type: "string", constraints: { maxLength: 100 } };
+      if (t === "boolean")
+        return { type: "boolean" };
+      if (isArrayType(t)) {
+        const elem = extractArrayElementType(t);
+        const elemGen = elem ? typeToGenerator(elem) : { type: "integer", constraints: { min: -100, max: 100 } };
+        return { type: "array", constraints: { element: elemGen.type, maxLength: 20, ...elemGen.constraints ?? {} } };
+      }
+      return DEFAULT_GENERATOR;
+    }
+    function nameToGenerator(name) {
+      for (const { pattern, spec } of NAME_HEURISTICS) {
+        if (pattern.test(name))
+          return spec;
+      }
+      return null;
+    }
+    function mapParamGenerators(params) {
+      const generators = {};
+      for (const param of params) {
+        if (param.isRest) {
+          generators[param.name] = { type: "array", constraints: { element: "integer", maxLength: 10 } };
+        } else if (param.type) {
+          generators[param.name] = typeToGenerator(param.type);
+        } else {
+          generators[param.name] = nameToGenerator(param.name) ?? DEFAULT_GENERATOR;
+        }
+      }
+      return generators;
+    }
+    var NAME_SIGNALS = [
+      { pattern: /sort|order|rank/i, boosts: [["monotonic", 5], ["conservation", 2]] },
+      { pattern: /format|parse|encode|decode|serialize|deserialize|stringify/i, boosts: [["roundtrip", 5], ["type-preservation", 2]] },
+      { pattern: /^(is|has|check|valid|can|should)/i, boosts: [["boundary", 4]] },
+      { pattern: /filter|select|where/i, boosts: [["conservation", 3], ["metamorphic", 2]] },
+      { pattern: /map|transform|convert/i, boosts: [["metamorphic", 3], ["type-preservation", 2]] },
+      { pattern: /add|sum|total|calc|compute/i, boosts: [["boundary", 3], ["equivalence", 2]] },
+      { pattern: /merge|concat|join|combine/i, boosts: [["conservation", 3]] },
+      { pattern: /reverse|flip|invert|negate/i, boosts: [["roundtrip", 5], ["idempotent", 2]] },
+      { pattern: /unique|distinct|dedup/i, boosts: [["idempotent", 4], ["conservation", 2]] },
+      { pattern: /clamp|truncate|limit|cap|bound/i, boosts: [["boundary", 4]] },
+      { pattern: /reduce|fold|aggregate/i, boosts: [["conservation", 3], ["boundary", 2]] }
+    ];
+    function hasArrayParam(params) {
+      return params.some((p) => p.type && isArrayType(p.type));
+    }
+    function hasStringParam(params) {
+      return params.some((p) => p.type === "string");
+    }
+    function countParamsOfSameType(params) {
+      const typeCounts = /* @__PURE__ */ new Map();
+      for (const p of params) {
+        const t = p.type ?? "unknown";
+        typeCounts.set(t, (typeCounts.get(t) ?? 0) + 1);
+      }
+      let maxCount = 0;
+      for (const count of typeCounts.values()) {
+        if (count > maxCount)
+          maxCount = count;
+      }
+      return maxCount;
+    }
+    function scoreCategoriesFromSignature(sig) {
+      const scores = /* @__PURE__ */ new Map();
+      const bump = (cat, pts) => {
+        scores.set(cat, (scores.get(cat) ?? 0) + pts);
+      };
+      bump("boundary", 2);
+      bump("type-preservation", 1);
+      if (hasArrayParam(sig.parameters)) {
+        bump("conservation", 3);
+        bump("monotonic", 2);
+        bump("idempotent", 2);
+      }
+      if (hasStringParam(sig.parameters)) {
+        bump("conservation", 2);
+        bump("metamorphic", 2);
+        bump("boundary", 1);
+      }
+      const ret = sig.returnType ?? "";
+      if (ret === "boolean") {
+        bump("boundary", 3);
+        bump("equivalence", 1);
+      } else if (ret === "number") {
+        bump("boundary", 3);
+        bump("monotonic", 2);
+        bump("conservation", 1);
+      } else if (ret === "string") {
+        bump("type-preservation", 2);
+        bump("boundary", 2);
+      } else if (isArrayType(ret)) {
+        bump("conservation", 3);
+        bump("monotonic", 2);
+      }
+      const firstParamType = sig.parameters[0]?.type;
+      if (firstParamType && ret === firstParamType) {
+        bump("idempotent", 3);
+        bump("roundtrip", 2);
+      }
+      if (countParamsOfSameType(sig.parameters) >= 2) {
+        bump("equivalence", 3);
+        bump("metamorphic", 2);
+      }
+      for (const { pattern, boosts } of NAME_SIGNALS) {
+        if (pattern.test(sig.name)) {
+          for (const [cat, pts] of boosts)
+            bump(cat, pts);
+        }
+      }
+      return scores;
+    }
+    function selectTopCategories(scores) {
+      const sorted = [...scores.entries()].map(([category, score]) => ({ category, score })).sort((a, b) => b.score - a.score);
+      const result = [];
+      for (const entry of sorted) {
+        if (result.length >= 5)
+          break;
+        if (result.length >= 3 && entry.score < 2)
+          break;
+        result.push(entry.category);
+      }
+      if (result.length < 3) {
+        const fallbacks = ["boundary", "type-preservation", "conservation"];
+        for (const cat of fallbacks) {
+          if (!result.includes(cat))
+            result.push(cat);
+          if (result.length >= 3)
+            break;
+        }
+      }
+      return result;
+    }
+    function selectCategories(sig) {
+      const scores = scoreCategoriesFromSignature(sig);
+      return selectTopCategories(scores);
+    }
+    function jsTypeFromReturnType(ret) {
+      if (!ret)
+        return "object";
+      const t = ret.trim();
+      if (t === "number" || t === "int" || t === "float")
+        return "number";
+      if (t === "string")
+        return "string";
+      if (t === "boolean" || t === "bool")
+        return "boolean";
+      if (t === "void" || t === "undefined")
+        return "undefined";
+      if (isArrayType(t))
+        return "object";
+      return "object";
+    }
+    function buildCallExpr(funcName, params) {
+      if (params.length === 0)
+        return `${funcName}()`;
+      return `${funcName}(${params.map((p) => p.name).join(", ")})`;
+    }
+    function buildBoundaryProperty(sig, generators) {
+      const call = buildCallExpr(sig.name, sig.parameters);
+      const ret = sig.returnType;
+      if (ret === "number") {
+        return buildProp(sig, "boundary", generators, `Number.isFinite(${call})`, `${sig.name} should return a finite number for valid inputs`, `Signature: ${sig.name}(${sig.parameters.map((p) => p.name).join(", ")}): number`);
+      }
+      if (ret === "string") {
+        return buildProp(sig, "boundary", generators, `typeof ${call} === "string"`, `${sig.name} should return a string`, `Signature returns string`);
+      }
+      if (ret === "boolean") {
+        return buildProp(sig, "boundary", generators, `typeof ${call} === "boolean"`, `${sig.name} should return a boolean for all inputs`, `Signature: ${sig.name} returns boolean`);
+      }
+      if (ret && isArrayType(ret)) {
+        return buildProp(sig, "boundary", generators, `Array.isArray(${call})`, `${sig.name} should return an array`, `Signature: ${sig.name} returns ${ret}`);
+      }
+      return buildProp(sig, "boundary", generators, `(() => { const r = ${call}; return r !== null && r !== undefined; })()`, `${sig.name} should return a defined, non-null value`, `Signature: ${sig.name} should produce a meaningful result`);
+    }
+    function buildConservationProperty(sig, generators) {
+      const call = buildCallExpr(sig.name, sig.parameters);
+      const ret = sig.returnType;
+      const arrayParam = sig.parameters.find((p) => p.type && isArrayType(p.type));
+      if (arrayParam && ret && isArrayType(ret)) {
+        return buildProp(sig, "conservation", generators, `${call}.length <= ${arrayParam.name}.length`, `${sig.name} output length should not exceed input length`, `Conservation: output array cannot be longer than input array`);
+      }
+      const stringParam = sig.parameters.find((p) => p.type === "string");
+      if (stringParam && ret === "string") {
+        return buildProp(sig, "conservation", generators, `${call}.length >= 0`, `${sig.name} should return a string with non-negative length`, `String output always has non-negative length`);
+      }
+      return null;
+    }
+    function buildIdempotentProperty(sig, generators) {
+      if (sig.parameters.length === 0)
+        return null;
+      const firstParam = sig.parameters[0];
+      if (firstParam.type !== sig.returnType)
+        return null;
+      const inner = `${sig.name}(${firstParam.name})`;
+      const outer = `${sig.name}(${inner})`;
+      return buildProp(sig, "idempotent", generators, `JSON.stringify(${outer}) === JSON.stringify(${inner})`, `Applying ${sig.name} twice should equal applying it once`, `Return type matches input type \u2014 idempotent candidate`);
+    }
+    function buildMonotonicProperty(sig, generators) {
+      const call = buildCallExpr(sig.name, sig.parameters);
+      const ret = sig.returnType;
+      if (ret && isArrayType(ret)) {
+        return buildProp(sig, "monotonic", generators, `${call}.every((v, i, a) => i === 0 || a[i-1] <= v)`, `${sig.name} output should be monotonically non-decreasing`, `Array output should maintain ordering`);
+      }
+      return null;
+    }
+    function buildEquivalenceProperty(sig, generators) {
+      if (sig.parameters.length < 2)
+        return null;
+      const p0 = sig.parameters[0];
+      const p1 = sig.parameters[1];
+      if (!p0.type || p0.type !== p1.type)
+        return null;
+      if (sig.parameters.length === 2) {
+        return buildProp(sig, "equivalence", generators, `${sig.name}(${p0.name}, ${p1.name}) === ${sig.name}(${p1.name}, ${p0.name})`, `${sig.name} should be commutative`, `Two parameters of same type (${p0.type}) suggest commutativity`);
+      }
+      return null;
+    }
+    function buildTypePreservationProperty(sig, generators) {
+      const call = buildCallExpr(sig.name, sig.parameters);
+      const ret = sig.returnType;
+      if (!ret)
+        return null;
+      const jsType = jsTypeFromReturnType(ret);
+      if (jsType === "object" && isArrayType(ret)) {
+        return buildProp(sig, "type-preservation", generators, `Array.isArray(${call}) === true`, `${sig.name} should always return an array`, `Signature declares return type: ${ret}`);
+      }
+      return buildProp(sig, "type-preservation", generators, `typeof ${call} === "${jsType}"`, `${sig.name} should always return a ${jsType}`, `Signature declares return type: ${ret}`);
+    }
+    function buildRoundtripProperty(sig, generators) {
+      if (sig.parameters.length === 0)
+        return null;
+      const firstParam = sig.parameters[0];
+      if (firstParam.type !== sig.returnType)
+        return null;
+      const inner = `${sig.name}(${firstParam.name})`;
+      return buildProp(sig, "roundtrip", generators, `(() => { const once = ${inner}; const twice = ${sig.name}(once); return twice === ${firstParam.name} || JSON.stringify(twice) === JSON.stringify(${firstParam.name}); })()`, `Applying ${sig.name} twice should return original (involution)`, `Return type matches input type \u2014 potential involution`);
+    }
+    function buildMetamorphicProperty(sig, generators) {
+      if (sig.parameters.length === 0)
+        return null;
+      const call = buildCallExpr(sig.name, sig.parameters);
+      return buildProp(sig, "metamorphic", generators, `(() => { const r1 = ${call}; const r2 = ${call}; return JSON.stringify(r1) === JSON.stringify(r2); })()`, `${sig.name} should be deterministic (same inputs \u2192 same output)`, `Metamorphic: determinism property for ${sig.name}`);
+    }
+    var CATEGORY_BUILDERS = {
+      "boundary": buildBoundaryProperty,
+      "conservation": buildConservationProperty,
+      "idempotent": buildIdempotentProperty,
+      "monotonic": buildMonotonicProperty,
+      "equivalence": buildEquivalenceProperty,
+      "type-preservation": buildTypePreservationProperty,
+      "roundtrip": buildRoundtripProperty,
+      "metamorphic": buildMetamorphicProperty,
+      "cross-function": () => null
+      // Not applicable for single-function mock
+    };
+    function buildSeedValue(generators, variant) {
+      const result = {};
+      for (const [name, spec] of Object.entries(generators)) {
+        const c = spec.constraints ?? {};
+        const min = typeof c.min === "number" ? c.min : void 0;
+        const max = typeof c.max === "number" ? c.max : void 0;
+        switch (spec.type) {
+          case "integer":
+          case "int": {
+            const lo = min ?? -100;
+            const hi = max ?? 100;
+            const mid = Math.trunc((lo + hi) / 2);
+            result[name] = variant === "normal" ? mid : variant === "boundary" ? lo : hi;
+            break;
+          }
+          case "float":
+          case "number":
+          case "double": {
+            const lo = min ?? -1e3;
+            const hi = max ?? 1e3;
+            const mid = (lo + hi) / 2;
+            result[name] = variant === "normal" ? mid : variant === "boundary" ? lo : hi;
+            break;
+          }
+          case "string": {
+            const maxLen = typeof c.maxLength === "number" ? c.maxLength : 100;
+            result[name] = variant === "normal" ? "hello" : variant === "boundary" ? "" : "a".repeat(Math.min(maxLen, 50));
+            break;
+          }
+          case "boolean":
+            result[name] = variant === "normal" ? true : variant === "boundary" ? false : true;
+            break;
+          case "array": {
+            const elemType = typeof c.element === "string" ? c.element : "integer";
+            const baseVal = elemType === "string" ? "x" : elemType === "boolean" ? true : 1;
+            result[name] = variant === "normal" ? [baseVal, baseVal] : variant === "boundary" ? [] : [baseVal];
+            break;
+          }
+          default:
+            result[name] = variant === "normal" ? 1 : variant === "boundary" ? 0 : -1;
+        }
+      }
+      return result;
+    }
+    function buildSeedInputs(generators) {
+      return [
+        { label: "normal", value: buildSeedValue(generators, "normal") },
+        { label: "boundary", value: buildSeedValue(generators, "boundary") },
+        { label: "extreme", value: buildSeedValue(generators, "extreme") }
+      ];
+    }
+    function buildProp(sig, category, generators, assertion, description, evidence) {
+      return {
+        targetFunction: sig.qualifiedName,
+        description,
+        category,
+        assertion,
+        generators,
+        seedInputs: buildSeedInputs(generators),
+        evidence,
+        confidence: 0.85
+      };
+    }
+    function generateAdaptiveProperties(sig) {
+      const generators = mapParamGenerators(sig.parameters);
+      const categories = selectCategories(sig);
+      const properties = [];
+      const usedAssertions = /* @__PURE__ */ new Set();
+      for (const category of categories) {
+        const builder = CATEGORY_BUILDERS[category];
+        if (!builder)
+          continue;
+        const prop = builder(sig, generators);
+        if (prop && !usedAssertions.has(prop.assertion)) {
+          usedAssertions.add(prop.assertion);
+          properties.push(prop);
+        }
+      }
+      padToMinimumProperties(properties, usedAssertions, sig, generators);
+      return properties;
+    }
+    function padToMinimumProperties(properties, usedAssertions, sig, generators) {
+      if (properties.length >= 3)
+        return;
+      const boundary = buildBoundaryProperty(sig, generators);
+      if (boundary && !usedAssertions.has(boundary.assertion)) {
+        usedAssertions.add(boundary.assertion);
+        properties.push(boundary);
+      }
+      if (properties.length >= 3)
+        return;
+      const typeCheck = buildTypePreservationProperty(sig, generators);
+      if (typeCheck && !usedAssertions.has(typeCheck.assertion)) {
+        usedAssertions.add(typeCheck.assertion);
+        properties.push(typeCheck);
+      }
+      if (properties.length >= 3)
+        return;
+      const call = buildCallExpr(sig.name, sig.parameters);
+      const genericProp = buildProp(sig, "boundary", generators, `(() => { const r = ${call}; return r !== null && r !== undefined; })()`, `${sig.name} should return a defined, non-null value`, `Generic safety check for ${sig.name}`);
+      if (!usedAssertions.has(genericProp.assertion)) {
+        properties.push(genericProp);
+      }
     }
   }
 });
@@ -1844,7 +2277,9 @@ var require_mock_client = __commonJS({
   "../llm/dist/mock-client.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.extractSignaturesFromPrompt = extractSignaturesFromPrompt;
     exports2.createMockClient = createMockClient;
+    var adaptive_generator_1 = require_adaptive_generator();
     var FUNCTION_PROPERTIES = {
       // ═══════════════════════════════════════
       // cart-buggy.ts
@@ -2395,6 +2830,86 @@ var require_mock_client = __commonJS({
         }
       ]
     };
+    function parseParameter(part) {
+      const trimmed = part.trim();
+      if (!trimmed)
+        return null;
+      const isRest = trimmed.startsWith("...");
+      const cleaned = isRest ? trimmed.slice(3) : trimmed;
+      const paramMatch = cleaned.match(/^(\w+)(\?)?(?:\s*:\s*([^=]+?))?(?:\s*=\s*(.+))?$/);
+      if (!paramMatch)
+        return null;
+      return {
+        name: paramMatch[1],
+        isOptional: paramMatch[2] === "?",
+        type: paramMatch[3]?.trim() ?? null,
+        defaultValue: paramMatch[4]?.trim() ?? null,
+        isRest
+      };
+    }
+    function parseSignatureLine(afterHeading) {
+      const sigMatch = afterHeading.match(/^Signature:\s*(?:async\s+)?function\s+\S+\(([^)]*)\)(?:\s*:\s*(.+))?/m);
+      if (!sigMatch)
+        return { parameters: [], returnType: null, isAsync: false };
+      const sigLine = afterHeading.match(/^Signature:\s*(.*)/m);
+      const isAsync = !!sigLine && /^async\s+/.test(sigLine[1].trim());
+      const returnType = sigMatch[2]?.trim() ?? null;
+      const parameters = [];
+      const paramsStr = sigMatch[1].trim();
+      if (paramsStr.length > 0) {
+        for (const part of splitParams(paramsStr)) {
+          const param = parseParameter(part);
+          if (param)
+            parameters.push(param);
+        }
+      }
+      return { parameters, returnType, isAsync };
+    }
+    function extractSignaturesFromPrompt(prompt) {
+      const signatures = [];
+      const headingRegex = /^### (\S+)/gm;
+      let match;
+      while ((match = headingRegex.exec(prompt)) !== null) {
+        const qualifiedName = match[1];
+        const name = qualifiedName.includes(".") ? qualifiedName.split(".").pop() : qualifiedName;
+        const afterHeading = prompt.slice(match.index + match[0].length);
+        const { parameters, returnType, isAsync } = parseSignatureLine(afterHeading);
+        const docMatch = afterHeading.match(/^Documentation:\s*(.+)/m);
+        const docstring = docMatch ? docMatch[1].trim() : null;
+        signatures.push({
+          name,
+          qualifiedName,
+          parameters,
+          returnType,
+          docstring,
+          visibility: "public",
+          isAsync,
+          isGenerator: false,
+          loc: { startLine: 0, endLine: 0, startColumn: 0, endColumn: 0 }
+        });
+      }
+      return signatures;
+    }
+    function splitParams(paramsStr) {
+      const parts = [];
+      let depth = 0;
+      let current = "";
+      for (const ch of paramsStr) {
+        if (ch === "<" || ch === "(" || ch === "[" || ch === "{")
+          depth++;
+        if (ch === ">" || ch === ")" || ch === "]" || ch === "}")
+          depth = Math.max(0, depth - 1);
+        if (ch === "," && depth === 0) {
+          parts.push(current);
+          current = "";
+        } else {
+          current += ch;
+        }
+      }
+      if (current.trim())
+        parts.push(current);
+      return parts;
+    }
     function createMockClient() {
       return {
         async call(_systemPrompt, userPrompt, _tools, _options) {
@@ -2406,27 +2921,41 @@ var require_mock_client = __commonJS({
           }
           const allProperties = [];
           const matchedFunctions = [];
+          const unmatchedFunctions = [];
           for (const funcName of promptFuncNames) {
             const props = FUNCTION_PROPERTIES[funcName];
             if (props) {
               allProperties.push(...props);
               matchedFunctions.push(funcName);
+            } else {
+              unmatchedFunctions.push(funcName);
             }
           }
-          if (matchedFunctions.length === 0) {
+          if (unmatchedFunctions.length > 0) {
+            const signatures = extractSignaturesFromPrompt(userPrompt);
+            for (const sig of signatures) {
+              if (matchedFunctions.includes(sig.name) || matchedFunctions.includes(sig.qualifiedName)) {
+                continue;
+              }
+              const adaptiveProps = (0, adaptive_generator_1.generateAdaptiveProperties)(sig);
+              allProperties.push(...adaptiveProps);
+            }
+          }
+          if (allProperties.length === 0) {
+            const fallbackName = promptFuncNames[0] ?? "unknown";
             allProperties.push({
-              targetFunction: promptFuncNames[0] ?? "unknown",
-              description: "Output type is consistent",
-              category: "type-preservation",
-              assertion: "typeof result !== 'undefined'",
-              generators: { x: { type: "integer" } },
+              targetFunction: fallbackName,
+              description: `${fallbackName} should return a defined, non-null value`,
+              category: "boundary",
+              assertion: `(() => { const r = ${fallbackName}(x); return r !== null && r !== undefined; })()`,
+              generators: { x: { type: "integer", constraints: { min: -100, max: 100 } } },
               seedInputs: [
                 { label: "normal", value: { x: 1 } },
                 { label: "boundary", value: { x: 0 } },
                 { label: "extreme", value: { x: -1 } }
               ],
-              evidence: "function should return a defined value",
-              confidence: 0.5
+              evidence: `Signature: ${fallbackName} should produce a meaningful result`,
+              confidence: 0.85
             });
           }
           const response = { properties: allProperties };
@@ -3680,12 +4209,8 @@ var require_mock_fix = __commonJS({
       for (const d of diagnoses) {
         if (!d.isBug)
           continue;
-        const funcPattern = new RegExp(`((?:export\\s+)?function\\s+${escapeRegExp(d.propertyId.split("_")[0] ?? "")}\\s*\\()`);
-        const match = fixedSource.match(funcPattern);
-        if (!match) {
-          fixedSource = `// [propcheck fix] Applied mock fix for ${d.propertyId}
+        fixedSource = `// [propcheck fix] Applied mock fix for ${d.propertyId}
 ${fixedSource}`;
-        }
       }
       return {
         fixedSource,
@@ -3693,9 +4218,6 @@ ${fixedSource}`;
         changedFunctions,
         confidence: 0.7
       };
-    }
-    function escapeRegExp(s) {
-      return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     }
   }
 });
@@ -3705,7 +4227,7 @@ var require_dist5 = __commonJS({
   "../llm/dist/index.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.mockGenerateFix = exports2.mockDiagnoseViolation = exports2.buildFixPrompt = exports2.buildDiagnosePrompt = exports2.FIX_TOOL = exports2.FIX_SYSTEM_PROMPT = exports2.DIAGNOSE_TOOL = exports2.DIAGNOSE_SYSTEM_PROMPT = exports2.generateFix = exports2.diagnoseViolation = exports2.mockRefineProperties = exports2.buildRefinementPrompt = exports2.buildFeedbackSummary = exports2.classifyProperties = exports2.mockRepairProperty = exports2.repairProperty = exports2.getInferTool = exports2.getSystemPrompt = exports2.buildInferPrompt = exports2.computeRiskScore = exports2.detectRiskTags = exports2.isRedundant = exports2.scoreAndFilter = exports2.scoreProperty = exports2.parseInferResponse = exports2.createMockClient = exports2.createOpenAIClient = exports2.createLlmClient = void 0;
+    exports2.extractSignaturesFromPrompt = exports2.buildSeedInputs = exports2.selectCategories = exports2.mapParamGenerators = exports2.generateAdaptiveProperties = exports2.mockGenerateFix = exports2.mockDiagnoseViolation = exports2.buildFixPrompt = exports2.buildDiagnosePrompt = exports2.FIX_TOOL = exports2.FIX_SYSTEM_PROMPT = exports2.DIAGNOSE_TOOL = exports2.DIAGNOSE_SYSTEM_PROMPT = exports2.generateFix = exports2.diagnoseViolation = exports2.mockRefineProperties = exports2.buildRefinementPrompt = exports2.buildFeedbackSummary = exports2.classifyProperties = exports2.mockRepairProperty = exports2.repairProperty = exports2.getInferTool = exports2.getSystemPrompt = exports2.buildInferPrompt = exports2.computeRiskScore = exports2.detectRiskTags = exports2.isRedundant = exports2.scoreAndFilter = exports2.scoreProperty = exports2.parseInferResponse = exports2.createMockClient = exports2.createOpenAIClient = exports2.createLlmClient = void 0;
     exports2.createClient = createClient3;
     exports2.inferProperties = inferProperties2;
     exports2.refineProperties = refineProperties2;
@@ -3878,6 +4400,23 @@ var require_dist5 = __commonJS({
     Object.defineProperty(exports2, "mockGenerateFix", { enumerable: true, get: function() {
       return mock_fix_1.mockGenerateFix;
     } });
+    var adaptive_generator_1 = require_adaptive_generator();
+    Object.defineProperty(exports2, "generateAdaptiveProperties", { enumerable: true, get: function() {
+      return adaptive_generator_1.generateAdaptiveProperties;
+    } });
+    Object.defineProperty(exports2, "mapParamGenerators", { enumerable: true, get: function() {
+      return adaptive_generator_1.mapParamGenerators;
+    } });
+    Object.defineProperty(exports2, "selectCategories", { enumerable: true, get: function() {
+      return adaptive_generator_1.selectCategories;
+    } });
+    Object.defineProperty(exports2, "buildSeedInputs", { enumerable: true, get: function() {
+      return adaptive_generator_1.buildSeedInputs;
+    } });
+    var mock_client_3 = require_mock_client();
+    Object.defineProperty(exports2, "extractSignaturesFromPrompt", { enumerable: true, get: function() {
+      return mock_client_3.extractSignaturesFromPrompt;
+    } });
   }
 });
 
@@ -3891,7 +4430,7 @@ var require_property_table = __commonJS({
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.formatPropertyLine = formatPropertyLine;
     var chalk_1 = __importDefault(require("chalk"));
-    var RISK_LABELS = {
+    var RISK_LABELS2 = {
       float_exact_equality: "float ===",
       tiny_abs_tolerance: "tight tolerance",
       missing_precondition: "no precondition",
@@ -3900,10 +4439,10 @@ var require_property_table = __commonJS({
       roundtrip_numeric_fragility: "roundtrip fragile",
       metamorphic_scale_risk: "scale risk"
     };
-    function formatRiskTags(tags) {
+    function formatRiskTags2(tags) {
       if (tags.length === 0)
         return "";
-      const labels = tags.map((t) => RISK_LABELS[t] ?? t);
+      const labels = tags.map((t) => RISK_LABELS2[t] ?? t);
       return ` ${chalk_1.default.yellow(`(${labels.join(", ")})`)}`;
     }
     function formatStatus(property) {
@@ -3921,7 +4460,7 @@ var require_property_table = __commonJS({
         }
       })();
       const status = statusLabel ? ` ${statusLabel}` : "";
-      const risk = formatRiskTags(property.riskTags);
+      const risk = formatRiskTags2(property.riskTags);
       return `${status}${risk}`;
     }
     function formatPropertyLine(property, outcome) {
@@ -4159,7 +4698,7 @@ var require_property_workflow_reporter = __commonJS({
     exports2.reportPropertyDetailAsJson = reportPropertyDetailAsJson2;
     exports2.reportStatusUpdate = reportStatusUpdate2;
     var chalk_1 = __importDefault(require("chalk"));
-    var RISK_LABELS = {
+    var RISK_LABELS2 = {
       float_exact_equality: "float ===",
       tiny_abs_tolerance: "tight tolerance",
       missing_precondition: "no precondition",
@@ -4168,10 +4707,10 @@ var require_property_workflow_reporter = __commonJS({
       roundtrip_numeric_fragility: "roundtrip fragile",
       metamorphic_scale_risk: "scale risk"
     };
-    function formatRiskTags(tags) {
+    function formatRiskTags2(tags) {
       if (tags.length === 0)
         return "";
-      const labels = tags.map((t) => RISK_LABELS[t] ?? t);
+      const labels = tags.map((t) => RISK_LABELS2[t] ?? t);
       return chalk_1.default.yellow(` (${labels.join(", ")})`);
     }
     function statusIcon(status) {
@@ -4221,7 +4760,7 @@ var require_property_workflow_reporter = __commonJS({
           const desc = summarize(`${p.targetFunction}: ${p.description}`, 50);
           const badge = statusBadge(p.status);
           const verified = p.humanVerified ? chalk_1.default.green(" \u2714 verified") : "";
-          const risk = formatRiskTags(p.riskTags);
+          const risk = formatRiskTags2(p.riskTags);
           console.log(`    ${icon} ${chalk_1.default.dim(p.id)} ${desc}  ${badge}${verified}${risk}`);
         }
         const counts = countByStatus(ps.properties);
@@ -4271,7 +4810,7 @@ var require_property_workflow_reporter = __commonJS({
       console.log(`  Status     : ${statusBadge(property.status)}${property.humanVerified ? chalk_1.default.green(" \u2714 verified") : ""}`);
       console.log(`  Score      : ${property.score}/13  risk: ${property.riskScore}`);
       if (property.riskTags.length > 0) {
-        console.log(`  Risk tags  : ${chalk_1.default.yellow(property.riskTags.map((t) => RISK_LABELS[t] ?? t).join(", "))}`);
+        console.log(`  Risk tags  : ${chalk_1.default.yellow(property.riskTags.map((t) => RISK_LABELS2[t] ?? t).join(", "))}`);
       }
       console.log(`  Confidence : ${(property.confidence * 100).toFixed(0)}%`);
       console.log(`  Evidence   : ${property.evidence}`);
@@ -4419,7 +4958,7 @@ var require_fc_codegen = __commonJS({
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.generateFastCheckTest = generateFastCheckTest4;
     var common_1 = require_dist4();
-    var fs6 = __importStar(require("fs"));
+    var fs7 = __importStar(require("fs"));
     var path10 = __importStar(require("path"));
     function toSafeComment(s) {
       return s.replace(/[\r\n\u2028\u2029]/g, " ").slice(0, 200);
@@ -4428,9 +4967,9 @@ var require_fc_codegen = __commonJS({
       let dir = path10.dirname(targetFile);
       while (true) {
         const packageJsonPath = path10.join(dir, "package.json");
-        if (fs6.existsSync(packageJsonPath)) {
+        if (fs7.existsSync(packageJsonPath)) {
           try {
-            const raw = fs6.readFileSync(packageJsonPath, "utf8");
+            const raw = fs7.readFileSync(packageJsonPath, "utf8");
             const pkg = JSON.parse(raw);
             return pkg.type === "module";
           } catch {
@@ -4448,9 +4987,9 @@ var require_fc_codegen = __commonJS({
       let dir = path10.dirname(targetFile);
       while (true) {
         const packageJsonPath = path10.join(dir, "package.json");
-        if (fs6.existsSync(packageJsonPath)) {
+        if (fs7.existsSync(packageJsonPath)) {
           try {
-            const raw = fs6.readFileSync(packageJsonPath, "utf8");
+            const raw = fs7.readFileSync(packageJsonPath, "utf8");
             const pkg = JSON.parse(raw);
             return pkg.type === "commonjs";
           } catch {
@@ -4534,9 +5073,9 @@ var require_fc_codegen = __commonJS({
               return "fc.record({})";
             }
             const fieldExprs = entries.map(([name, fieldSpec]) => {
-              const fs7 = fieldSpec;
+              const fs8 = fieldSpec;
               const safeName = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(name) ? name : JSON.stringify(name);
-              return `${safeName}: ${mapGenerator({ type: fs7.type, constraints: fs7.constraints }, depth + 1)}`;
+              return `${safeName}: ${mapGenerator({ type: fs8.type, constraints: fs8.constraints }, depth + 1)}`;
             });
             return `fc.record({ ${fieldExprs.join(", ")} })`;
           }
@@ -4657,11 +5196,11 @@ var require_fc_codegen = __commonJS({
         lines.push(``);
         lines.push(fcImport);
         lines.push(`const __dirname = dirname(fileURLToPath(import.meta.url));`);
-        lines.push(`const __targetPath = resolve(__dirname, "${importPathStr}");`);
+        lines.push(`const __targetPath = resolve(__dirname, ${JSON.stringify(importPathStr)});`);
         lines.push(`const target = await import(pathToFileURL(__targetPath).href);`);
       } else {
         lines.push(fcImport);
-        lines.push(`const target = require("${importPathStr}");`);
+        lines.push(`const target = require(${JSON.stringify(importPathStr)});`);
       }
       lines.push(``);
       lines.push(`function approxEqual(a, b, absTol = 1e-9, relTol = 1e-6) {`);
@@ -4949,7 +5488,7 @@ var require_fc_runner = __commonJS({
     })();
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.runFastCheckTest = runFastCheckTest4;
-    var fs6 = __importStar(require("fs"));
+    var fs7 = __importStar(require("fs"));
     var path10 = __importStar(require("path"));
     var process_runner_1 = require_process_runner();
     var result_parser_1 = require_result_parser();
@@ -4960,7 +5499,7 @@ var require_fc_runner = __commonJS({
       let mtsPath = null;
       if (options?.needsMtsCopy && options.targetFile) {
         mtsPath = options.targetFile.replace(/\.ts$/, ".mts").replace(/\.tsx$/, ".mtsx");
-        fs6.copyFileSync(options.targetFile, mtsPath);
+        fs7.copyFileSync(options.targetFile, mtsPath);
       }
       try {
         const nodeArgs = [
@@ -4985,8 +5524,11 @@ var require_fc_runner = __commonJS({
       } finally {
         if (mtsPath) {
           try {
-            fs6.unlinkSync(mtsPath);
-          } catch {
+            fs7.unlinkSync(mtsPath);
+          } catch (e) {
+            if (e instanceof Error && e.code !== "ENOENT") {
+              console.warn(`  Warning: Failed to clean up ${mtsPath}: ${e.message}`);
+            }
           }
         }
       }
@@ -5134,8 +5676,8 @@ var require_hyp_codegen = __commonJS({
               return "st.fixed_dictionaries({})";
             }
             const fieldExprs = entries.map(([name, fieldSpec]) => {
-              const fs6 = fieldSpec;
-              return `${JSON.stringify(name)}: ${mapStrategy({ type: fs6.type, constraints: fs6.constraints }, depth + 1)}`;
+              const fs7 = fieldSpec;
+              return `${JSON.stringify(name)}: ${mapStrategy({ type: fs7.type, constraints: fs7.constraints }, depth + 1)}`;
             });
             return `st.fixed_dictionaries({${fieldExprs.join(", ")}})`;
           }
@@ -5439,7 +5981,7 @@ var require_runner = __commonJS({
     })();
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.runMutationTesting = runMutationTesting2;
-    var fs6 = __importStar(require("fs/promises"));
+    var fs7 = __importStar(require("fs/promises"));
     var path10 = __importStar(require("path"));
     var fc_codegen_1 = require_fc_codegen();
     var fc_runner_1 = require_fc_runner();
@@ -5460,7 +6002,7 @@ var require_runner = __commonJS({
         };
       }
       const testsDir = path10.join(storeDir, "tests");
-      await fs6.mkdir(testsDir, { recursive: true });
+      await fs7.mkdir(testsDir, { recursive: true });
       const quickConfig = {
         mode: "quick",
         iterations: 50,
@@ -5475,10 +6017,10 @@ var require_runner = __commonJS({
         const mutantFileName = `_mutant_${mutant.id}${ext}`;
         const mutantFilePath = path10.join(testsDir, mutantFileName);
         try {
-          await fs6.writeFile(mutantFilePath, mutant.mutatedSource, "utf8");
+          await fs7.writeFile(mutantFilePath, mutant.mutatedSource, "utf8");
           const generated = (0, fc_codegen_1.generateFastCheckTest)(properties, mutantFilePath, testsDir, quickConfig);
           const testFilePath = path10.join(testsDir, `_mut_test_${mutant.id}.js`);
-          await fs6.writeFile(testFilePath, generated.content, "utf8");
+          await fs7.writeFile(testFilePath, generated.content, "utf8");
           const result = await (0, fc_runner_1.runFastCheckTest)(testFilePath, properties, quickConfig);
           if (result.failed.length > 0) {
             results.push({
@@ -5499,7 +6041,7 @@ var require_runner = __commonJS({
             survivingMutants.push(mutant);
           }
           try {
-            await fs6.unlink(testFilePath);
+            await fs7.unlink(testFilePath);
           } catch {
           }
         } catch {
@@ -5509,7 +6051,7 @@ var require_runner = __commonJS({
           });
         } finally {
           try {
-            await fs6.unlink(mutantFilePath);
+            await fs7.unlink(mutantFilePath);
           } catch {
           }
         }
@@ -5572,8 +6114,31 @@ var require_dist7 = __commonJS({
 var import_commander = require("commander");
 
 // src/commands/init.ts
+var fs = __toESM(require("fs"));
 var path = __toESM(require("path"));
 var import_store = __toESM(require_dist());
+var GITIGNORE_ENTRIES = [
+  "# propcheck \u2014 generated tests and runtime artifacts",
+  ".propcheck/tests/",
+  ".propcheck/corpus/",
+  ".propcheck/reports/"
+];
+var GITIGNORE_MARKER = ".propcheck/tests/";
+function ensureGitignore(projectRoot) {
+  const gitignorePath = path.join(projectRoot, ".gitignore");
+  let existing = "";
+  try {
+    existing = fs.readFileSync(gitignorePath, "utf-8");
+  } catch {
+  }
+  if (existing.includes(GITIGNORE_MARKER)) {
+    return false;
+  }
+  const block = "\n" + GITIGNORE_ENTRIES.join("\n") + "\n";
+  const updated = existing.length > 0 ? existing.trimEnd() + "\n" + block : block.trimStart();
+  fs.writeFileSync(gitignorePath, updated, "utf-8");
+  return true;
+}
 async function initCommand() {
   const projectRoot = process.cwd();
   try {
@@ -5582,19 +6147,22 @@ async function initCommand() {
       console.log(`
   Created ${path.relative(projectRoot, result.path)}/`);
       console.log("  Directory structure:");
-      console.log("    .propcheck/");
-      console.log("    .propcheck/properties.json");
-      console.log("    .propcheck/tests/");
-      console.log("    .propcheck/corpus/");
-      console.log("    .propcheck/reports/");
-      console.log("\n  Next steps:");
-      console.log("    1. Add .propcheck/config.json to .gitignore");
-      console.log("    2. Run: propcheck infer src/yourfile.ts");
-      console.log("");
+      console.log("    .propcheck/properties.json    \u2014 discovered rules (commit to git)");
+      console.log("    .propcheck/tests/             \u2014 generated test files (gitignored)");
+      console.log("    .propcheck/corpus/            \u2014 test seed corpus (gitignored)");
+      console.log("    .propcheck/reports/           \u2014 test reports (gitignored)");
     } else {
       console.log("\n  .propcheck/ already exists \u2014 validated structure.");
-      console.log("");
     }
+    const gitignoreUpdated = ensureGitignore(projectRoot);
+    if (gitignoreUpdated) {
+      console.log("  Updated .gitignore (added propcheck entries)");
+    }
+    console.log("\n  Next steps:");
+    console.log("    propcheck infer --mock src/yourfile.ts   # Try with demo AI (free, instant)");
+    console.log("    propcheck infer src/yourfile.ts          # Use real AI (needs API key)");
+    console.log("    propcheck run src/yourfile.ts            # Run discovered tests");
+    console.log("");
   } catch (err) {
     console.error(`
   Error initializing: ${err.message}
@@ -5604,7 +6172,7 @@ async function initCommand() {
 }
 
 // src/commands/infer.ts
-var fs2 = __toESM(require("fs/promises"));
+var fs3 = __toESM(require("fs/promises"));
 var path3 = __toESM(require("path"));
 var import_config = __toESM(require_dist2());
 var import_parser = __toESM(require_dist3());
@@ -5799,7 +6367,7 @@ function applyRiskMetadata(properties, context) {
 }
 
 // src/commands/infer/validation.ts
-var fs = __toESM(require("fs/promises"));
+var fs2 = __toESM(require("fs/promises"));
 var path2 = __toESM(require("path"));
 var import_engines = __toESM(require_dist7());
 var import_llm2 = __toESM(require_dist5());
@@ -5807,7 +6375,7 @@ var MAX_CANARY_CASES = 8;
 var MAX_REPAIR_ROUNDS = 3;
 async function ensureTestsDir(storeDir) {
   const testsDir = path2.join(storeDir, "tests");
-  await fs.mkdir(testsDir, { recursive: true });
+  await fs2.mkdir(testsDir, { recursive: true });
   return testsDir;
 }
 function buildValidationEvidence(smokePasses, canaryPasses) {
@@ -5916,7 +6484,7 @@ function buildConstantGenerators(input) {
 async function executeTrialRun(properties, targetPath, testsDir, config, language) {
   const generated = language === "python" ? (0, import_engines.generateHypothesisTest)(properties, targetPath, testsDir, config) : (0, import_engines.generateFastCheckTest)(properties, targetPath, testsDir, config);
   const testFilePath = path2.join(testsDir, generated.fileName);
-  await fs.writeFile(testFilePath, generated.content, "utf8");
+  await fs2.writeFile(testFilePath, generated.content, "utf8");
   try {
     const fcGenerated = language !== "python" ? generated : null;
     return language === "python" ? await (0, import_engines.runHypothesisTest)(testFilePath, properties, config) : await (0, import_engines.runFastCheckTest)(testFilePath, properties, config, {
@@ -5925,7 +6493,7 @@ async function executeTrialRun(properties, targetPath, testsDir, config, languag
     });
   } finally {
     try {
-      await fs.unlink(testFilePath);
+      await fs2.unlink(testFilePath);
     } catch {
     }
   }
@@ -6036,6 +6604,138 @@ async function trialRunValidation(properties, targetPath, storeDir, sourceCode, 
   return { validated, dropped, repaired: totalRepaired };
 }
 
+// src/commands/infer/confirm.ts
+var readline = __toESM(require("readline"));
+var RISK_LABELS = {
+  float_exact_equality: "float ===",
+  tiny_abs_tolerance: "tiny \u03B5",
+  missing_precondition: "no precondition",
+  wide_numeric_domain: "wide range",
+  doc_domain_mismatch: "doc mismatch",
+  roundtrip_numeric_fragility: "roundtrip fragile",
+  metamorphic_scale_risk: "scale risk"
+};
+var RESET = "\x1B[0m";
+var BOLD = "\x1B[1m";
+var DIM = "\x1B[2m";
+var CYAN = "\x1B[36m";
+function formatRiskTags(tags) {
+  if (tags.length === 0) return "";
+  return ` [${tags.map((t) => RISK_LABELS[t] ?? t).join(", ")}]`;
+}
+function scoreColor(score) {
+  if (score >= 12) return "\x1B[32m";
+  if (score >= 10) return "\x1B[33m";
+  return "\x1B[31m";
+}
+function displayProperty(prop, index, total) {
+  const riskStr = formatRiskTags(prop.riskTags);
+  const statusBadge = prop.status === "quarantined" ? " \u{1F512} quarantined" : prop.status === "risky" ? " \u26A0\uFE0F  risky" : "";
+  console.log("");
+  console.log(`  ${DIM}[${index + 1}/${total}]${RESET} ${BOLD}${prop.targetFunction}${RESET}: ${prop.description}`);
+  console.log(`  ${scoreColor(prop.score)}\u2605 ${prop.score}/13${RESET}${riskStr}${statusBadge}`);
+  console.log(`  ${DIM}Category: ${prop.category} | Confidence: ${(prop.confidence * 100).toFixed(0)}%${RESET}`);
+  console.log(`  ${CYAN}Assertion:${RESET} ${prop.assertion}`);
+  if (prop.evidence) {
+    const truncated = prop.evidence.length > 80 ? prop.evidence.slice(0, 77) + "..." : prop.evidence;
+    console.log(`  ${DIM}Evidence: ${truncated}${RESET}`);
+  }
+}
+function askQuestion(rl, question) {
+  return new Promise((resolve7) => {
+    rl.question(question, (answer) => resolve7(answer.trim()));
+  });
+}
+function parseUserInput(answer) {
+  switch (answer) {
+    case "a":
+    case "":
+    case "accept":
+      return "accept";
+    case "q":
+    case "quarantine":
+      return "quarantine";
+    case "d":
+    case "drop":
+      return "drop";
+    case "A":
+    case "all":
+      return "accept-all";
+    case "Q":
+    case "quit":
+      return "quit";
+    default:
+      return "accept";
+  }
+}
+function logAction(action, isDefault) {
+  const messages = {
+    "accept": isDefault ? "\u2192 Accepted (unrecognized input, defaulting to accept)" : "\u2192 Accepted",
+    "quarantine": "\u2192 Quarantined (won't run in CI by default)",
+    "drop": "\u2192 Dropped (will not be saved)",
+    "accept-all": "\u2192 Accepted (accepting all remaining)",
+    "quit": ""
+    // handled separately
+  };
+  if (action !== "quit") {
+    console.log(`  ${DIM}${messages[action]}${RESET}`);
+  }
+}
+async function confirmProperties(properties) {
+  if (properties.length === 0) {
+    return { accepted: [], quarantined: [], dropped: [] };
+  }
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  const accepted = [];
+  const quarantined = [];
+  const dropped = [];
+  let acceptAll = false;
+  console.log(`
+  ${BOLD}Review ${properties.length} discovered rules:${RESET}`);
+  console.log(`  ${DIM}(a)ccept  (q)uarantine  (d)rop  (A)ccept all remaining  (Q)uit${RESET}`);
+  try {
+    for (let i = 0; i < properties.length; i++) {
+      const prop = properties[i];
+      if (acceptAll) {
+        accepted.push(prop);
+        continue;
+      }
+      displayProperty(prop, i, properties.length);
+      const raw = await askQuestion(rl, `
+  ${BOLD}Action [a/q/d/A/Q]:${RESET} `);
+      const action = parseUserInput(raw);
+      const isUnrecognized = raw !== "" && !["a", "q", "d", "A", "Q", "accept", "quarantine", "drop", "all", "quit"].includes(raw);
+      switch (action) {
+        case "accept":
+          accepted.push(prop);
+          break;
+        case "quarantine":
+          quarantined.push({ ...prop, status: "quarantined" });
+          break;
+        case "drop":
+          dropped.push({ ...prop, status: "dropped" });
+          break;
+        case "accept-all":
+          acceptAll = true;
+          accepted.push(prop);
+          break;
+        case "quit":
+          console.log(`  ${DIM}\u2192 Quit: remaining ${properties.length - i} rules will be dropped${RESET}`);
+          for (let j = i; j < properties.length; j++) {
+            dropped.push({ ...properties[j], status: "dropped" });
+          }
+          return { accepted, quarantined, dropped };
+      }
+      logAction(action, isUnrecognized);
+    }
+  } finally {
+    rl.close();
+  }
+  console.log(`
+  ${BOLD}Review complete:${RESET} ${accepted.length} accepted, ${quarantined.length} quarantined, ${dropped.length} dropped`);
+  return { accepted, quarantined, dropped };
+}
+
 // src/commands/infer.ts
 function isSupportedLanguage(lang) {
   return lang === "typescript" || lang === "javascript" || lang === "python";
@@ -6045,17 +6745,11 @@ function findReferencedTypeNames(functions, allTypes) {
   const referenced = /* @__PURE__ */ new Set();
   for (const fn of functions) {
     for (const typeName of typeNames) {
-      if (fn.returnType?.includes(typeName)) {
-        referenced.add(typeName);
-      }
+      if (fn.returnType?.includes(typeName)) referenced.add(typeName);
       for (const param of fn.parameters) {
-        if (param.type?.includes(typeName)) {
-          referenced.add(typeName);
-        }
+        if (param.type?.includes(typeName)) referenced.add(typeName);
       }
-      if (fn.docstring?.includes(typeName)) {
-        referenced.add(typeName);
-      }
+      if (fn.docstring?.includes(typeName)) referenced.add(typeName);
     }
   }
   return referenced;
@@ -6069,24 +6763,18 @@ function trimSourceCode(fullSource, matchedFunctions, referencedTypes) {
   ];
   if (allStarts.length > 0) {
     const firstDeclLine = Math.min(...allStarts);
-    if (firstDeclLine > 1) {
-      ranges.push([1, firstDeclLine - 1]);
-    }
+    if (firstDeclLine > 1) ranges.push([1, firstDeclLine - 1]);
   }
-  for (const fn of matchedFunctions) {
-    ranges.push([fn.loc.startLine, fn.loc.endLine]);
-  }
-  for (const t of referencedTypes) {
-    ranges.push([t.loc.startLine, t.loc.endLine]);
-  }
+  for (const fn of matchedFunctions) ranges.push([fn.loc.startLine, fn.loc.endLine]);
+  for (const t of referencedTypes) ranges.push([t.loc.startLine, t.loc.endLine]);
   if (ranges.length === 0) return fullSource;
   ranges.sort((a, b) => a[0] - b[0]);
   const merged = [ranges[0]];
   for (let i = 1; i < ranges.length; i++) {
-    const prev = merged[merged.length - 1];
+    const last = merged[merged.length - 1];
     const curr = ranges[i];
-    if (curr[0] <= prev[1] + 1) {
-      prev[1] = Math.max(prev[1], curr[1]);
+    if (curr[0] <= last[1] + 1) {
+      merged[merged.length - 1] = [last[0], Math.max(last[1], curr[1])];
     } else {
       merged.push(curr);
     }
@@ -6108,19 +6796,9 @@ function filterContextByFunctions(context, functionNames) {
   );
   const refTypeNames = findReferencedTypeNames(matchedFunctions, context.types);
   const matchedTypes = context.types.filter((t) => refTypeNames.has(t.name));
-  const trimmedSource = trimSourceCode(
-    context.sourceCode,
-    matchedFunctions,
-    matchedTypes
-  );
+  const trimmedSource = trimSourceCode(context.sourceCode, matchedFunctions, matchedTypes);
   const matchedQualNames = new Set(matchedFunctions.map((f) => f.qualifiedName));
   const matchedNames = new Set(matchedFunctions.map((f) => f.name));
-  const filteredDoc = context.signals.doc.filter(
-    (d) => matchedQualNames.has(d.functionName) || matchedNames.has(d.functionName)
-  );
-  const filteredType = context.signals.type.filter(
-    (t) => matchedQualNames.has(t.functionName) || matchedNames.has(t.functionName)
-  );
   return {
     filePath: context.filePath,
     language: context.language,
@@ -6130,21 +6808,19 @@ function filterContextByFunctions(context, functionNames) {
     imports: context.imports,
     signals: {
       ast: context.signals.ast,
-      type: filteredType,
-      doc: filteredDoc
+      type: context.signals.type.filter(
+        (t) => matchedQualNames.has(t.functionName) || matchedNames.has(t.functionName)
+      ),
+      doc: context.signals.doc.filter(
+        (d) => matchedQualNames.has(d.functionName) || matchedNames.has(d.functionName)
+      )
     }
   };
 }
-async function inferCommand(target, options) {
-  const projectRoot = process.cwd();
-  const config = (0, import_config.loadConfig)(projectRoot, {
-    mock: options.mock,
-    model: options.model,
-    provider: options.provider,
-    baseURL: options.baseUrl
-  });
+async function resolveTarget(target, projectRoot, options) {
   const targetPath = path3.resolve(projectRoot, target);
-  if (!targetPath.startsWith(projectRoot + path3.sep) && targetPath !== projectRoot) {
+  const relToRoot = path3.relative(projectRoot, targetPath);
+  if (relToRoot.startsWith("..") || path3.isAbsolute(relToRoot)) {
     console.error(`
   Error: Target file must be within the project root.
 `);
@@ -6152,7 +6828,7 @@ async function inferCommand(target, options) {
   }
   let targetStat;
   try {
-    targetStat = await fs2.stat(targetPath);
+    targetStat = await fs3.stat(targetPath);
   } catch {
     console.error(`
   Error: File not found: ${target}
@@ -6171,10 +6847,16 @@ async function inferCommand(target, options) {
   Found ${sourceFiles.length} source file(s) in ${target}/
 `);
     for (const filePath of sourceFiles) {
-      const relPath = path3.relative(projectRoot, filePath);
-      await inferCommand(relPath, options);
+      await inferCommand(path3.relative(projectRoot, filePath), options);
     }
-    return;
+    return null;
+  }
+  const MAX_SOURCE_BYTES = 5e5;
+  if (targetStat.size > MAX_SOURCE_BYTES) {
+    console.error(`
+  Error: File too large (${targetStat.size} bytes). Max: ${MAX_SOURCE_BYTES} bytes.
+`);
+    process.exit(2);
   }
   const language = (0, import_parser.detectLanguage)(targetPath);
   if (!isSupportedLanguage(language)) {
@@ -6183,72 +6865,33 @@ async function inferCommand(target, options) {
 `);
     process.exit(2);
   }
-  const errors = (0, import_config.validateConfig)(config, "infer");
-  if (errors.length > 0) {
-    for (const err of errors) {
-      console.error(`
-  Error: ${err}
-`);
-    }
-    process.exit(2);
-  }
-  await (0, import_store2.initStore)(projectRoot, config.storeDir);
-  const storeDir = path3.join(projectRoot, config.storeDir);
-  const MAX_SOURCE_BYTES = 5e5;
-  const stat3 = await fs2.stat(targetPath);
-  if (stat3.size > MAX_SOURCE_BYTES) {
+  return { targetPath, language };
+}
+function parseNumericOptions(options) {
+  const maxPropsRaw = Number(options.maxProperties ?? "5");
+  if (options.maxProperties !== void 0 && (!Number.isInteger(maxPropsRaw) || maxPropsRaw < 1)) {
     console.error(`
-  Error: File too large (${stat3.size} bytes). Max: ${MAX_SOURCE_BYTES} bytes.
+  Error: --max-properties must be an integer (1-20), got "${options.maxProperties}"
 `);
     process.exit(2);
   }
-  const source = await fs2.readFile(targetPath, "utf8");
-  const context = language === "python" ? (0, import_parser.analyzePythonFile)(targetPath, source) : (0, import_parser.analyzeFile)(targetPath, source, language);
-  let inferContext = context;
-  if (options.function) {
-    const names = options.function.split(",").map((n) => n.trim()).filter(Boolean);
-    const missing = names.filter(
-      (name) => !context.functions.some((fn) => matchesFunctionName(fn, name))
-    );
-    if (missing.length > 0) {
-      const available = context.functions.map((fn) => fn.qualifiedName).join(", ");
-      console.error(`
-  Error: Function(s) not found: ${missing.join(", ")}`);
-      console.error(`  Available: ${available}
-`);
-      process.exit(2);
-    }
-    inferContext = filterContextByFunctions(context, names);
-  }
-  if (inferContext.functions.length === 0) {
-    console.log(`
-  No exported functions found in ${target}
-`);
-    return;
-  }
-  console.log(`
-  Analyzing ${inferContext.functions.length} function${inferContext.functions.length === 1 ? "" : "s"} in ${target}...`);
-  const maxPropsRaw = parseInt(options.maxProperties ?? "5", 10);
-  if (options.maxProperties !== void 0 && isNaN(maxPropsRaw)) {
+  const minScoreRaw = Number(options.minScore ?? "10");
+  if (options.minScore !== void 0 && (!Number.isInteger(minScoreRaw) || minScoreRaw < 0)) {
     console.error(`
-  Error: --max-properties must be a number, got "${options.maxProperties}"
+  Error: --min-score must be an integer (0-13), got "${options.minScore}"
 `);
     process.exit(2);
   }
-  const maxProperties = Math.min(Math.max(1, maxPropsRaw || 5), 20);
-  const minScoreRaw = parseInt(options.minScore ?? "10", 10);
-  if (options.minScore !== void 0 && isNaN(minScoreRaw)) {
-    console.error(`
-  Error: --min-score must be a number, got "${options.minScore}"
-`);
-    process.exit(2);
-  }
-  const minScore = Math.min(Math.max(0, minScoreRaw || 10), 15);
-  let result;
+  return {
+    maxProperties: Math.min(Math.max(1, maxPropsRaw), 20),
+    minScore: Math.min(Math.max(0, minScoreRaw), 13)
+  };
+}
+async function runLlmInference(config, inferContext, numericOpts) {
   try {
-    result = await (0, import_llm3.inferProperties)(config.apiKey, config.model, inferContext, {
-      maxProperties,
-      minScore,
+    return await (0, import_llm3.inferProperties)(config.apiKey, config.model, inferContext, {
+      maxProperties: numericOpts.maxProperties,
+      minScore: numericOpts.minScore,
       mock: config.mock,
       provider: config.provider,
       baseURL: config.baseURL
@@ -6266,135 +6909,251 @@ async function inferCommand(target, options) {
     }
     process.exit(1);
   }
-  result = {
-    ...result,
-    properties: applyRiskMetadata(result.properties, inferContext)
-  };
-  if (result.properties.length === 0) {
-    console.log("  No properties inferred (all filtered out by quality scoring).\n");
-    return;
+}
+async function runValidationPipeline(properties, targetPath, storeDir, source, language, config, inferContext, numericOpts, options) {
+  const testsDir = await ensureTestsDir(storeDir);
+  console.log(`  Validating ${properties.length} rules (quick test, 100 random inputs each)...`);
+  const llmClient = config.mock ? null : config.apiKey ? (0, import_llm3.createClient)(config.apiKey, config.model, config.provider, config.baseURL) : null;
+  const { validated, dropped, repaired } = await trialRunValidation(
+    properties,
+    targetPath,
+    storeDir,
+    source,
+    llmClient,
+    config.mock,
+    language
+  );
+  if (repaired > 0) {
+    console.log(`  Fixed ${repaired} rule${repaired === 1 ? "" : "s"} that ${repaired === 1 ? "was" : "were"} too strict.`);
   }
-  let finalProperties = result.properties;
-  if (!options.skipValidation) {
-    const testsDir = await ensureTestsDir(storeDir);
-    console.log(`  Validating ${result.properties.length} rules (quick test, 100 random inputs each)...`);
-    const llmClient = config.mock ? null : config.apiKey ? (0, import_llm3.createClient)(config.apiKey, config.model, config.provider, config.baseURL) : null;
-    const { validated, dropped, repaired } = await trialRunValidation(
-      result.properties,
+  if (dropped.length > 0) {
+    console.log(`  Dropped ${dropped.length} properties during validation:`);
+    for (const { prop, reason } of dropped) {
+      console.log(`    - ${prop.targetFunction}: ${prop.description} [${reason}]`);
+    }
+  }
+  const { validated: canaryValidated, quarantined } = await canaryValidateProperties(
+    validated,
+    targetPath,
+    storeDir,
+    language
+  );
+  if (quarantined.length > 0) {
+    console.log(`  Quarantined ${quarantined.length} fragile propert${quarantined.length === 1 ? "y" : "ies"} after edge-case validation:`);
+    for (const { prop, reason } of quarantined) {
+      console.log(`    - ${prop.targetFunction}: ${prop.description} [${reason.length > 80 ? reason.slice(0, 77) + "..." : reason}]`);
+    }
+  }
+  let finalProperties = [...canaryValidated, ...quarantined.map(({ prop }) => prop)];
+  if (finalProperties.length === 0) return finalProperties;
+  if (options.refine) {
+    finalProperties = [...await runRefinementLoop(
+      finalProperties,
       targetPath,
       storeDir,
+      testsDir,
       source,
-      llmClient,
-      config.mock,
-      language
-    );
-    if (repaired > 0) {
-      console.log(`  Fixed ${repaired} rule${repaired === 1 ? "" : "s"} that ${repaired === 1 ? "was" : "were"} too strict.`);
-    }
-    if (dropped.length > 0) {
-      console.log(`  Dropped ${dropped.length} properties during validation:`);
-      for (const { prop, reason } of dropped) {
-        console.log(`    - ${prop.targetFunction}: ${prop.description} [${reason}]`);
-      }
-    }
-    const { validated: canaryValidated, quarantined } = await canaryValidateProperties(
-      validated,
-      targetPath,
-      storeDir,
-      language
-    );
-    if (quarantined.length > 0) {
-      console.log(`  Quarantined ${quarantined.length} fragile propert${quarantined.length === 1 ? "y" : "ies"} after edge-case validation:`);
-      for (const { prop, reason } of quarantined) {
-        console.log(`    - ${prop.targetFunction}: ${prop.description} [${reason.length > 80 ? reason.slice(0, 77) + "..." : reason}]`);
-      }
-    }
-    finalProperties = [...canaryValidated, ...quarantined.map(({ prop }) => prop)];
-    if (finalProperties.length === 0) {
-      console.log("  No properties survived validation.\n");
-      return;
-    }
-    const activeProperties = finalProperties.filter((property) => property.status !== "quarantined");
-    if (options.refine && activeProperties.length > 0) {
-      console.log(`
-  Refinement Round 2: analyzing ${activeProperties.length} properties...`);
-      const fullConfig = { mode: "quick", iterations: 100, timeout: 15e3, verbose: false };
-      const execResult = await executeTrialRun(
-        activeProperties,
-        targetPath,
-        testsDir,
-        fullConfig,
-        language
-      );
-      const classifications = (0, import_llm3.classifyProperties)(activeProperties, execResult);
-      const functionNames = inferContext.functions.map((f) => f.qualifiedName);
-      const feedback = (0, import_llm3.buildFeedbackSummary)(classifications, functionNames);
-      const strong = classifications.filter((c) => c.kind === "strong");
-      const weak = classifications.filter((c) => c.kind === "weak");
-      const bugs = classifications.filter((c) => c.kind === "bug_found");
-      console.log(`    Strong: ${strong.length} | Weak: ${weak.length} | Bugs: ${bugs.length}`);
-      if (weak.length > 0 || bugs.length > 0) {
-        let improvedProperties;
-        if (config.mock) {
-          improvedProperties = applyRiskMetadata((0, import_llm3.mockRefineProperties)(classifications), inferContext);
-        } else if (llmClient) {
-          const refineResult = await (0, import_llm3.refineProperties)(config.apiKey, config.model, inferContext, feedback, {
-            maxProperties,
-            minScore,
-            mock: false,
-            provider: config.provider,
-            baseURL: config.baseURL
-          });
-          improvedProperties = applyRiskMetadata(refineResult.properties, inferContext);
-        } else {
-          improvedProperties = [];
-        }
-        if (improvedProperties.length > 0) {
-          console.log(`    Generated ${improvedProperties.length} improved properties`);
-          const { validated: improvedValidated } = await trialRunValidation(
-            improvedProperties,
-            targetPath,
-            storeDir,
-            source,
-            llmClient,
-            config.mock,
-            language
-          );
-          const { validated: improvedCanaryValidated, quarantined: improvedQuarantined } = await canaryValidateProperties(
-            improvedValidated,
-            targetPath,
-            storeDir,
-            language
-          );
-          const strongProps = classifications.filter((c) => c.kind === "strong" || c.kind === "bug_found").map((c) => c.property);
-          const quarantinedProps = finalProperties.filter((property) => property.status === "quarantined");
-          const existingAssertions = new Set(strongProps.map((p) => p.assertion));
-          const improvedCombined = [...improvedCanaryValidated, ...improvedQuarantined.map(({ prop }) => prop)];
-          const newUnique = improvedCombined.filter((p) => !existingAssertions.has(p.assertion));
-          finalProperties = [...strongProps, ...newUnique, ...quarantinedProps];
-          console.log(`    Final: ${finalProperties.length} properties after refinement`);
-        }
-      } else {
-        console.log(`    All properties are strong \u2014 no refinement needed`);
-      }
-    }
+      language,
+      config,
+      inferContext,
+      numericOpts,
+      llmClient
+    )];
   }
+  return finalProperties;
+}
+async function runRefinementLoop(finalProperties, targetPath, storeDir, testsDir, source, language, config, inferContext, numericOpts, llmClient) {
+  const activeProperties = finalProperties.filter((p) => p.status !== "quarantined");
+  if (activeProperties.length === 0) return finalProperties;
+  console.log(`
+  Refinement Round 2: analyzing ${activeProperties.length} properties...`);
+  const fullConfig = { mode: "quick", iterations: 100, timeout: 15e3, verbose: false };
+  const execResult = await executeTrialRun(activeProperties, targetPath, testsDir, fullConfig, language);
+  const classifications = (0, import_llm3.classifyProperties)(activeProperties, execResult);
+  const functionNames = inferContext.functions.map((f) => f.qualifiedName);
+  const feedback = (0, import_llm3.buildFeedbackSummary)(classifications, functionNames);
+  const strong = classifications.filter((c) => c.kind === "strong");
+  const weak = classifications.filter((c) => c.kind === "weak");
+  const bugs = classifications.filter((c) => c.kind === "bug_found");
+  console.log(`    Strong: ${strong.length} | Weak: ${weak.length} | Bugs: ${bugs.length}`);
+  if (weak.length === 0 && bugs.length === 0) {
+    console.log(`    All properties are strong \u2014 no refinement needed`);
+    return finalProperties;
+  }
+  const improvedProperties = await generateImprovedProperties(
+    classifications,
+    config,
+    inferContext,
+    numericOpts,
+    feedback,
+    llmClient
+  );
+  if (improvedProperties.length === 0) return finalProperties;
+  console.log(`    Generated ${improvedProperties.length} improved properties`);
+  const { validated: improvedValidated } = await trialRunValidation(
+    improvedProperties,
+    targetPath,
+    storeDir,
+    source,
+    llmClient,
+    config.mock,
+    language
+  );
+  const { validated: improvedCanaryValidated, quarantined: improvedQuarantined } = await canaryValidateProperties(
+    improvedValidated,
+    targetPath,
+    storeDir,
+    language
+  );
+  const strongProps = classifications.filter((c) => c.kind === "strong" || c.kind === "bug_found").map((c) => c.property);
+  const quarantinedProps = finalProperties.filter((p) => p.status === "quarantined");
+  const existingAssertions = new Set(strongProps.map((p) => p.assertion));
+  const improvedCombined = [...improvedCanaryValidated, ...improvedQuarantined.map(({ prop }) => prop)];
+  const newUnique = improvedCombined.filter((p) => !existingAssertions.has(p.assertion));
+  const merged = [...strongProps, ...newUnique, ...quarantinedProps];
+  console.log(`    Final: ${merged.length} properties after refinement`);
+  return merged;
+}
+async function generateImprovedProperties(classifications, config, inferContext, numericOpts, feedback, llmClient) {
+  if (config.mock) {
+    return applyRiskMetadata((0, import_llm3.mockRefineProperties)(classifications), inferContext);
+  }
+  if (llmClient) {
+    const refineResult = await (0, import_llm3.refineProperties)(config.apiKey, config.model, inferContext, feedback, {
+      maxProperties: numericOpts.maxProperties,
+      minScore: numericOpts.minScore,
+      mock: false,
+      provider: config.provider,
+      baseURL: config.baseURL
+    });
+    return applyRiskMetadata(refineResult.properties, inferContext);
+  }
+  return [];
+}
+async function applyConfirmation(properties, options) {
+  if (!options.confirm || !process.stdin.isTTY) return properties;
+  const { accepted, quarantined: userQuarantined, dropped } = await confirmProperties(properties);
+  if (dropped.length > 0) {
+    console.log(`  ${dropped.length} rule${dropped.length === 1 ? "" : "s"} dropped by user.`);
+  }
+  const merged = [...accepted, ...userQuarantined];
+  if (merged.length === 0) {
+    console.log("  All rules dropped. Nothing to save.\n");
+    return null;
+  }
+  return merged;
+}
+async function persistAndReport(properties, result, targetPath, storeDir, source, projectRoot) {
   const moduleKey = (0, import_common2.toForwardSlash)(path3.relative(projectRoot, targetPath));
   const propertySet = {
     schemaVersion: 2,
     module: moduleKey,
     filePath: moduleKey,
-    properties: finalProperties,
+    properties,
     sourceHash: (0, import_common2.hashContent)(source),
     inferredAt: (/* @__PURE__ */ new Date()).toISOString()
   };
   await (0, import_store2.setProperties)(storeDir, moduleKey, propertySet);
-  const finalResult = { ...result, properties: finalProperties };
+  const finalResult = { ...result, properties };
   (0, import_reporter.reportInferResult)(finalResult, moduleKey);
+}
+async function inferCommand(target, options) {
+  const projectRoot = process.cwd();
+  const config = (0, import_config.loadConfig)(projectRoot, {
+    mock: options.mock,
+    model: options.model,
+    provider: options.provider,
+    baseURL: options.baseUrl
+  });
+  const resolved = await resolveTarget(target, projectRoot, options);
+  if (!resolved) return;
+  const { targetPath, language } = resolved;
+  const errors = (0, import_config.validateConfig)(config, "infer");
+  if (errors.length > 0) {
+    for (const err of errors) console.error(`
+  Error: ${err}
+`);
+    process.exit(2);
+  }
+  if (config.mock && config.apiKey) {
+    console.log("  Note: --mock mode active. API key is set but will not be used.\n");
+  }
+  await (0, import_store2.initStore)(projectRoot, config.storeDir);
+  const storeDir = path3.join(projectRoot, config.storeDir);
+  const source = await fs3.readFile(targetPath, "utf8");
+  const context = language === "python" ? (0, import_parser.analyzePythonFile)(targetPath, source) : (0, import_parser.analyzeFile)(targetPath, source, language);
+  const inferContext = applyFunctionFilter(context, options);
+  if (!inferContext) return;
+  console.log(`
+  Analyzing ${inferContext.functions.length} function${inferContext.functions.length === 1 ? "" : "s"} in ${target}...`);
+  const numericOpts = parseNumericOptions(options);
+  let result = await runLlmInference(config, inferContext, numericOpts);
+  result = { ...result, properties: applyRiskMetadata(result.properties, inferContext) };
+  if (result.properties.length === 0) {
+    console.log("  No properties inferred (all filtered out by quality scoring).\n");
+    return;
+  }
+  let finalProperties = options.skipValidation ? result.properties : await runValidationPipeline(
+    result.properties,
+    targetPath,
+    storeDir,
+    source,
+    language,
+    config,
+    inferContext,
+    numericOpts,
+    options
+  );
+  if (finalProperties.length === 0) {
+    console.log("  No properties survived validation.\n");
+    return;
+  }
+  const confirmed = await applyConfirmation(finalProperties, options);
+  if (!confirmed) return;
+  finalProperties = confirmed;
+  await persistAndReport(finalProperties, result, targetPath, storeDir, source, projectRoot);
+}
+function formatFunctionSignature(fn) {
+  const params = fn.parameters.map((p) => {
+    let s = p.isRest ? `...${p.name}` : p.name;
+    if (p.isOptional && !p.isRest) s += "?";
+    if (p.type) s += `: ${p.type}`;
+    return s;
+  }).join(", ");
+  const ret = fn.returnType ? `: ${fn.returnType}` : "";
+  const prefix = fn.isAsync ? "async " : "";
+  return `${prefix}${fn.name}(${params})${ret}`;
+}
+function applyFunctionFilter(context, options) {
+  let inferContext = context;
+  if (options.function) {
+    const names = options.function.split(",").map((n) => n.trim()).filter(Boolean);
+    const missing = names.filter(
+      (name) => !context.functions.some((fn) => matchesFunctionName(fn, name))
+    );
+    if (missing.length > 0) {
+      console.error(`
+  Error: Function(s) not found: ${missing.join(", ")}`);
+      console.error(`  Available exported functions:`);
+      for (const fn of context.functions) {
+        console.error(`    \u2022 ${formatFunctionSignature(fn)}`);
+      }
+      console.error();
+      process.exit(2);
+    }
+    inferContext = filterContextByFunctions(context, names);
+  }
+  if (inferContext.functions.length === 0) {
+    console.log(`
+  No exported functions found in ${context.filePath}
+`);
+    return null;
+  }
+  return inferContext;
 }
 
 // src/commands/run.ts
-var fs3 = __toESM(require("fs/promises"));
+var fs4 = __toESM(require("fs/promises"));
 var path4 = __toESM(require("path"));
 var import_config2 = __toESM(require_dist2());
 var import_store3 = __toESM(require_dist());
@@ -6445,7 +7204,7 @@ async function runCommand(target, options) {
       console.log(`
   No properties found for changed files: ${[...changedPaths].join(", ")}`);
       console.log("  Run: propcheck infer <file> first.\n");
-      process.exit(0);
+      process.exit(2);
     }
     console.log(`
   Running properties for ${propertySets.length} changed file(s)...
@@ -6454,7 +7213,7 @@ async function runCommand(target, options) {
     const targetPath = path4.resolve(projectRoot, target);
     let stat3;
     try {
-      stat3 = await fs3.stat(targetPath);
+      stat3 = await fs4.stat(targetPath);
     } catch {
       console.error(`
   Error: File not found: ${target}
@@ -6480,9 +7239,24 @@ async function runCommand(target, options) {
       const moduleKey = (0, import_common3.toForwardSlash)(path4.relative(projectRoot, targetPath));
       const ps = await (0, import_store3.getProperties)(storeDir, moduleKey);
       if (!ps) {
-        console.error(`
+        const allSets = await (0, import_store3.getAllProperties)(storeDir);
+        if (allSets.length > 0) {
+          console.error(`
   No properties found for ${target}`);
-        console.error("  Run: propcheck infer " + target + "\n");
+          console.error(`
+  Files with properties:`);
+          for (const s of allSets.slice(0, 5)) {
+            console.error(`    \u2022 ${s.filePath} (${s.properties.length} properties)`);
+          }
+          if (allSets.length > 5) console.error(`    ... and ${allSets.length - 5} more`);
+          console.error(`
+  Run: propcheck infer ${target}
+`);
+        } else {
+          console.error(`
+  No properties found. Run: propcheck infer ${target}
+`);
+        }
         process.exit(2);
       }
       propertySets = [ps];
@@ -6501,18 +7275,21 @@ async function runCommand(target, options) {
   let ranAnyProperties = false;
   for (const ps of propertySets) {
     const filePath = path4.resolve(projectRoot, ps.filePath);
-    try {
-      const currentSource = await fs3.readFile(filePath, "utf8");
-      const currentHash = (0, import_common3.hashContent)(currentSource);
-      if (ps.sourceHash !== currentHash) {
-        console.log(`
+    if (!options.ignoreStale) {
+      try {
+        const currentSource = await fs4.readFile(filePath, "utf8");
+        const currentHash = (0, import_common3.hashContent)(currentSource);
+        if (ps.sourceHash !== currentHash) {
+          console.log(`
   Warning: ${ps.filePath} has changed since properties were inferred.`);
-        console.log("  Run: propcheck infer " + ps.filePath + " to re-infer.\n");
-      }
-    } catch {
-      console.error(`
+          console.log("  Properties may be outdated. Run: propcheck infer " + ps.filePath);
+          console.log("  Or use --ignore-stale to suppress this warning.\n");
+        }
+      } catch {
+        console.error(`
   Warning: Cannot read ${ps.filePath} \u2014 file may have been moved.
 `);
+      }
     }
     const explicitSkipped = ps.properties.filter((prop) => {
       if (skipIds.has(prop.id)) return true;
@@ -6551,11 +7328,11 @@ async function runCommand(target, options) {
     }
     ranAnyProperties = true;
     const testsDir = path4.join(storeDir, "tests");
-    await fs3.mkdir(testsDir, { recursive: true });
+    await fs4.mkdir(testsDir, { recursive: true });
     const isPython = ps.filePath.endsWith(".py");
     const generated = isPython ? (0, import_engines2.generateHypothesisTest)(runnableProperties, filePath, testsDir, runConfig) : (0, import_engines2.generateFastCheckTest)(runnableProperties, filePath, testsDir, runConfig);
     const testFilePath = path4.join(testsDir, generated.fileName);
-    await fs3.writeFile(testFilePath, generated.content, "utf8");
+    await fs4.writeFile(testFilePath, generated.content, "utf8");
     const fcGenerated = !isPython ? generated : null;
     const result = isPython ? await (0, import_engines2.runHypothesisTest)(testFilePath, runnableProperties, runConfig) : await (0, import_engines2.runFastCheckTest)(testFilePath, runnableProperties, runConfig, {
       targetFile: filePath,
@@ -6616,7 +7393,7 @@ async function badgeCommand() {
 }
 
 // src/commands/quality.ts
-var fs4 = __toESM(require("fs/promises"));
+var fs5 = __toESM(require("fs/promises"));
 var path6 = __toESM(require("path"));
 var import_config4 = __toESM(require_dist2());
 var import_store5 = __toESM(require_dist());
@@ -6629,7 +7406,7 @@ async function qualityCommand(target) {
   const storeDir = path6.join(projectRoot, config.storeDir);
   const targetPath = path6.resolve(projectRoot, target);
   try {
-    await fs4.access(targetPath);
+    await fs5.access(targetPath);
   } catch {
     console.error(`
   Error: File not found: ${target}
@@ -6644,7 +7421,7 @@ async function qualityCommand(target) {
     console.error("  Run: propcheck infer " + target + " first\n");
     process.exit(2);
   }
-  const source = await fs4.readFile(targetPath, "utf8");
+  const source = await fs5.readFile(targetPath, "utf8");
   const mutants = (0, import_engines3.generateMutants)(source, targetPath);
   console.log(`
   ${import_chalk.default.bold("Mutation Testing")}: ${target}`);
@@ -6660,7 +7437,7 @@ async function qualityCommand(target) {
   process.exit(report.mutationScore >= 0.8 ? 0 : 1);
 }
 function printReport(report, target) {
-  const scoreColor = report.mutationScore >= 0.8 ? import_chalk.default.green : report.mutationScore >= 0.6 ? import_chalk.default.yellow : import_chalk.default.red;
+  const scoreColor2 = report.mutationScore >= 0.8 ? import_chalk.default.green : report.mutationScore >= 0.6 ? import_chalk.default.yellow : import_chalk.default.red;
   const scorePercent = (report.mutationScore * 100).toFixed(1);
   console.log(`  ${import_chalk.default.bold("Results")}:`);
   console.log(`    Total mutants:  ${report.totalMutants}`);
@@ -6669,7 +7446,7 @@ function printReport(report, target) {
   if (report.errors > 0) {
     console.log(`    ${import_chalk.default.yellow("Errors")}:         ${report.errors}`);
   }
-  console.log(`    ${import_chalk.default.bold("Mutation score")}: ${scoreColor(scorePercent + "%")}`);
+  console.log(`    ${import_chalk.default.bold("Mutation score")}: ${scoreColor2(scorePercent + "%")}`);
   console.log(`    Duration:       ${(report.duration / 1e3).toFixed(1)}s`);
   if (report.survivingMutants.length > 0) {
     console.log(`
@@ -6697,13 +7474,30 @@ var import_config5 = __toESM(require_dist2());
 var import_store6 = __toESM(require_dist());
 var import_reporter3 = __toESM(require_dist6());
 var import_common5 = __toESM(require_dist4());
-var VALID_STATUSES = /* @__PURE__ */ new Set([
-  "accepted",
-  "risky",
-  "refined",
-  "quarantined",
-  "dropped"
-]);
+
+// src/commands/shared/status-info.ts
+var STATUS_INFO = [
+  { status: "accepted", description: "Verified and active \u2014 runs on every test" },
+  { status: "risky", description: "Active but flagged for fragility (e.g. float ===)" },
+  { status: "refined", description: "Auto-weakened to pass edge cases" },
+  { status: "quarantined", description: "Skipped by default \u2014 too fragile for CI" },
+  { status: "dropped", description: "Permanently disabled \u2014 never runs" }
+];
+var VALID_STATUSES = new Set(STATUS_INFO.map((s) => s.status));
+var STATUS_DESCRIPTIONS = Object.fromEntries(
+  STATUS_INFO.map((s) => [s.status, s.description])
+);
+function formatStatusError(invalidValue) {
+  const lines = [`
+  Error: Invalid status "${invalidValue}". Valid options:`];
+  for (const { status, description } of STATUS_INFO) {
+    lines.push(`    \u2022 ${status.padEnd(13)} ${description}`);
+  }
+  lines.push("");
+  return lines.join("\n");
+}
+
+// src/commands/props.ts
 async function propsCommand(target, options) {
   const projectRoot = process.cwd();
   const config = (0, import_config5.loadConfig)(projectRoot);
@@ -6711,11 +7505,7 @@ async function propsCommand(target, options) {
   let statusFilter;
   if (options.status) {
     if (!VALID_STATUSES.has(options.status)) {
-      console.error(
-        `
-  Invalid status: "${options.status}". Must be one of: ${[...VALID_STATUSES].join(", ")}
-`
-      );
+      console.error(formatStatusError(options.status));
       process.exit(2);
     }
     statusFilter = options.status;
@@ -6759,13 +7549,6 @@ var import_config6 = __toESM(require_dist2());
 var import_store7 = __toESM(require_dist());
 var import_reporter4 = __toESM(require_dist6());
 var import_common6 = __toESM(require_dist4());
-var VALID_STATUSES2 = /* @__PURE__ */ new Set([
-  "accepted",
-  "risky",
-  "refined",
-  "quarantined",
-  "dropped"
-]);
 async function propertyCommand(target, propertyId, options) {
   const projectRoot = process.cwd();
   const config = (0, import_config6.loadConfig)(projectRoot);
@@ -6787,12 +7570,8 @@ async function propertyCommand(target, propertyId, options) {
     process.exit(2);
   }
   if (options.status) {
-    if (!VALID_STATUSES2.has(options.status)) {
-      console.error(
-        `
-  Invalid status: "${options.status}". Must be one of: ${[...VALID_STATUSES2].join(", ")}
-`
-      );
+    if (!VALID_STATUSES.has(options.status)) {
+      console.error(formatStatusError(options.status));
       process.exit(2);
     }
     const newStatus = options.status;
@@ -6825,7 +7604,7 @@ async function propertyCommand(target, propertyId, options) {
 }
 
 // src/commands/fix.ts
-var fs5 = __toESM(require("fs"));
+var fs6 = __toESM(require("fs"));
 var fsPromises = __toESM(require("fs/promises"));
 var crypto = __toESM(require("crypto"));
 var path9 = __toESM(require("path"));
@@ -6936,9 +7715,17 @@ async function fixCommand(target, options) {
     baseURL: options.baseUrl
   });
   const targetPath = path9.resolve(projectRoot, target);
-  if (!fs5.existsSync(targetPath)) {
+  if (!fs6.existsSync(targetPath)) {
     console.error(`
   Error: File not found: ${target}
+`);
+    process.exit(2);
+  }
+  const MAX_SOURCE_BYTES = 5e5;
+  const fileStat = fs6.statSync(targetPath);
+  if (fileStat.size > MAX_SOURCE_BYTES) {
+    console.error(`
+  Error: File too large (${fileStat.size} bytes). Max: ${MAX_SOURCE_BYTES} bytes.
 `);
     process.exit(2);
   }
@@ -6946,8 +7733,9 @@ async function fixCommand(target, options) {
   if (errors.length > 0) {
     for (const err of errors) {
       console.error(`
-  ${err}`);
+  Error: ${err}`);
     }
+    console.error();
     process.exit(2);
   }
   const moduleKey = (0, import_common7.toForwardSlash)(path9.relative(projectRoot, targetPath));
@@ -7050,14 +7838,14 @@ async function fixCommand(target, options) {
   }
   console.log(`
   ${confirmedBugs.length} confirmed bug(s). Generating fix...`);
-  const maxAttemptsRaw = parseInt(options.maxAttempts ?? "3", 10);
-  if (options.maxAttempts !== void 0 && isNaN(maxAttemptsRaw)) {
+  const maxAttemptsRaw = Number(options.maxAttempts ?? "3");
+  if (options.maxAttempts !== void 0 && (!Number.isInteger(maxAttemptsRaw) || maxAttemptsRaw < 1)) {
     console.error(`
-  Error: --max-attempts must be a number, got "${options.maxAttempts}"
+  Error: --max-attempts must be an integer (1-5), got "${options.maxAttempts}"
 `);
     process.exit(2);
   }
-  const maxAttempts = Math.min(Math.max(1, maxAttemptsRaw || 3), 5);
+  const maxAttempts = Math.min(Math.max(1, maxAttemptsRaw), 5);
   let bestFix = null;
   let verificationResult = null;
   let retryFeedback;
@@ -7081,6 +7869,13 @@ async function fixCommand(target, options) {
     }
     if (!fix) {
       console.log(`  Fix generation failed (attempt ${attempt}/${maxAttempts})`);
+      continue;
+    }
+    const MAX_FIXED_SOURCE_BYTES = 1e6;
+    if (Buffer.byteLength(fix.fixedSource, "utf8") > MAX_FIXED_SOURCE_BYTES) {
+      console.error(`
+  Error: LLM fix response too large (${Buffer.byteLength(fix.fixedSource, "utf8")} bytes). Skipping.
+`);
       continue;
     }
     bestFix = fix;
@@ -7198,9 +7993,12 @@ ${newErrors}
     console.log();
   }
   if (options.apply && allPassed) {
+    const baseBakPath = targetPath + ".bak";
+    const backupPath = fs6.existsSync(baseBakPath) ? `${targetPath}.bak.${Date.now()}` : baseBakPath;
+    await fsPromises.writeFile(backupPath, sourceCode, "utf8");
     await fsPromises.writeFile(targetPath, bestFix.fixedSource, "utf8");
     if (!options.json) {
-      console.log(`  Applied fix to ${target}
+      console.log(`  Applied fix to ${target} (backup: ${path9.basename(backupPath)})
 `);
     }
   } else if (!options.apply && allPassed && !options.json) {
@@ -7226,14 +8024,16 @@ try {
   process.exit(2);
 }
 var program = new import_commander.Command();
-program.name("propcheck").description("AI-powered property-based testing \u2014 find bugs your tests miss").version("0.3.0").option("--no-color", "Disable colored output").hook("preAction", () => {
+program.name("propcheck").description(
+  "AI-powered property-based testing \u2014 find bugs your tests miss\n\nExit codes:\n  0  All tests passed (or nothing to test)\n  1  Test failure found (bug detected)\n  2  Configuration or setup error"
+).version("0.4.2").option("--no-color", "Disable colored output").hook("preAction", () => {
   if (program.opts().color === false) {
     import_chalk2.default.level = 0;
   }
 });
 program.command("init").description("Set up propcheck in your project (creates .propcheck/ directory)").action(initCommand);
-program.command("infer <target>").description("Discover rules about your code using AI (one-time, ~$0.05/file)").option("--mock", "Use built-in demo mode (no API key needed)").option("--model <model>", "AI model to use").option("--provider <provider>", "AI provider: anthropic or openai-compatible").option("--base-url <url>", "Custom API endpoint (for proxies / OpenRouter)").option("--max-properties <n>", "Max rules per function", "5").option("--min-score <n>", "Minimum quality score to keep (0-13)", "10").option("--function <names>", "Only analyze specific functions (comma-separated)").option("--skip-validation", "Skip trial-run validation of discovered rules").option("--refine", "Run a second AI pass to strengthen weak rules").action(inferCommand);
-program.command("run [target]").description("Test your code with random inputs (run after infer)").option("--quick", "Fast mode: 100 random inputs per rule").option("--thorough", "Deep mode: 10,000 random inputs per rule").option("--seed <n>", "Fixed random seed (for reproducible results)").option("--json", "Output results as JSON (for CI/CD)").option("--changed", "Only test files changed in git diff").option("--skip <ids>", "Skip specific rules by ID (comma-separated)").option("--only <ids>", "Only run specific rules by ID (comma-separated)").option("--include-quarantined", "Also test quarantined (fragile) rules").action(runCommand);
+program.command("infer <target>").description("Discover rules about your code using AI (one-time, ~$0.05/file)").option("--mock", "Use built-in demo mode (no API key needed)").option("--model <model>", "AI model to use").option("--provider <provider>", "AI provider: anthropic or openai-compatible").option("--base-url <url>", "Custom API endpoint (for proxies / OpenRouter)").option("--max-properties <n>", "Max rules per function", "5").option("--min-score <n>", "Minimum quality score to keep (0-13)", "10").option("--function <names>", "Only analyze specific functions (comma-separated)").option("--skip-validation", "Skip trial-run validation of discovered rules").option("--refine", "Run a second AI pass to strengthen weak rules").option("--confirm", "Review each rule before saving (interactive)").action(inferCommand);
+program.command("run [target]").description("Test your code with random inputs (run after infer)").option("--quick", "Fast mode: 100 random inputs per rule").option("--thorough", "Deep mode: 10,000 random inputs per rule").option("--seed <n>", "Fixed random seed (for reproducible results)").option("--json", "Output results as JSON (for CI/CD)").option("--changed", "Only test files changed in git diff").option("--skip <ids>", "Skip specific rules by ID (comma-separated)").option("--only <ids>", "Only run specific rules by ID (comma-separated)").option("--include-quarantined", "Also test quarantined (fragile) rules").option("--ignore-stale", "Suppress stale source file warnings").action(runCommand);
 program.command("badge").description("Generate a README badge showing how many rules are verified").action(badgeCommand);
 program.command("quality <target>").description("Check how good your rules are at catching bugs (mutation testing)").action(qualityCommand);
 program.command("props [target]").description("List all discovered rules and their status").option("--status <status>", "Filter: accepted, risky, refined, quarantined, dropped").option("--json", "Output as JSON").action(propsCommand);

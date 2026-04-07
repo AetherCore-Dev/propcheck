@@ -9,28 +9,31 @@ AI-powered testing tool. AI reads your code once → discovers rules that should
 - LLM: Anthropic Claude API (BYOK) + mock client for offline
 - Engines: fast-check (TS/JS), Hypothesis (Python)
 - CLI: commander.js + chalk v4
-- Bundler: tsup (~273KB single-file bundle)
+- Bundler: tsup (~320KB single-file bundle)
 - Test runner: Node.js `--experimental-strip-types` for direct .ts import
 
-## Project Status (2026-04-06)
-**Phase 1 MVP: COMPLETE + Production Hardening** — full CLI pipeline verified end-to-end across CJS/ESM/no-type project configurations. 295 unit tests, 0 failures. All identified P0-P6 issues resolved. `infer.ts` split from 1175→530 lines. npm 0.3.0 published.
+## Project Status (2026-04-07)
+**Phase 1 MVP: COMPLETE + Production Hardening** — full CLI pipeline verified end-to-end across CJS/ESM/no-type project configurations. 388 unit tests, 0 failures. All identified security/UX/coverage issues resolved. Adaptive mock generator enables `--mock` mode for any user code. npm 0.4.2 published.
 
 ### What's Done
 - Full CLI: `init`, `infer`, `run`, `badge`, `quality`, `props`, `property`, `fix` commands
+- **Adaptive mock generator**: `--mock` mode generates meaningful properties for ANY function (not just hardcoded demos) via FunctionSignature analysis — 3-tier param→generator mapping, signal-based category selection, template-based assertion synthesis
+- **`propcheck init` auto-setup**: creates `.propcheck/`, auto-configures `.gitignore`, shows actionable next steps
 - **`propcheck fix`**: dual-agent auto-fix — diagnose violations (Tester Agent) → generate minimal fix (Generator Agent) → verify all properties pass
-- Property workflow: `propcheck props` lists inventory, `propcheck property` inspects/updates status with `humanVerified` tracking
+- **`propcheck infer --confirm`**: interactive review — accept/quarantine/drop each property before saving
+- Property workflow: `propcheck props` lists inventory with status descriptions, `propcheck property` inspects/updates status with `humanVerified` tracking
 - Trial-run validation: infer → quick 100x run → filter false positives
 - Property lifecycle metadata: `accepted` / `risky` / `refined` / `quarantined` / `dropped`
 - Risk-aware persistence: `riskTags`, `riskScore`, validation evidence stored in `.propcheck/properties.json`
 - Canary validation + auto-weakening for fragile numeric properties before persistence
 - `--changed` mode: git diff → only test changed source files (filters internal/build artifacts)
-- `--quick` / `--thorough` / `--seed` / `--json` / `--skip` / `--only` / `--include-quarantined` / `--function` flags
-- tsup bundling: ~273KB single-file bundle
+- `--quick` / `--thorough` / `--seed` / `--json` / `--skip` / `--only` / `--include-quarantined` / `--function` / `--ignore-stale` / `--confirm` flags
+- tsup bundling: ~320KB single-file bundle
 - Multi-language: TypeScript/JavaScript (fast-check) + Python (Hypothesis)
 - Multi-provider: Anthropic direct API + OpenAI-compatible (OpenRouter, one-api, etc.)
 - GitHub Action (composite action in .github/actions/propcheck/)
 - CI workflow (3 platforms × 3 Node versions)
-- Security hardening: assertion sanitizer, subprocess env isolation, path traversal protection, Zod config validation
+- Security hardening: assertion sanitizer, subprocess env isolation, path traversal protection, Zod config validation, API key redaction, import path escaping
 - Mutation testing: `propcheck quality` command scaffolded
 - GitHub repo: pushed to AetherCore-Dev/propcheck
 
@@ -54,17 +57,22 @@ AI-powered testing tool. AI reads your code once → discovers rules that should
 7. H5: `--max-properties abc` silently defaulted → explicit validation with error message
 8. H5: `--max-attempts abc` silently defaulted → explicit validation with error message
 
-**Test coverage expansion (98 → 295 tests):**
-- assertion-sanitizer: 48 tests (all 38 dangerous patterns + edge cases)
-- config/loader: 21 tests (4-layer merge, env vars, Zod validation, path traversal)
-- result-parser: 10 tests (JSON line parsing, result mapping)
-- git utilities: 7 tests (error/ok status discrimination, function overlap)
-- reporter: 19 tests (JSON output, formatters, workflow reporters)
-- autoWeakenProperty: 12 tests (recursion guard, all risk tags, immutability)
-- scoring/risk detection: 32 tests (tautology, all 7 risk tag detectors, redundancy)
-- response-parser edge cases: 15 tests (injection blocking, normalization, limits)
-- property-store edge cases: 9 tests (concurrent writes, legacy hydration, corruption)
-- CLI regression: 2 tests (--only exit code, --changed git error)
+### 0407 Phase 2 Polish Results
+**UX improvements (8):**
+1. `--function` filter error now shows full function signatures (`add(a: number, b?: number): number`)
+2. `--status` filter error shows sorted options with lifecycle descriptions
+3. Error messages standardized with `Error:` prefix across all commands
+4. Shared `status-info.ts` eliminates status description duplication between `props` and `property`
+5. File size guard moved into `resolveTarget()` (single stat call, no redundant I/O)
+6. `mock-fix.ts` dead code removed (funcPattern regex that always matched "prop")
+7. `fc-runner.ts` .mts cleanup errors now warn instead of silent swallow
+8. `--max-attempts 0` now rejected (was silently treated as 3)
+
+**Test coverage expansion (361 → 388 tests):**
+- mock-fix: 12 tests (mockDiagnoseViolation, mockGenerateFix)
+- mock-refinement: 10 tests (weak strengthening, bug_found, ID uniqueness)
+- fc-runner: 5 tests (.mts lifecycle, cleanup-under-failure, path injection)
+- autoWeakenProperty: +10 edge cases (string literals, nested parens, array generators, tolerance patterns)
 
 ### Real LLM Validation Results (2026-03-29, Claude Opus 4.6 via OpenAI-compatible proxy)
 - 3 functions in `examples/price-utils.ts` → 15 high-quality properties inferred in a single pass
@@ -81,8 +89,7 @@ AI-powered testing tool. AI reads your code once → discovers rules that should
 - Found real bugs in cart-buggy.ts (discount > 100% → negative price)
 - Full E2E verified: infer --mock → trial-run → persist → run → report
 
-### What's NOT Done (Phase 2)
-- Interactive confirmation mode for property review (`propcheck infer --confirm`)
+### What's NOT Done (Phase 2 Roadmap)
 - PR Comment Bot (auto-comment propcheck results on PRs)
 - VS Code extension
 - Community property templates
@@ -109,11 +116,13 @@ node packages/cli/dist/index.js --help
 node packages/cli/dist/index.js init
 node packages/cli/dist/index.js infer --mock <file>
 node packages/cli/dist/index.js infer --mock --function add,multiply <file>
+node packages/cli/dist/index.js infer --mock --confirm <file>
 node packages/cli/dist/index.js run <file>
 node packages/cli/dist/index.js run --changed
 node packages/cli/dist/index.js run --quick <file>
 node packages/cli/dist/index.js run --json <file>
 node packages/cli/dist/index.js run --only prop_001,prop_002 <file>
+node packages/cli/dist/index.js run --ignore-stale <file>
 node packages/cli/dist/index.js badge
 node packages/cli/dist/index.js props                          # List all properties
 node packages/cli/dist/index.js props --status risky           # Filter by status
@@ -133,23 +142,30 @@ PROPCHECK_API_KEY=sk-xxx node packages/cli/dist/index.js infer \
 # CLI (bundled — same commands via dist-bundle)
 node packages/cli/dist-bundle/index.js --help
 
-# Run unit tests (295 tests across 8 packages)
+# Run unit tests (388 tests across 8 packages)
 node packages/parser/dist/__tests__/parser.test.js                          # 12 tests
 node packages/store/dist/__tests__/store.test.js                            # 14 tests
 node packages/store/dist/__tests__/store-edge.test.js                       # 9 tests
 node packages/llm/dist/__tests__/llm.test.js                               # 23 tests
 node packages/llm/dist/__tests__/scoring-edge.test.js                       # 32 tests
 node packages/llm/dist/__tests__/response-parser-edge.test.js               # 15 tests
+node packages/llm/dist/__tests__/adaptive-generator.test.js                 # 40 tests
+node packages/llm/dist/__tests__/mock-fix.test.js                           # 12 tests
+node packages/llm/dist/__tests__/mock-refinement.test.js                    # 10 tests
 node packages/engines/dist/__tests__/e2e.test.js                            # E2E
 node packages/engines/dist/__tests__/fc-codegen.test.js                     # 30 tests
 node packages/engines/dist/__tests__/hyp-codegen.test.js                    # 9 tests
 node packages/engines/dist/__tests__/result-parser.test.js                  # 10 tests
+node packages/engines/dist/__tests__/fc-runner.test.js                      # 5 tests
 node packages/common/dist/__tests__/assertion-sanitizer.test.js             # 48 tests
 node packages/common/dist/__tests__/git.test.js                             # 7 tests
 node packages/config/dist/__tests__/config.test.js                          # 21 tests
 node packages/reporter/dist/__tests__/reporter.test.js                      # 19 tests
 node packages/cli/dist/__tests__/commands.test.js                           # 24 tests
-node packages/cli/dist/__tests__/auto-weaken.test.js                        # 12 tests
+node packages/cli/dist/__tests__/auto-weaken.test.js                        # 31 tests
+node packages/cli/dist/__tests__/init.test.js                               # 4 tests
+node packages/cli/dist/__tests__/confirm.test.js                            # 8 tests
+node packages/cli/dist/__tests__/fix.test.js                                # 5 tests
 
 # Record demo GIF
 vhs < demo.tape
@@ -159,8 +175,6 @@ cd packages/cli && npm publish
 ```
 
 ## Next Priority
-1. npm publish 0.3.1 (CJS compatibility fix + P6 split + directory scanning)
-2. Interactive confirmation mode (`propcheck infer --confirm`)
-3. PR Comment Bot
-4. CI coverage reporting (c8/istanbul)
-5. VS Code extension
+1. PR Comment Bot
+2. CI coverage reporting (c8/istanbul)
+3. VS Code extension

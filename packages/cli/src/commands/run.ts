@@ -36,6 +36,7 @@ interface RunOptions {
   skip?: string;
   only?: string;
   includeQuarantined?: boolean;
+  ignoreStale?: boolean;
 }
 
 function parseIdList(input: string | undefined): ReadonlySet<string> {
@@ -102,7 +103,7 @@ export async function runCommand(
     if (propertySets.length === 0) {
       console.log(`\n  No properties found for changed files: ${[...changedPaths].join(", ")}`);
       console.log("  Run: propcheck infer <file> first.\n");
-      process.exit(0);
+      process.exit(2);
     }
 
     console.log(`\n  Running properties for ${propertySets.length} changed file(s)...\n`);
@@ -138,8 +139,19 @@ export async function runCommand(
       const ps = await getProperties(storeDir, moduleKey);
 
       if (!ps) {
-        console.error(`\n  No properties found for ${target}`);
-        console.error("  Run: propcheck infer " + target + "\n");
+        // Show available files with properties for context
+        const allSets = await getAllProperties(storeDir);
+        if (allSets.length > 0) {
+          console.error(`\n  No properties found for ${target}`);
+          console.error(`\n  Files with properties:`);
+          for (const s of allSets.slice(0, 5)) {
+            console.error(`    • ${s.filePath} (${s.properties.length} properties)`);
+          }
+          if (allSets.length > 5) console.error(`    ... and ${allSets.length - 5} more`);
+          console.error(`\n  Run: propcheck infer ${target}\n`);
+        } else {
+          console.error(`\n  No properties found. Run: propcheck infer ${target}\n`);
+        }
         process.exit(2);
       }
       propertySets = [ps];
@@ -162,15 +174,18 @@ export async function runCommand(
     const filePath = path.resolve(projectRoot, ps.filePath);
 
     // Check staleness
-    try {
-      const currentSource = await fs.readFile(filePath, "utf8");
-      const currentHash = hashContent(currentSource);
-      if (ps.sourceHash !== currentHash) {
-        console.log(`\n  Warning: ${ps.filePath} has changed since properties were inferred.`);
-        console.log("  Run: propcheck infer " + ps.filePath + " to re-infer.\n");
+    if (!options.ignoreStale) {
+      try {
+        const currentSource = await fs.readFile(filePath, "utf8");
+        const currentHash = hashContent(currentSource);
+        if (ps.sourceHash !== currentHash) {
+          console.log(`\n  Warning: ${ps.filePath} has changed since properties were inferred.`);
+          console.log("  Properties may be outdated. Run: propcheck infer " + ps.filePath);
+          console.log("  Or use --ignore-stale to suppress this warning.\n");
+        }
+      } catch {
+        console.error(`\n  Warning: Cannot read ${ps.filePath} — file may have been moved.\n`);
       }
-    } catch {
-      console.error(`\n  Warning: Cannot read ${ps.filePath} — file may have been moved.\n`);
     }
 
     const explicitSkipped = ps.properties.filter((prop) => {

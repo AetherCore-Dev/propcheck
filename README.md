@@ -32,6 +32,8 @@ That's it. Three commands. No API key needed for `--mock` demo mode.
 > **Works with `.js` too** — just point at any JavaScript file: `npx propcheck infer --mock src/utils.js`
 > **Prerequisite:** `npm install typescript` (used for code analysis, even for .js files)
 
+📖 **[Full Tutorial: Use propcheck on your own code →](docs/tutorial.md)**
+
 <details>
 <summary><strong>▶ Using real AI (needs API key, ~$0.05/file one-time cost)</strong></summary>
 

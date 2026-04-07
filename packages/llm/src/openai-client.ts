@@ -151,7 +151,7 @@ export function createOpenAIClient(
             }
 
             throw new LlmError(
-              `API request failed: ${response.status} ${response.statusText} - ${errorText.slice(0, 500)}`,
+              `API request failed: ${response.status} ${response.statusText} - ${sanitizeErrorMessage(errorText.slice(0, 500))}`,
               { status: response.status },
             );
           }
@@ -196,11 +196,20 @@ export function createOpenAIClient(
       }
 
       throw new LlmError(
-        `API call failed after ${RETRY_DELAYS.length + 1} attempts: ${String(lastError)}`,
+        `API call failed after ${RETRY_DELAYS.length + 1} attempts: ${sanitizeErrorMessage(lastError)}`,
         { attempts: RETRY_DELAYS.length + 1 },
       );
     },
   };
+}
+
+/** Strip potential secrets (Bearer tokens, API keys) from error messages. */
+function sanitizeErrorMessage(err: unknown): string {
+  const raw = err instanceof Error ? err.message : typeof err === "string" ? err : String(err);
+  return raw
+    .replace(/Bearer\s+\S+/gi, "Bearer [REDACTED]")
+    .replace(/sk-[a-zA-Z0-9_-]{10,}/g, "sk-[REDACTED]")
+    .replace(/key[=:]\s*\S+/gi, "key=[REDACTED]");
 }
 
 function sleep(ms: number): Promise<void> {

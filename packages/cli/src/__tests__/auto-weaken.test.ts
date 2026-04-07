@@ -162,4 +162,267 @@ describe("autoWeakenProperty", () => {
     assert.ok(weakened);
     assert.match(weakened.assertion, /approxEqual/);
   });
+
+  // --- findTopLevelOperator edge cases (exercised through weakenExactEquality) ---
+
+  it("should ignore === inside string literals", () => {
+    const prop = makeProp({
+      riskTags: ["float_exact_equality"],
+      assertion: `"a === b"`,
+      generators: { a: { type: "float" } },
+    });
+    // No top-level === found, so no weakening possible
+    const weakened = autoWeakenProperty(prop);
+    assert.equal(weakened, null);
+  });
+
+  it("should find === at top level between function call expressions", () => {
+    const prop = makeProp({
+      riskTags: ["float_exact_equality"],
+      // === is at top level (depth 0) between two fn() call expressions
+      assertion: "fn(a) === fn(b)",
+      generators: { a: { type: "float" }, b: { type: "float" } },
+    });
+    const weakened = autoWeakenProperty(prop);
+    assert.ok(weakened);
+    assert.match(weakened.assertion, /approxEqual\(fn\(a\), fn\(b\)\)/);
+  });
+
+  it("should handle escaped quotes in strings", () => {
+    const prop = makeProp({
+      riskTags: ["float_exact_equality"],
+      // The === after the string is at top level
+      assertion: `"he\\'s" === result`,
+      generators: { a: { type: "float" } },
+    });
+    const weakened = autoWeakenProperty(prop);
+    assert.ok(weakened);
+    assert.match(weakened.assertion, /approxEqual/);
+  });
+
+  // --- parseTinyTolerance edge cases ---
+
+  it("should not weaken non-Math.abs assertions for tiny_abs_tolerance", () => {
+    const prop = makeProp({
+      riskTags: ["tiny_abs_tolerance"],
+      assertion: "result < 1e-12",
+      generators: { a: { type: "float" } },
+    });
+    // Not a Math.abs(...) pattern
+    const weakened = autoWeakenProperty(prop);
+    assert.equal(weakened, null);
+  });
+
+  it("should not weaken reasonable tolerance (not tiny)", () => {
+    const prop = makeProp({
+      riskTags: ["tiny_abs_tolerance"],
+      assertion: "Math.abs(a - b) < 0.01",
+      generators: { a: { type: "float" }, b: { type: "float" } },
+    });
+    // 0.01 doesn't match the 1e-9+ pattern
+    const weakened = autoWeakenProperty(prop);
+    assert.equal(weakened, null);
+  });
+
+  it("should weaken Math.abs with nested function calls", () => {
+    const prop = makeProp({
+      riskTags: ["tiny_abs_tolerance"],
+      assertion: "Math.abs(compute(a) - expected(b)) < 1e-15",
+      generators: { a: { type: "float" }, b: { type: "float" } },
+    });
+    const weakened = autoWeakenProperty(prop);
+    assert.ok(weakened);
+    assert.match(weakened.assertion, /approxEqual\(compute\(a\), expected\(b\)/);
+  });
+
+  // --- tightenWideNumericGenerators edge cases ---
+
+  it("should tighten wide range that exceeds 1M", () => {
+    const prop = makeProp({
+      riskTags: ["wide_numeric_domain"],
+      assertion: "fn(x) >= 0",
+      generators: { x: { type: "float", constraints: { min: -5_000_000, max: 5_000_000 } } },
+    });
+    const weakened = autoWeakenProperty(prop);
+    assert.ok(weakened);
+    assert.equal(weakened.generators.x.constraints?.min, 0);
+    assert.equal(weakened.generators.x.constraints?.max, 1_000_000);
+  });
+
+  it("should not tighten already-narrow numeric range", () => {
+    const prop = makeProp({
+      riskTags: ["wide_numeric_domain"],
+      assertion: "fn(x) >= 0",
+      generators: { x: { type: "float", constraints: { min: 0, max: 100 } } },
+    });
+    // Range is narrow, no tightening needed
+    const weakened = autoWeakenProperty(prop);
+    assert.equal(weakened, null);
+  });
+
+  it("should tighten array element generators with wide range", () => {
+    const prop = makeProp({
+      riskTags: ["wide_numeric_domain"],
+      assertion: "fn(arr).length >= 0",
+      generators: { arr: { type: "array", constraints: { element: "float" } } },
+    });
+    const weakened = autoWeakenProperty(prop);
+    assert.ok(weakened);
+    assert.equal(weakened.generators.arr.constraints?.elementMin, 0);
+    assert.equal(weakened.generators.arr.constraints?.elementMax, 1_000_000);
+  });
+
+  it("should handle 'integer' and 'int' type in generators", () => {
+    const prop = makeProp({
+      riskTags: ["wide_numeric_domain"],
+      assertion: "fn(x) >= 0",
+      generators: { x: { type: "int" } },
+    });
+    const weakened = autoWeakenProperty(prop);
+    assert.ok(weakened);
+    assert.equal(weakened.generators.x.constraints?.min, 0);
+    assert.equal(weakened.generators.x.constraints?.max, 1_000_000);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// detectDocDomainRiskTags & applyRiskMetadata
+// ---------------------------------------------------------------------------
+
+import { detectDocDomainRiskTags, applyRiskMetadata } from "../commands/infer/weakening";
+import type { AnalysisContext, DocSignal } from "@propcheck/common";
+
+function makeContext(docSignals: DocSignal[]): AnalysisContext {
+  return {
+    filePath: "test.ts",
+    language: "typescript",
+    sourceCode: "",
+    functions: [],
+    types: [],
+    imports: [],
+    signals: { ast: [], type: [], doc: docSignals },
+  };
+}
+
+describe("detectDocDomainRiskTags", () => {
+  it("should return empty for property with no matching doc", () => {
+    const prop = makeProp({ targetFunction: "unknown" });
+    const ctx = makeContext([]);
+    assert.deepEqual(detectDocDomainRiskTags(prop, ctx), []);
+  });
+
+  it("should detect doc_domain_mismatch when doc says 0-100 but generator is 0-10000", () => {
+    const prop = makeProp({
+      targetFunction: "applyDiscount",
+      generators: { discount: { type: "float", constraints: { min: 0, max: 10000 } } },
+    });
+    const ctx = makeContext([{
+      functionName: "applyDiscount",
+      description: "Apply discount",
+      paramDocs: { discount: "Discount percentage (0-100)" },
+      returnDoc: null,
+      throws: [],
+      examples: [],
+    }]);
+    const tags = detectDocDomainRiskTags(prop, ctx);
+    assert.ok(tags.includes("doc_domain_mismatch"));
+  });
+
+  it("should detect doc_domain_mismatch when doc says non-negative but no min constraint", () => {
+    const prop = makeProp({
+      targetFunction: "setPrice",
+      generators: { price: { type: "float" } },
+    });
+    const ctx = makeContext([{
+      functionName: "setPrice",
+      description: "Set price",
+      paramDocs: { price: "Must be non-negative" },
+      returnDoc: null,
+      throws: [],
+      examples: [],
+    }]);
+    const tags = detectDocDomainRiskTags(prop, ctx);
+    assert.ok(tags.includes("doc_domain_mismatch"));
+  });
+
+  it("should return empty when doc and generator match", () => {
+    const prop = makeProp({
+      targetFunction: "applyDiscount",
+      generators: { discount: { type: "float", constraints: { min: 0, max: 100 } } },
+    });
+    const ctx = makeContext([{
+      functionName: "applyDiscount",
+      description: "Apply discount",
+      paramDocs: { discount: "Discount percentage (0-100)" },
+      returnDoc: null,
+      throws: [],
+      examples: [],
+    }]);
+    const tags = detectDocDomainRiskTags(prop, ctx);
+    assert.deepEqual(tags, []);
+  });
+
+  it("should skip non-numeric generators", () => {
+    const prop = makeProp({
+      targetFunction: "greet",
+      generators: { name: { type: "string", constraints: { maxLength: 100 } } },
+    });
+    const ctx = makeContext([{
+      functionName: "greet",
+      description: "Greet",
+      paramDocs: { name: "Must be non-negative" },
+      returnDoc: null,
+      throws: [],
+      examples: [],
+    }]);
+    const tags = detectDocDomainRiskTags(prop, ctx);
+    assert.deepEqual(tags, []);
+  });
+});
+
+describe("applyRiskMetadata", () => {
+  it("should add risk tags and set status to risky", () => {
+    const prop = makeProp({
+      targetFunction: "fn",
+      riskTags: ["float_exact_equality"],
+    });
+    const ctx = makeContext([]);
+    const result = applyRiskMetadata([prop], ctx);
+    assert.equal(result.length, 1);
+    assert.ok(result[0].riskTags.includes("float_exact_equality"));
+    assert.equal(result[0].status, "risky");
+  });
+
+  it("should set status to accepted when no risk tags", () => {
+    const prop = makeProp({ riskTags: [] });
+    const ctx = makeContext([]);
+    const result = applyRiskMetadata([prop], ctx);
+    assert.equal(result[0].status, "accepted");
+  });
+
+  it("should not mutate original properties", () => {
+    const prop = makeProp({ riskTags: [] });
+    const ctx = makeContext([]);
+    const result = applyRiskMetadata([prop], ctx);
+    assert.notEqual(result[0], prop);
+  });
+
+  it("should merge doc risk tags with existing risk tags", () => {
+    const prop = makeProp({
+      targetFunction: "setPrice",
+      riskTags: ["float_exact_equality"],
+      generators: { price: { type: "float" } },
+    });
+    const ctx = makeContext([{
+      functionName: "setPrice",
+      description: "Set price",
+      paramDocs: { price: "Must be non-negative" },
+      returnDoc: null,
+      throws: [],
+      examples: [],
+    }]);
+    const result = applyRiskMetadata([prop], ctx);
+    assert.ok(result[0].riskTags.includes("float_exact_equality"));
+    assert.ok(result[0].riskTags.includes("doc_domain_mismatch"));
+  });
 });

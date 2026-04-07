@@ -16,7 +16,7 @@ import { DEFAULTS } from "./defaults";
 
 /** Schema for validating .propcheckrc content. */
 const PropcheckRcSchema = z.object({
-  apiKey: z.string().optional(),
+  // apiKey intentionally excluded — use env vars to avoid accidental git commits
   model: z.string().optional(),
   provider: z.enum(["anthropic", "openai-compatible"]).optional(),
   baseURL: z.string().url().optional(),
@@ -143,8 +143,7 @@ export function validateConfig(
       "  export PROPCHECK_API_KEY=sk-...      # any provider\n" +
       "  export ANTHROPIC_API_KEY=sk-ant-...  # Anthropic direct\n" +
       "  export OPENAI_API_KEY=sk-or-...      # OpenRouter / OpenAI-compatible\n" +
-      "Or add \"apiKey\" to .propcheckrc\n" +
-      "Or use --mock for offline testing with canned responses.",
+      "Or use --mock for offline testing with demo data.",
     );
   }
 

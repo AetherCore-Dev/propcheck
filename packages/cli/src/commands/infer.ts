@@ -34,6 +34,7 @@ import {
   trialRunValidation,
 } from "./infer/validation";
 import type { TrialRunLanguage } from "./infer/validation";
+import { confirmProperties } from "./infer/confirm";
 // Re-export for external consumers (tests, other commands)
 export { autoWeakenProperty } from "./infer/weakening";
 export { canaryValidateProperties } from "./infer/validation";
@@ -45,6 +46,7 @@ import type {
   TypeDefinition,
   RunConfig,
 } from "@propcheck/common";
+import type { InferResult } from "@propcheck/llm";
 
 interface InferOptions {
   mock?: boolean;
@@ -56,6 +58,13 @@ interface InferOptions {
   skipValidation?: boolean;
   refine?: boolean;
   function?: string;
+  confirm?: boolean;
+}
+
+/** Parsed and validated numeric options. */
+interface ParsedNumericOptions {
+  readonly maxProperties: number;
+  readonly minScore: number;
 }
 
 function isSupportedLanguage(lang: string | null): lang is TrialRunLanguage {
@@ -79,17 +88,11 @@ function findReferencedTypeNames(
 
   for (const fn of functions) {
     for (const typeName of typeNames) {
-      if (fn.returnType?.includes(typeName)) {
-        referenced.add(typeName);
-      }
+      if (fn.returnType?.includes(typeName)) referenced.add(typeName);
       for (const param of fn.parameters) {
-        if (param.type?.includes(typeName)) {
-          referenced.add(typeName);
-        }
+        if (param.type?.includes(typeName)) referenced.add(typeName);
       }
-      if (fn.docstring?.includes(typeName)) {
-        referenced.add(typeName);
-      }
+      if (fn.docstring?.includes(typeName)) referenced.add(typeName);
     }
   }
 
@@ -98,8 +101,7 @@ function findReferencedTypeNames(
 
 /**
  * Trim source code to only include import lines, matched function bodies,
- * and referenced type definitions. Non-contiguous blocks are separated
- * by `// ... (trimmed)` markers.
+ * and referenced type definitions.
  */
 function trimSourceCode(
   fullSource: string,
@@ -107,52 +109,38 @@ function trimSourceCode(
   referencedTypes: readonly TypeDefinition[],
 ): string {
   const lines = fullSource.split("\n");
-
-  // Collect all line ranges to include (1-indexed)
   const ranges: Array<[number, number]> = [];
 
-  // Import block: lines from 1 up to the first function/type startLine
   const allStarts = [
     ...matchedFunctions.map((f) => f.loc.startLine),
     ...referencedTypes.map((t) => t.loc.startLine),
   ];
   if (allStarts.length > 0) {
     const firstDeclLine = Math.min(...allStarts);
-    if (firstDeclLine > 1) {
-      ranges.push([1, firstDeclLine - 1]);
-    }
+    if (firstDeclLine > 1) ranges.push([1, firstDeclLine - 1]);
   }
 
-  // Function bodies
-  for (const fn of matchedFunctions) {
-    ranges.push([fn.loc.startLine, fn.loc.endLine]);
-  }
-
-  // Referenced type definitions
-  for (const t of referencedTypes) {
-    ranges.push([t.loc.startLine, t.loc.endLine]);
-  }
+  for (const fn of matchedFunctions) ranges.push([fn.loc.startLine, fn.loc.endLine]);
+  for (const t of referencedTypes) ranges.push([t.loc.startLine, t.loc.endLine]);
 
   if (ranges.length === 0) return fullSource;
 
-  // Sort by startLine, merge overlapping/adjacent ranges
   ranges.sort((a, b) => a[0] - b[0]);
   const merged: Array<[number, number]> = [ranges[0]];
   for (let i = 1; i < ranges.length; i++) {
-    const prev = merged[merged.length - 1];
+    const last = merged[merged.length - 1];
     const curr = ranges[i];
-    if (curr[0] <= prev[1] + 1) {
-      prev[1] = Math.max(prev[1], curr[1]);
+    if (curr[0] <= last[1] + 1) {
+      merged[merged.length - 1] = [last[0], Math.max(last[1], curr[1])];
     } else {
       merged.push(curr);
     }
   }
 
-  // Extract lines and join with separator
   const parts: string[] = [];
   for (const [start, end] of merged) {
-    const s = Math.max(0, start - 1); // convert to 0-indexed
-    const e = Math.min(lines.length, end); // exclusive upper bound
+    const s = Math.max(0, start - 1);
+    const e = Math.min(lines.length, end);
     parts.push(lines.slice(s, e).join("\n"));
   }
 
@@ -161,47 +149,23 @@ function trimSourceCode(
 
 /** Match a user-provided function name against a FunctionSignature. */
 function matchesFunctionName(fn: FunctionSignature, name: string): boolean {
-  return (
-    fn.name === name ||
-    fn.qualifiedName === name ||
-    fn.qualifiedName.endsWith("." + name)
-  );
+  return fn.name === name || fn.qualifiedName === name || fn.qualifiedName.endsWith("." + name);
 }
 
-/**
- * Filter an AnalysisContext to only include the specified functions,
- * their referenced types, and trimmed source code.
- */
+/** Filter an AnalysisContext to only the specified functions. */
 function filterContextByFunctions(
   context: AnalysisContext,
   functionNames: string[],
 ): AnalysisContext {
-  // 1. Match functions
   const matchedFunctions = context.functions.filter((fn) =>
     functionNames.some((name) => matchesFunctionName(fn, name)),
   );
-
-  // 2. Find referenced types
   const refTypeNames = findReferencedTypeNames(matchedFunctions, context.types);
   const matchedTypes = context.types.filter((t) => refTypeNames.has(t.name));
+  const trimmedSource = trimSourceCode(context.sourceCode, matchedFunctions, matchedTypes);
 
-  // 3. Trim source code
-  const trimmedSource = trimSourceCode(
-    context.sourceCode,
-    matchedFunctions,
-    matchedTypes,
-  );
-
-  // 4. Filter signals
   const matchedQualNames = new Set(matchedFunctions.map((f) => f.qualifiedName));
   const matchedNames = new Set(matchedFunctions.map((f) => f.name));
-
-  const filteredDoc = context.signals.doc.filter(
-    (d) => matchedQualNames.has(d.functionName) || matchedNames.has(d.functionName),
-  );
-  const filteredType = context.signals.type.filter(
-    (t) => matchedQualNames.has(t.functionName) || matchedNames.has(t.functionName),
-  );
 
   return {
     filePath: context.filePath,
@@ -212,35 +176,33 @@ function filterContextByFunctions(
     imports: context.imports,
     signals: {
       ast: context.signals.ast,
-      type: filteredType,
-      doc: filteredDoc,
+      type: context.signals.type.filter(
+        (t) => matchedQualNames.has(t.functionName) || matchedNames.has(t.functionName),
+      ),
+      doc: context.signals.doc.filter(
+        (d) => matchedQualNames.has(d.functionName) || matchedNames.has(d.functionName),
+      ),
     },
   };
 }
 
-export async function inferCommand(
+// ---------------------------------------------------------------------------
+// Decomposed pipeline stages
+// ---------------------------------------------------------------------------
+
+/** Resolve and validate the target path; handle directory recursion. */
+async function resolveTarget(
   target: string,
+  projectRoot: string,
   options: InferOptions,
-): Promise<void> {
-  const projectRoot = process.cwd();
-
-  // Load config
-  const config = loadConfig(projectRoot, {
-    mock: options.mock,
-    model: options.model,
-    provider: options.provider as "anthropic" | "openai-compatible" | undefined,
-    baseURL: options.baseUrl,
-  });
-
-  // Resolve target with path traversal protection — BEFORE config validation
-  // so "file not found" is shown instead of "API key missing"
+): Promise<{ targetPath: string; language: TrialRunLanguage } | null> {
   const targetPath = path.resolve(projectRoot, target);
-  if (!targetPath.startsWith(projectRoot + path.sep) && targetPath !== projectRoot) {
+  const relToRoot = path.relative(projectRoot, targetPath);
+  if (relToRoot.startsWith("..") || path.isAbsolute(relToRoot)) {
     console.error(`\n  Error: Target file must be within the project root.\n`);
     process.exit(2);
   }
 
-  // Check if target is a directory — recurse into source files
   let targetStat: import("node:fs").Stats;
   try {
     targetStat = await fs.stat(targetPath);
@@ -257,93 +219,57 @@ export async function inferCommand(
     }
     console.log(`\n  Found ${sourceFiles.length} source file(s) in ${target}/\n`);
     for (const filePath of sourceFiles) {
-      const relPath = path.relative(projectRoot, filePath);
-      await inferCommand(relPath, options);
+      await inferCommand(path.relative(projectRoot, filePath), options);
     }
-    return;
+    return null; // directory handled via recursion
   }
 
-  // Detect language early — before config validation
+  // Guard against excessively large files (before reading into memory)
+  const MAX_SOURCE_BYTES = 500_000;
+  if (targetStat.size > MAX_SOURCE_BYTES) {
+    console.error(`\n  Error: File too large (${targetStat.size} bytes). Max: ${MAX_SOURCE_BYTES} bytes.\n`);
+    process.exit(2);
+  }
+
   const language = detectLanguage(targetPath);
   if (!isSupportedLanguage(language)) {
     console.error(`\n  Error: Unsupported file type. Supported: .ts, .tsx, .js, .jsx, .py\n`);
     process.exit(2);
   }
 
-  // Validate config (API key etc.) — after file checks pass
-  const errors = validateConfig(config, "infer");
-  if (errors.length > 0) {
-    for (const err of errors) {
-      console.error(`\n  Error: ${err}\n`);
-    }
+  return { targetPath, language };
+}
+
+/** Parse numeric CLI options with validation. */
+function parseNumericOptions(options: InferOptions): ParsedNumericOptions {
+  const maxPropsRaw = Number(options.maxProperties ?? "5");
+  if (options.maxProperties !== undefined && (!Number.isInteger(maxPropsRaw) || maxPropsRaw < 1)) {
+    console.error(`\n  Error: --max-properties must be an integer (1-20), got "${options.maxProperties}"\n`);
     process.exit(2);
   }
 
-  // Ensure .propcheck/ exists
-  await initStore(projectRoot, config.storeDir);
-  const storeDir = path.join(projectRoot, config.storeDir);
-
-  // Guard against excessively large files (prevent unbounded API spend)
-  const MAX_SOURCE_BYTES = 500_000;
-  const stat = await fs.stat(targetPath);
-  if (stat.size > MAX_SOURCE_BYTES) {
-    console.error(`\n  Error: File too large (${stat.size} bytes). Max: ${MAX_SOURCE_BYTES} bytes.\n`);
+  const minScoreRaw = Number(options.minScore ?? "10");
+  if (options.minScore !== undefined && (!Number.isInteger(minScoreRaw) || minScoreRaw < 0)) {
+    console.error(`\n  Error: --min-score must be an integer (0-13), got "${options.minScore}"\n`);
     process.exit(2);
   }
 
-  // Read and parse
-  const source = await fs.readFile(targetPath, "utf8");
-  const context: AnalysisContext = language === "python"
-    ? analyzePythonFile(targetPath, source)
-    : analyzeFile(targetPath, source, language);
+  return {
+    maxProperties: Math.min(Math.max(1, maxPropsRaw), 20),
+    minScore: Math.min(Math.max(0, minScoreRaw), 13),
+  };
+}
 
-  // Filter to specific functions if --function provided
-  let inferContext = context;
-  if (options.function) {
-    const names = options.function.split(",").map((n) => n.trim()).filter(Boolean);
-
-    // Validate all names exist
-    const missing = names.filter(
-      (name) => !context.functions.some((fn) => matchesFunctionName(fn, name)),
-    );
-    if (missing.length > 0) {
-      const available = context.functions.map((fn) => fn.qualifiedName).join(", ");
-      console.error(`\n  Error: Function(s) not found: ${missing.join(", ")}`);
-      console.error(`  Available: ${available}\n`);
-      process.exit(2);
-    }
-
-    inferContext = filterContextByFunctions(context, names);
-  }
-
-  if (inferContext.functions.length === 0) {
-    console.log(`\n  No exported functions found in ${target}\n`);
-    return;
-  }
-
-  console.log(`\n  Analyzing ${inferContext.functions.length} function${inferContext.functions.length === 1 ? "" : "s"} in ${target}...`);
-
-  // Parse and validate numeric options
-  const maxPropsRaw = parseInt(options.maxProperties ?? "5", 10);
-  if (options.maxProperties !== undefined && isNaN(maxPropsRaw)) {
-    console.error(`\n  Error: --max-properties must be a number, got "${options.maxProperties}"\n`);
-    process.exit(2);
-  }
-  const maxProperties = Math.min(Math.max(1, maxPropsRaw || 5), 20);
-
-  const minScoreRaw = parseInt(options.minScore ?? "10", 10);
-  if (options.minScore !== undefined && isNaN(minScoreRaw)) {
-    console.error(`\n  Error: --min-score must be a number, got "${options.minScore}"\n`);
-    process.exit(2);
-  }
-  const minScore = Math.min(Math.max(0, minScoreRaw || 10), 15);
-
-  // Infer properties
-  let result;
+/** Call the LLM to infer properties, with error handling. */
+async function runLlmInference(
+  config: ReturnType<typeof loadConfig>,
+  inferContext: AnalysisContext,
+  numericOpts: ParsedNumericOptions,
+): Promise<InferResult> {
   try {
-    result = await inferProperties(config.apiKey, config.model, inferContext, {
-      maxProperties,
-      minScore,
+    return await inferProperties(config.apiKey, config.model, inferContext, {
+      maxProperties: numericOpts.maxProperties,
+      minScore: numericOpts.minScore,
       mock: config.mock,
       provider: config.provider,
       baseURL: config.baseURL,
@@ -357,174 +283,336 @@ export async function inferCommand(
     }
     process.exit(1);
   }
+}
 
-  result = {
-    ...result,
-    properties: applyRiskMetadata(result.properties, inferContext),
-  };
+/** Run trial-run, canary validation, and optional refinement. */
+async function runValidationPipeline(
+  properties: readonly PropertyDefinition[],
+  targetPath: string,
+  storeDir: string,
+  source: string,
+  language: TrialRunLanguage,
+  config: ReturnType<typeof loadConfig>,
+  inferContext: AnalysisContext,
+  numericOpts: ParsedNumericOptions,
+  options: InferOptions,
+): Promise<readonly PropertyDefinition[]> {
+  const testsDir = await ensureTestsDir(storeDir);
 
-  if (result.properties.length === 0) {
-    console.log("  No properties inferred (all filtered out by quality scoring).\n");
-    return;
+  console.log(`  Validating ${properties.length} rules (quick test, 100 random inputs each)...`);
+
+  const llmClient = config.mock
+    ? null
+    : config.apiKey
+      ? createClient(config.apiKey, config.model, config.provider, config.baseURL)
+      : null;
+
+  const { validated, dropped, repaired } = await trialRunValidation(
+    properties, targetPath, storeDir, source, llmClient, config.mock, language,
+  );
+
+  if (repaired > 0) {
+    console.log(`  Fixed ${repaired} rule${repaired === 1 ? "" : "s"} that ${repaired === 1 ? "was" : "were"} too strict.`);
   }
-
-  // Trial-run validation with self-repair
-  let finalProperties = result.properties;
-  if (!options.skipValidation) {
-    const testsDir = await ensureTestsDir(storeDir);
-
-    console.log(`  Validating ${result.properties.length} rules (quick test, 100 random inputs each)...`);
-
-    // Create LLM client for self-repair (reuse same config)
-    const llmClient = config.mock
-      ? null
-      : config.apiKey
-        ? createClient(config.apiKey, config.model, config.provider, config.baseURL)
-        : null;
-
-    const { validated, dropped, repaired } = await trialRunValidation(
-      result.properties,
-      targetPath,
-      storeDir,
-      source,
-      llmClient,
-      config.mock,
-      language,
-    );
-
-    if (repaired > 0) {
-      console.log(`  Fixed ${repaired} rule${repaired === 1 ? "" : "s"} that ${repaired === 1 ? "was" : "were"} too strict.`);
-    }
-
-    if (dropped.length > 0) {
-      console.log(`  Dropped ${dropped.length} properties during validation:`);
-      for (const { prop, reason } of dropped) {
-        console.log(`    - ${prop.targetFunction}: ${prop.description} [${reason}]`);
-      }
-    }
-
-    const { validated: canaryValidated, quarantined } = await canaryValidateProperties(
-      validated,
-      targetPath,
-      storeDir,
-      language,
-    );
-
-    if (quarantined.length > 0) {
-      console.log(`  Quarantined ${quarantined.length} fragile propert${quarantined.length === 1 ? "y" : "ies"} after edge-case validation:`);
-      for (const { prop, reason } of quarantined) {
-        console.log(`    - ${prop.targetFunction}: ${prop.description} [${reason.length > 80 ? reason.slice(0, 77) + "..." : reason}]`);
-      }
-    }
-
-    finalProperties = [...canaryValidated, ...quarantined.map(({ prop }) => prop)];
-
-    if (finalProperties.length === 0) {
-      console.log("  No properties survived validation.\n");
-      return;
-    }
-
-    const activeProperties = finalProperties.filter((property) => property.status !== "quarantined");
-
-    // Refinement loop (Round 2) — strengthen weak properties, explore bug areas
-    if (options.refine && activeProperties.length > 0) {
-      console.log(`\n  Refinement Round 2: analyzing ${activeProperties.length} properties...`);
-
-      // Run a full execution to classify
-      const fullConfig: RunConfig = { mode: "quick", iterations: 100, timeout: 15_000, verbose: false };
-      const execResult = await executeTrialRun(
-        activeProperties,
-        targetPath,
-        testsDir,
-        fullConfig,
-        language,
-      );
-
-      // Classify results
-      const classifications = classifyProperties(activeProperties, execResult);
-      const functionNames = inferContext.functions.map((f) => f.qualifiedName);
-      const feedback = buildFeedbackSummary(classifications, functionNames);
-
-      const strong = classifications.filter((c) => c.kind === "strong");
-      const weak = classifications.filter((c) => c.kind === "weak");
-      const bugs = classifications.filter((c) => c.kind === "bug_found");
-
-      console.log(`    Strong: ${strong.length} | Weak: ${weak.length} | Bugs: ${bugs.length}`);
-
-      // Generate improved properties for weak/bug cases
-      if (weak.length > 0 || bugs.length > 0) {
-        let improvedProperties: readonly PropertyDefinition[];
-
-        if (config.mock) {
-          improvedProperties = applyRiskMetadata(mockRefineProperties(classifications), inferContext);
-        } else if (llmClient) {
-          const refineResult = await refineProperties(config.apiKey, config.model, inferContext, feedback, {
-            maxProperties,
-            minScore,
-            mock: false,
-            provider: config.provider,
-            baseURL: config.baseURL,
-          });
-          improvedProperties = applyRiskMetadata(refineResult.properties, inferContext);
-        } else {
-          improvedProperties = [];
-        }
-
-        if (improvedProperties.length > 0) {
-          console.log(`    Generated ${improvedProperties.length} improved properties`);
-
-          // Validate improved properties with trial-run
-          const { validated: improvedValidated } = await trialRunValidation(
-            improvedProperties,
-            targetPath,
-            storeDir,
-            source,
-            llmClient,
-            config.mock,
-            language,
-          );
-          const { validated: improvedCanaryValidated, quarantined: improvedQuarantined } = await canaryValidateProperties(
-            improvedValidated,
-            targetPath,
-            storeDir,
-            language,
-          );
-
-          // Merge: keep strong originals + replace weak with improved + keep bug-finders
-          const strongProps = classifications
-            .filter((c) => c.kind === "strong" || c.kind === "bug_found")
-            .map((c) => c.property);
-
-          const quarantinedProps = finalProperties.filter((property) => property.status === "quarantined");
-
-          // Deduplicate by assertion
-          const existingAssertions = new Set(strongProps.map((p) => p.assertion));
-          const improvedCombined = [...improvedCanaryValidated, ...improvedQuarantined.map(({ prop }) => prop)];
-          const newUnique = improvedCombined.filter((p) => !existingAssertions.has(p.assertion));
-
-          finalProperties = [...strongProps, ...newUnique, ...quarantinedProps];
-          console.log(`    Final: ${finalProperties.length} properties after refinement`);
-        }
-      } else {
-        console.log(`    All properties are strong — no refinement needed`);
-      }
+  if (dropped.length > 0) {
+    console.log(`  Dropped ${dropped.length} properties during validation:`);
+    for (const { prop, reason } of dropped) {
+      console.log(`    - ${prop.targetFunction}: ${prop.description} [${reason}]`);
     }
   }
 
-  // Persist to .propcheck/
+  const { validated: canaryValidated, quarantined } = await canaryValidateProperties(
+    validated, targetPath, storeDir, language,
+  );
+
+  if (quarantined.length > 0) {
+    console.log(`  Quarantined ${quarantined.length} fragile propert${quarantined.length === 1 ? "y" : "ies"} after edge-case validation:`);
+    for (const { prop, reason } of quarantined) {
+      console.log(`    - ${prop.targetFunction}: ${prop.description} [${reason.length > 80 ? reason.slice(0, 77) + "..." : reason}]`);
+    }
+  }
+
+  let finalProperties = [...canaryValidated, ...quarantined.map(({ prop }) => prop)];
+
+  if (finalProperties.length === 0) return finalProperties;
+
+  // Refinement loop (Round 2)
+  if (options.refine) {
+    finalProperties = [...await runRefinementLoop(
+      finalProperties, targetPath, storeDir, testsDir, source,
+      language, config, inferContext, numericOpts, llmClient,
+    )];
+  }
+
+  return finalProperties;
+}
+
+/** Run refinement Round 2 — strengthen weak properties. */
+async function runRefinementLoop(
+  finalProperties: readonly PropertyDefinition[],
+  targetPath: string,
+  storeDir: string,
+  testsDir: string,
+  source: string,
+  language: TrialRunLanguage,
+  config: ReturnType<typeof loadConfig>,
+  inferContext: AnalysisContext,
+  numericOpts: ParsedNumericOptions,
+  llmClient: LlmClient | null,
+): Promise<readonly PropertyDefinition[]> {
+  const activeProperties = finalProperties.filter((p) => p.status !== "quarantined");
+  if (activeProperties.length === 0) return finalProperties;
+
+  console.log(`\n  Refinement Round 2: analyzing ${activeProperties.length} properties...`);
+
+  const fullConfig: RunConfig = { mode: "quick", iterations: 100, timeout: 15_000, verbose: false };
+  const execResult = await executeTrialRun(activeProperties, targetPath, testsDir, fullConfig, language);
+
+  const classifications = classifyProperties(activeProperties, execResult);
+  const functionNames = inferContext.functions.map((f) => f.qualifiedName);
+  const feedback = buildFeedbackSummary(classifications, functionNames);
+
+  const strong = classifications.filter((c) => c.kind === "strong");
+  const weak = classifications.filter((c) => c.kind === "weak");
+  const bugs = classifications.filter((c) => c.kind === "bug_found");
+
+  console.log(`    Strong: ${strong.length} | Weak: ${weak.length} | Bugs: ${bugs.length}`);
+
+  if (weak.length === 0 && bugs.length === 0) {
+    console.log(`    All properties are strong — no refinement needed`);
+    return finalProperties;
+  }
+
+  const improvedProperties = await generateImprovedProperties(
+    classifications, config, inferContext, numericOpts, feedback, llmClient,
+  );
+
+  if (improvedProperties.length === 0) return finalProperties;
+
+  console.log(`    Generated ${improvedProperties.length} improved properties`);
+
+  // Validate improved properties
+  const { validated: improvedValidated } = await trialRunValidation(
+    improvedProperties, targetPath, storeDir, source, llmClient, config.mock, language,
+  );
+  const { validated: improvedCanaryValidated, quarantined: improvedQuarantined } = await canaryValidateProperties(
+    improvedValidated, targetPath, storeDir, language,
+  );
+
+  // Merge: strong originals + unique improved + quarantined
+  const strongProps = classifications
+    .filter((c) => c.kind === "strong" || c.kind === "bug_found")
+    .map((c) => c.property);
+  const quarantinedProps = finalProperties.filter((p) => p.status === "quarantined");
+
+  const existingAssertions = new Set(strongProps.map((p) => p.assertion));
+  const improvedCombined = [...improvedCanaryValidated, ...improvedQuarantined.map(({ prop }) => prop)];
+  const newUnique = improvedCombined.filter((p) => !existingAssertions.has(p.assertion));
+
+  const merged = [...strongProps, ...newUnique, ...quarantinedProps];
+  console.log(`    Final: ${merged.length} properties after refinement`);
+  return merged;
+}
+
+/** Generate improved properties via mock or real LLM refinement. */
+async function generateImprovedProperties(
+  classifications: ReturnType<typeof classifyProperties>,
+  config: ReturnType<typeof loadConfig>,
+  inferContext: AnalysisContext,
+  numericOpts: ParsedNumericOptions,
+  feedback: string,
+  llmClient: LlmClient | null,
+): Promise<readonly PropertyDefinition[]> {
+  if (config.mock) {
+    return applyRiskMetadata(mockRefineProperties(classifications), inferContext);
+  }
+  if (llmClient) {
+    const refineResult = await refineProperties(config.apiKey, config.model, inferContext, feedback, {
+      maxProperties: numericOpts.maxProperties,
+      minScore: numericOpts.minScore,
+      mock: false,
+      provider: config.provider,
+      baseURL: config.baseURL,
+    });
+    return applyRiskMetadata(refineResult.properties, inferContext);
+  }
+  return [];
+}
+
+/** Apply interactive confirmation if --confirm is set. */
+async function applyConfirmation(
+  properties: readonly PropertyDefinition[],
+  options: InferOptions,
+): Promise<readonly PropertyDefinition[] | null> {
+  if (!options.confirm || !process.stdin.isTTY) return properties;
+
+  const { accepted, quarantined: userQuarantined, dropped } = await confirmProperties(properties);
+
+  if (dropped.length > 0) {
+    console.log(`  ${dropped.length} rule${dropped.length === 1 ? "" : "s"} dropped by user.`);
+  }
+
+  const merged = [...accepted, ...userQuarantined];
+  if (merged.length === 0) {
+    console.log("  All rules dropped. Nothing to save.\n");
+    return null;
+  }
+  return merged;
+}
+
+/** Persist properties and print report. */
+async function persistAndReport(
+  properties: readonly PropertyDefinition[],
+  result: InferResult,
+  targetPath: string,
+  storeDir: string,
+  source: string,
+  projectRoot: string,
+): Promise<void> {
   const moduleKey = toForwardSlash(path.relative(projectRoot, targetPath));
   const propertySet: PropertySet = {
     schemaVersion: 2,
     module: moduleKey,
     filePath: moduleKey,
-    properties: finalProperties,
+    properties,
     sourceHash: hashContent(source),
     inferredAt: new Date().toISOString(),
   };
 
   await setProperties(storeDir, moduleKey, propertySet);
 
-  // Report (use finalProperties count, not original)
-  const finalResult = { ...result, properties: finalProperties };
+  const finalResult = { ...result, properties };
   reportInferResult(finalResult, moduleKey);
+}
+
+// ---------------------------------------------------------------------------
+// Main command
+// ---------------------------------------------------------------------------
+
+export async function inferCommand(
+  target: string,
+  options: InferOptions,
+): Promise<void> {
+  const projectRoot = process.cwd();
+
+  // Load config
+  const config = loadConfig(projectRoot, {
+    mock: options.mock,
+    model: options.model,
+    provider: options.provider as "anthropic" | "openai-compatible" | undefined,
+    baseURL: options.baseUrl,
+  });
+
+  // Resolve target (handles directory recursion)
+  const resolved = await resolveTarget(target, projectRoot, options);
+  if (!resolved) return; // directory handled via recursion
+  const { targetPath, language } = resolved;
+
+  // Validate config (API key etc.)
+  const errors = validateConfig(config, "infer");
+  if (errors.length > 0) {
+    for (const err of errors) console.error(`\n  Error: ${err}\n`);
+    process.exit(2);
+  }
+
+  // Warn if --mock is used but a real API key is present
+  if (config.mock && config.apiKey) {
+    console.log("  Note: --mock mode active. API key is set but will not be used.\n");
+  }
+
+  // Ensure .propcheck/ exists
+  await initStore(projectRoot, config.storeDir);
+  const storeDir = path.join(projectRoot, config.storeDir);
+
+  // Read and parse source
+  const source = await fs.readFile(targetPath, "utf8");
+  const context: AnalysisContext = language === "python"
+    ? analyzePythonFile(targetPath, source)
+    : analyzeFile(targetPath, source, language);
+
+  // Filter to specific functions if --function provided
+  const inferContext = applyFunctionFilter(context, options);
+  if (!inferContext) return;
+
+  console.log(`\n  Analyzing ${inferContext.functions.length} function${inferContext.functions.length === 1 ? "" : "s"} in ${target}...`);
+
+  // Parse numeric options
+  const numericOpts = parseNumericOptions(options);
+
+  // Infer properties via LLM
+  let result = await runLlmInference(config, inferContext, numericOpts);
+  result = { ...result, properties: applyRiskMetadata(result.properties, inferContext) };
+
+  if (result.properties.length === 0) {
+    console.log("  No properties inferred (all filtered out by quality scoring).\n");
+    return;
+  }
+
+  // Validate properties
+  let finalProperties = options.skipValidation
+    ? result.properties
+    : await runValidationPipeline(
+        result.properties, targetPath, storeDir, source, language,
+        config, inferContext, numericOpts, options,
+      );
+
+  if (finalProperties.length === 0) {
+    console.log("  No properties survived validation.\n");
+    return;
+  }
+
+  // Interactive confirmation
+  const confirmed = await applyConfirmation(finalProperties, options);
+  if (!confirmed) return;
+  finalProperties = confirmed;
+
+  // Persist and report
+  await persistAndReport(finalProperties, result, targetPath, storeDir, source, projectRoot);
+}
+
+/** Format a function signature for display (e.g. "add(a: number, b: number): number"). */
+function formatFunctionSignature(fn: FunctionSignature): string {
+  const params = fn.parameters
+    .map((p) => {
+      let s = p.isRest ? `...${p.name}` : p.name;
+      if (p.isOptional && !p.isRest) s += "?";
+      if (p.type) s += `: ${p.type}`;
+      return s;
+    })
+    .join(", ");
+  const ret = fn.returnType ? `: ${fn.returnType}` : "";
+  const prefix = fn.isAsync ? "async " : "";
+  return `${prefix}${fn.name}(${params})${ret}`;
+}
+
+/** Apply --function filter; returns null if no functions to analyze. */
+function applyFunctionFilter(
+  context: AnalysisContext,
+  options: InferOptions,
+): AnalysisContext | null {
+  let inferContext = context;
+
+  if (options.function) {
+    const names = options.function.split(",").map((n) => n.trim()).filter(Boolean);
+    const missing = names.filter(
+      (name) => !context.functions.some((fn) => matchesFunctionName(fn, name)),
+    );
+    if (missing.length > 0) {
+      console.error(`\n  Error: Function(s) not found: ${missing.join(", ")}`);
+      console.error(`  Available exported functions:`);
+      for (const fn of context.functions) {
+        console.error(`    • ${formatFunctionSignature(fn)}`);
+      }
+      console.error();
+      process.exit(2);
+    }
+    inferContext = filterContextByFunctions(context, names);
+  }
+
+  if (inferContext.functions.length === 0) {
+    console.log(`\n  No exported functions found in ${context.filePath}\n`);
+    return null;
+  }
+
+  return inferContext;
 }

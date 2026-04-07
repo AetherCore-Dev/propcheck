@@ -4,7 +4,17 @@ dist/
 .propcheck/config.json
 .propcheck/tests/
 .propcheck/corpus/
+.propcheck/reports/
 .env
 .env.local
 *.log
 *.tgz
+
+# Temp files from propcheck fix/validation
+.tmp_*.js
+*.fix.tmp.*.ts
+*.fix.tmp.*.js
+
+# Editor / OS
+.DS_Store
+.claude/settings.local.json

@@ -17,14 +17,7 @@ import {
 } from "@propcheck/reporter";
 import { toForwardSlash } from "@propcheck/common";
 import type { PropertyStatus, PropertySet, PropertyDefinition } from "@propcheck/common";
-
-const VALID_STATUSES = new Set<PropertyStatus>([
-  "accepted",
-  "risky",
-  "refined",
-  "quarantined",
-  "dropped",
-]);
+import { VALID_STATUSES, formatStatusError } from "./shared/status-info";
 
 interface PropertyOptions {
   status?: string;
@@ -63,9 +56,7 @@ export async function propertyCommand(
   // If --status is provided, update the property status
   if (options.status) {
     if (!VALID_STATUSES.has(options.status as PropertyStatus)) {
-      console.error(
-        `\n  Invalid status: "${options.status}". Must be one of: ${[...VALID_STATUSES].join(", ")}\n`,
-      );
+      console.error(formatStatusError(options.status));
       process.exit(2);
     }
 

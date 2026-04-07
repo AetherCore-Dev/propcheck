@@ -175,3 +175,6 @@ export { mockRefineProperties } from "./mock-refinement";
 export { diagnoseViolation, generateFix, DIAGNOSE_SYSTEM_PROMPT, DIAGNOSE_TOOL, FIX_SYSTEM_PROMPT, FIX_TOOL, buildDiagnosePrompt, buildFixPrompt } from "./prompts/fix";
 export type { FixResult } from "./prompts/fix";
 export { mockDiagnoseViolation, mockGenerateFix } from "./mock-fix";
+export { generateAdaptiveProperties, mapParamGenerators, selectCategories, buildSeedInputs } from "./adaptive-generator";
+export type { RawMockProperty } from "./adaptive-generator";
+export { extractSignaturesFromPrompt } from "./mock-client";

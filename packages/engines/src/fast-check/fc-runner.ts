@@ -60,7 +60,13 @@ export async function runFastCheckTest(
   } finally {
     // Clean up .mts copy
     if (mtsPath) {
-      try { fs.unlinkSync(mtsPath); } catch {}
+      try {
+        fs.unlinkSync(mtsPath);
+      } catch (e) {
+        if (e instanceof Error && (e as NodeJS.ErrnoException).code !== "ENOENT") {
+          console.warn(`  Warning: Failed to clean up ${mtsPath}: ${(e as Error).message}`);
+        }
+      }
     }
   }
 }

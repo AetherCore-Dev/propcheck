@@ -24,43 +24,27 @@ export function mockDiagnoseViolation(
 }
 
 /**
- * Mock fix: applies a simple boundary-clamping fix to the source code.
+ * Mock fix: adds guard comments to the source code for each diagnosed bug.
  *
- * For testing, this wraps numeric parameters with Math.min/Math.max clamps
- * or adds early-return guards for edge cases.
+ * This is a simple mock that prepends fix comments — real LLM fix would
+ * generate actual code changes.
  */
 export function mockGenerateFix(
   sourceCode: string,
   diagnoses: readonly Diagnosis[],
 ): FixResult {
-  // Simple mock: add a comment noting the fix location for each diagnosed bug
   let fixedSource = sourceCode;
   const changedFunctions: string[] = [];
 
   for (const d of diagnoses) {
     if (!d.isBug) continue;
-
-    // Find function containing the bug (naive: look for "function <name>" or "export function <name>")
-    const funcPattern = new RegExp(
-      `((?:export\\s+)?function\\s+${escapeRegExp(d.propertyId.split("_")[0] ?? "")}\\s*\\()`,
-    );
-    const match = fixedSource.match(funcPattern);
-
-    if (!match) {
-      // Can't find the function — just add a guard comment at the top
-      fixedSource = `// [propcheck fix] Applied mock fix for ${d.propertyId}\n${fixedSource}`;
-    }
+    fixedSource = `// [propcheck fix] Applied mock fix for ${d.propertyId}\n${fixedSource}`;
   }
 
-  // For mock, return source with minimal changes
   return {
     fixedSource,
     explanation: `Mock fix: applied guards for ${diagnoses.filter((d) => d.isBug).length} diagnosed bug(s)`,
     changedFunctions,
     confidence: 0.7,
   };
-}
-
-function escapeRegExp(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

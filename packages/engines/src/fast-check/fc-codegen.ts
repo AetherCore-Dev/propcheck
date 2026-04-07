@@ -353,11 +353,11 @@ export function generateFastCheckTest(
     lines.push(``);
     lines.push(fcImport);
     lines.push(`const __dirname = dirname(fileURLToPath(import.meta.url));`);
-    lines.push(`const __targetPath = resolve(__dirname, "${importPathStr}");`);
+    lines.push(`const __targetPath = resolve(__dirname, ${JSON.stringify(importPathStr)});`);
     lines.push(`const target = await import(pathToFileURL(__targetPath).href);`);
   } else {
     lines.push(fcImport);
-    lines.push(`const target = require("${importPathStr}");`);
+    lines.push(`const target = require(${JSON.stringify(importPathStr)});`);
   }
 
   lines.push(``);

@@ -10,6 +10,8 @@
  */
 
 import type { LlmClient, ApiResponse, LlmToolSchema, LlmCallOptions } from "./client";
+import type { FunctionSignature, ParameterInfo } from "@propcheck/common";
+import { generateAdaptiveProperties } from "./adaptive-generator";
 
 /**
  * Mock responses keyed by function name.
@@ -582,6 +584,105 @@ const FUNCTION_PROPERTIES: Record<string, readonly unknown[]> = {
   ],
 };
 
+// ---------------------------------------------------------------------------
+// Prompt parser — extract FunctionSignature from the structured prompt
+// ---------------------------------------------------------------------------
+
+/** Parse a single parameter string like "name?: Type = default" into ParameterInfo. */
+function parseParameter(part: string): ParameterInfo | null {
+  const trimmed = part.trim();
+  if (!trimmed) return null;
+
+  const isRest = trimmed.startsWith("...");
+  const cleaned = isRest ? trimmed.slice(3) : trimmed;
+
+  const paramMatch = cleaned.match(/^(\w+)(\?)?(?:\s*:\s*([^=]+?))?(?:\s*=\s*(.+))?$/);
+  if (!paramMatch) return null;
+
+  return {
+    name: paramMatch[1],
+    isOptional: paramMatch[2] === "?",
+    type: paramMatch[3]?.trim() ?? null,
+    defaultValue: paramMatch[4]?.trim() ?? null,
+    isRest,
+  };
+}
+
+/** Parse a signature line into parameters, return type, and async flag. */
+function parseSignatureLine(afterHeading: string): {
+  parameters: ParameterInfo[];
+  returnType: string | null;
+  isAsync: boolean;
+} {
+  const sigMatch = afterHeading.match(/^Signature:\s*(?:async\s+)?function\s+\S+\(([^)]*)\)(?:\s*:\s*(.+))?/m);
+  if (!sigMatch) return { parameters: [], returnType: null, isAsync: false };
+
+  const sigLine = afterHeading.match(/^Signature:\s*(.*)/m);
+  const isAsync = !!sigLine && /^async\s+/.test(sigLine[1].trim());
+  const returnType = sigMatch[2]?.trim() ?? null;
+
+  const parameters: ParameterInfo[] = [];
+  const paramsStr = sigMatch[1].trim();
+  if (paramsStr.length > 0) {
+    for (const part of splitParams(paramsStr)) {
+      const param = parseParameter(part);
+      if (param) parameters.push(param);
+    }
+  }
+
+  return { parameters, returnType, isAsync };
+}
+
+/**
+ * Parse function signatures from the inference prompt text.
+ */
+export function extractSignaturesFromPrompt(prompt: string): readonly FunctionSignature[] {
+  const signatures: FunctionSignature[] = [];
+  const headingRegex = /^### (\S+)/gm;
+  let match: RegExpExecArray | null;
+
+  while ((match = headingRegex.exec(prompt)) !== null) {
+    const qualifiedName = match[1];
+    const name = qualifiedName.includes(".")
+      ? qualifiedName.split(".").pop()!
+      : qualifiedName;
+
+    const afterHeading = prompt.slice(match.index + match[0].length);
+    const { parameters, returnType, isAsync } = parseSignatureLine(afterHeading);
+
+    const docMatch = afterHeading.match(/^Documentation:\s*(.+)/m);
+    const docstring = docMatch ? docMatch[1].trim() : null;
+
+    signatures.push({
+      name, qualifiedName, parameters, returnType, docstring,
+      visibility: "public", isAsync, isGenerator: false,
+      loc: { startLine: 0, endLine: 0, startColumn: 0, endColumn: 0 },
+    });
+  }
+
+  return signatures;
+}
+
+/** Split parameter string respecting nested angle brackets and parens. */
+function splitParams(paramsStr: string): string[] {
+  const parts: string[] = [];
+  let depth = 0;
+  let current = "";
+
+  for (const ch of paramsStr) {
+    if (ch === "<" || ch === "(" || ch === "[" || ch === "{") depth++;
+    if (ch === ">" || ch === ")" || ch === "]" || ch === "}") depth = Math.max(0, depth - 1);
+    if (ch === "," && depth === 0) {
+      parts.push(current);
+      current = "";
+    } else {
+      current += ch;
+    }
+  }
+  if (current.trim()) parts.push(current);
+  return parts;
+}
+
 /** Create a mock LLM client that returns canned responses. */
 export function createMockClient(): LlmClient {
   return {
@@ -602,29 +703,47 @@ export function createMockClient(): LlmClient {
       // Collect properties for ALL functions found in the prompt
       const allProperties: unknown[] = [];
       const matchedFunctions: string[] = [];
+      const unmatchedFunctions: string[] = [];
 
       for (const funcName of promptFuncNames) {
         const props = FUNCTION_PROPERTIES[funcName];
         if (props) {
           allProperties.push(...props);
           matchedFunctions.push(funcName);
+        } else {
+          unmatchedFunctions.push(funcName);
         }
       }
 
-      if (matchedFunctions.length === 0) {
+      // Adaptive generation for unmatched functions
+      if (unmatchedFunctions.length > 0) {
+        const signatures = extractSignaturesFromPrompt(userPrompt);
+        for (const sig of signatures) {
+          // Skip functions already matched by hardcoded map
+          if (matchedFunctions.includes(sig.name) || matchedFunctions.includes(sig.qualifiedName)) {
+            continue;
+          }
+          const adaptiveProps = generateAdaptiveProperties(sig);
+          allProperties.push(...adaptiveProps);
+        }
+      }
+
+      // Final fallback (should never trigger with adaptive generator)
+      if (allProperties.length === 0) {
+        const fallbackName = promptFuncNames[0] ?? "unknown";
         allProperties.push({
-          targetFunction: promptFuncNames[0] ?? "unknown",
-          description: "Output type is consistent",
-          category: "type-preservation",
-          assertion: "typeof result !== 'undefined'",
-          generators: { x: { type: "integer" } },
+          targetFunction: fallbackName,
+          description: `${fallbackName} should return a defined, non-null value`,
+          category: "boundary",
+          assertion: `(() => { const r = ${fallbackName}(x); return r !== null && r !== undefined; })()`,
+          generators: { x: { type: "integer", constraints: { min: -100, max: 100 } } },
           seedInputs: [
             { label: "normal", value: { x: 1 } },
             { label: "boundary", value: { x: 0 } },
             { label: "extreme", value: { x: -1 } },
           ],
-          evidence: "function should return a defined value",
-          confidence: 0.5,
+          evidence: `Signature: ${fallbackName} should produce a meaningful result`,
+          confidence: 0.85,
         });
       }
 

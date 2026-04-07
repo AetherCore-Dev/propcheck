@@ -200,12 +200,21 @@ export async function fixCommand(
     process.exit(2);
   }
 
+  // Guard against excessively large files (prevent unbounded API spend)
+  const MAX_SOURCE_BYTES = 500_000;
+  const fileStat = fs.statSync(targetPath);
+  if (fileStat.size > MAX_SOURCE_BYTES) {
+    console.error(`\n  Error: File too large (${fileStat.size} bytes). Max: ${MAX_SOURCE_BYTES} bytes.\n`);
+    process.exit(2);
+  }
+
   // Validate config (API key etc.) — after file check passes
   const errors = validateConfig(config, "fix");
   if (errors.length > 0) {
     for (const err of errors) {
-      console.error(`\n  ${err}`);
+      console.error(`\n  Error: ${err}`);
     }
+    console.error();
     process.exit(2);
   }
 
@@ -328,12 +337,12 @@ export async function fixCommand(
   console.log(`\n  ${confirmedBugs.length} confirmed bug(s). Generating fix...`);
 
   // Step 4 & 5: Generate fix with verification loop
-  const maxAttemptsRaw = parseInt(options.maxAttempts ?? "3", 10);
-  if (options.maxAttempts !== undefined && isNaN(maxAttemptsRaw)) {
-    console.error(`\n  Error: --max-attempts must be a number, got "${options.maxAttempts}"\n`);
+  const maxAttemptsRaw = Number(options.maxAttempts ?? "3");
+  if (options.maxAttempts !== undefined && (!Number.isInteger(maxAttemptsRaw) || maxAttemptsRaw < 1)) {
+    console.error(`\n  Error: --max-attempts must be an integer (1-5), got "${options.maxAttempts}"\n`);
     process.exit(2);
   }
-  const maxAttempts = Math.min(Math.max(1, maxAttemptsRaw || 3), 5);
+  const maxAttempts = Math.min(Math.max(1, maxAttemptsRaw), 5);
   let bestFix: FixResult | null = null;
   let verificationResult: ExecutionResult | null = null;
   let retryFeedback: string | undefined;
@@ -361,6 +370,13 @@ export async function fixCommand(
 
     if (!fix) {
       console.log(`  Fix generation failed (attempt ${attempt}/${maxAttempts})`);
+      continue;
+    }
+
+    // Guard against oversized LLM responses
+    const MAX_FIXED_SOURCE_BYTES = 1_000_000;
+    if (Buffer.byteLength(fix.fixedSource, "utf8") > MAX_FIXED_SOURCE_BYTES) {
+      console.error(`\n  Error: LLM fix response too large (${Buffer.byteLength(fix.fixedSource, "utf8")} bytes). Skipping.\n`);
       continue;
     }
 
@@ -499,9 +515,15 @@ export async function fixCommand(
 
   // Apply if requested
   if (options.apply && allPassed) {
+    // Create backup — don't overwrite existing .bak (preserve original)
+    const baseBakPath = targetPath + ".bak";
+    const backupPath = fs.existsSync(baseBakPath)
+      ? `${targetPath}.bak.${Date.now()}`
+      : baseBakPath;
+    await fsPromises.writeFile(backupPath, sourceCode, "utf8");
     await fsPromises.writeFile(targetPath, bestFix.fixedSource, "utf8");
     if (!options.json) {
-      console.log(`  Applied fix to ${target}\n`);
+      console.log(`  Applied fix to ${target} (backup: ${path.basename(backupPath)})\n`);
     }
   } else if (!options.apply && allPassed && !options.json) {
     console.log(`  Run: propcheck fix ${target} --apply  to apply this fix\n`);

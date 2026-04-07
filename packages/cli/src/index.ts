@@ -42,8 +42,14 @@ const program = new Command();
 
 program
   .name("propcheck")
-  .description("AI-powered property-based testing — find bugs your tests miss")
-  .version("0.3.1")
+  .description(
+    "AI-powered property-based testing — find bugs your tests miss\n\n" +
+    "Exit codes:\n" +
+    "  0  All tests passed (or nothing to test)\n" +
+    "  1  Test failure found (bug detected)\n" +
+    "  2  Configuration or setup error"
+  )
+  .version("0.4.2")
   .option("--no-color", "Disable colored output")
   .hook("preAction", () => {
     if (program.opts().color === false) {
@@ -68,6 +74,7 @@ program
   .option("--function <names>", "Only analyze specific functions (comma-separated)")
   .option("--skip-validation", "Skip trial-run validation of discovered rules")
   .option("--refine", "Run a second AI pass to strengthen weak rules")
+  .option("--confirm", "Review each rule before saving (interactive)")
   .action(inferCommand);
 
 program
@@ -81,6 +88,7 @@ program
   .option("--skip <ids>", "Skip specific rules by ID (comma-separated)")
   .option("--only <ids>", "Only run specific rules by ID (comma-separated)")
   .option("--include-quarantined", "Also test quarantined (fragile) rules")
+  .option("--ignore-stale", "Suppress stale source file warnings")
   .action(runCommand);
 
 program
