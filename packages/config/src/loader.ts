@@ -88,7 +88,12 @@ export function loadConfig(
     config = { ...config, mock: true };
   }
   if (envBaseURL) {
-    config = { ...config, baseURL: envBaseURL };
+    const urlResult = z.string().url().safeParse(envBaseURL);
+    if (urlResult.success) {
+      config = { ...config, baseURL: urlResult.data };
+    } else {
+      console.warn(`  Warning: PROPCHECK_BASE_URL is not a valid URL — ignored.`);
+    }
   }
   if (envProvider === "anthropic" || envProvider === "openai-compatible") {
     config = { ...config, provider: envProvider };

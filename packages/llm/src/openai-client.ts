@@ -208,8 +208,9 @@ function sanitizeErrorMessage(err: unknown): string {
   const raw = err instanceof Error ? err.message : typeof err === "string" ? err : String(err);
   return raw
     .replace(/Bearer\s+\S+/gi, "Bearer [REDACTED]")
-    .replace(/sk-[a-zA-Z0-9_-]{10,}/g, "sk-[REDACTED]")
-    .replace(/key[=:]\s*\S+/gi, "key=[REDACTED]");
+    .replace(/\b(?:sk-|sk_|hf_|ghp_|gho_|ghu_|ghs_|ghr_)[a-zA-Z0-9_-]{10,}/g, "[REDACTED]")
+    .replace(/key[=:]\s*\S+/gi, "key=[REDACTED]")
+    .replace(/\beyJ[a-zA-Z0-9_-]{20,}\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+/g, "[JWT_REDACTED]");
 }
 
 function sleep(ms: number): Promise<void> {

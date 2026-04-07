@@ -1,14 +1,21 @@
 node_modules/
 dist/
+dist-bundle/
 *.tsbuildinfo
 .propcheck/config.json
 .propcheck/tests/
 .propcheck/corpus/
 .propcheck/reports/
 .env
-.env.local
+.env.*
 *.log
 *.tgz
+
+# Auth / secrets
+.npmrc
+*.pem
+*.key
+*.cert
 
 # Coverage
 coverage/
