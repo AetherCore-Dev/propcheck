@@ -23,3 +23,6 @@ jobs:
           mock: "true"
           comment: "true"
           fail-on-violation: "true"
+          # For real LLM mode, uncomment:
+          # mock: "false"
+          # api-key: ${{ secrets.PROPCHECK_API_KEY }}

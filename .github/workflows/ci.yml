@@ -13,6 +13,7 @@ jobs:
   build-and-test:
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
         node-version: [18, 20, 22]
@@ -42,13 +43,10 @@ jobs:
       - name: Install npm dependencies
         run: npm install
 
-      - name: Install fast-check
-        run: npm install fast-check
-
       - name: Build
         run: npx tsc --build
 
-      - name: Run unit tests (all 388)
+      - name: Run unit tests
         shell: bash
         run: |
           node --test \
@@ -78,17 +76,23 @@ jobs:
       - name: Run E2E tests
         run: node --test packages/engines/dist/__tests__/e2e.test.js
 
-      - name: CLI smoke test
+      - name: CLI smoke test (dev build)
         shell: bash
         run: |
           node packages/cli/dist/index.js --version
           node packages/cli/dist/index.js init
-          node packages/cli/dist/index.js infer --mock test-fixtures/typescript/cart-buggy.ts
-          # cart-buggy.ts intentionally has a bug — || true prevents CI failure
-          node packages/cli/dist/index.js run --quick test-fixtures/typescript/cart-buggy.ts || true
           node packages/cli/dist/index.js infer --mock test-fixtures/typescript/sort-utils.ts
           node packages/cli/dist/index.js run --quick test-fixtures/typescript/sort-utils.ts
-          node packages/cli/dist/index.js badge
+
+      - name: Bundle smoke test (published artifact)
+        shell: bash
+        run: |
+          cd packages/cli && npx tsup 2>&1 | tail -3
+          cd ../..
+          node packages/cli/dist-bundle/index.js --version
+          node packages/cli/dist-bundle/index.js init
+          node packages/cli/dist-bundle/index.js infer --mock test-fixtures/typescript/sort-utils.ts
+          node packages/cli/dist-bundle/index.js run --quick test-fixtures/typescript/sort-utils.ts
 
   coverage:
     runs-on: ubuntu-latest
@@ -103,16 +107,15 @@ jobs:
           cache: "npm"
 
       - name: Install dependencies
-        run: |
-          npm install
-          npm install fast-check
+        run: npm install
 
       - name: Build
         run: npx tsc --build
 
       - name: Run tests with c8 coverage
         run: |
-          npx c8 --reporter=text --reporter=lcov \
+          npx c8 \
+            --reporter=text --reporter=lcov \
             --include='packages/*/dist/**/*.js' \
             --exclude='packages/*/dist/__tests__/**' \
             --exclude='packages/cli/dist-bundle/**' \

@@ -6,7 +6,8 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc --build",
-    "clean": "tsc --build --clean"
+    "clean": "tsc --build --clean",
+    "test": "node --test dist/__tests__/config.test.js"
   },
   "dependencies": {
     "@propcheck/common": "*",
