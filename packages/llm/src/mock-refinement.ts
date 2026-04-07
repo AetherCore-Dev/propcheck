@@ -24,7 +24,7 @@ export function mockRefineProperties(
         const strengthened: PropertyDefinition = {
           ...c.property,
           id: `prop_${idCounter++}`,
-          score: Math.min(c.property.score + 2, 15),
+          score: Math.min(c.property.score + 2, 13),
           confidence: Math.min(c.property.confidence + 0.1, 1.0),
           description: c.property.description + " (strengthened)",
         };

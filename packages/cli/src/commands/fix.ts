@@ -218,6 +218,14 @@ export async function fixCommand(
     process.exit(2);
   }
 
+  // Validate numeric options early (before expensive work)
+  const maxAttemptsRaw = Number(options.maxAttempts ?? "3");
+  if (options.maxAttempts !== undefined && (!Number.isInteger(maxAttemptsRaw) || maxAttemptsRaw < 1)) {
+    console.error(`\n  Error: --max-attempts must be an integer (1-5), got "${options.maxAttempts}"\n`);
+    process.exit(2);
+  }
+  const maxAttempts = Math.min(Math.max(1, maxAttemptsRaw), 5);
+
   const moduleKey = toForwardSlash(path.relative(projectRoot, targetPath));
   const storeDir = path.join(projectRoot, config.storeDir);
 
@@ -337,12 +345,6 @@ export async function fixCommand(
   console.log(`\n  ${confirmedBugs.length} confirmed bug(s). Generating fix...`);
 
   // Step 4 & 5: Generate fix with verification loop
-  const maxAttemptsRaw = Number(options.maxAttempts ?? "3");
-  if (options.maxAttempts !== undefined && (!Number.isInteger(maxAttemptsRaw) || maxAttemptsRaw < 1)) {
-    console.error(`\n  Error: --max-attempts must be an integer (1-5), got "${options.maxAttempts}"\n`);
-    process.exit(2);
-  }
-  const maxAttempts = Math.min(Math.max(1, maxAttemptsRaw), 5);
   let bestFix: FixResult | null = null;
   let verificationResult: ExecutionResult | null = null;
   let retryFeedback: string | undefined;

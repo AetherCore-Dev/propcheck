@@ -51,12 +51,12 @@ describe("mockRefineProperties", () => {
     assert.ok(result[0].description.includes("strengthened"));
   });
 
-  it("caps score at 15 for weak properties", () => {
+  it("caps score at 13 for weak properties", () => {
     const classifications: PropertyClassification[] = [
-      { kind: "weak", property: makeProperty({ score: 14 }), reason: "low score" },
+      { kind: "weak", property: makeProperty({ score: 12 }), reason: "low score" },
     ];
     const result = mockRefineProperties(classifications);
-    assert.equal(result[0].score, 15);
+    assert.equal(result[0].score, 13);
   });
 
   it("caps confidence at 1.0 for weak properties", () => {

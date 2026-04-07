@@ -524,35 +524,38 @@ export function generateAdaptiveProperties(
   }
 
   // Pad to minimum 3 with fallback properties
-  padToMinimumProperties(properties, usedAssertions, sig, generators);
+  const padded = padToMinimumProperties(properties, usedAssertions, sig, generators);
 
-  return properties;
+  return padded;
 }
 
 /** Ensure at least 3 properties by adding fallback boundary/type checks. */
 function padToMinimumProperties(
-  properties: RawMockProperty[],
-  usedAssertions: Set<string>,
+  properties: readonly RawMockProperty[],
+  usedAssertions: ReadonlySet<string>,
   sig: FunctionSignature,
   generators: Readonly<Record<string, GeneratorSpec>>,
-): void {
-  if (properties.length >= 3) return;
+): readonly RawMockProperty[] {
+  if (properties.length >= 3) return properties;
+
+  const result = [...properties];
+  const seen = new Set(usedAssertions);
 
   const boundary = buildBoundaryProperty(sig, generators);
-  if (boundary && !usedAssertions.has(boundary.assertion)) {
-    usedAssertions.add(boundary.assertion);
-    properties.push(boundary);
+  if (boundary && !seen.has(boundary.assertion)) {
+    seen.add(boundary.assertion);
+    result.push(boundary);
   }
 
-  if (properties.length >= 3) return;
+  if (result.length >= 3) return result;
 
   const typeCheck = buildTypePreservationProperty(sig, generators);
-  if (typeCheck && !usedAssertions.has(typeCheck.assertion)) {
-    usedAssertions.add(typeCheck.assertion);
-    properties.push(typeCheck);
+  if (typeCheck && !seen.has(typeCheck.assertion)) {
+    seen.add(typeCheck.assertion);
+    result.push(typeCheck);
   }
 
-  if (properties.length >= 3) return;
+  if (result.length >= 3) return result;
 
   const call = buildCallExpr(sig.name, sig.parameters);
   const genericProp = buildProp(sig, "boundary", generators,
@@ -560,7 +563,9 @@ function padToMinimumProperties(
     `${sig.name} should return a defined, non-null value`,
     `Generic safety check for ${sig.name}`,
   );
-  if (!usedAssertions.has(genericProp.assertion)) {
-    properties.push(genericProp);
+  if (!seen.has(genericProp.assertion)) {
+    result.push(genericProp);
   }
+
+  return result;
 }

@@ -25,7 +25,7 @@ interface ConfirmResult {
 }
 
 /** User action for a single property. */
-type UserAction = "accept" | "quarantine" | "drop" | "accept-all" | "quit";
+type UserAction = "accept" | "quarantine" | "drop" | "accept-all" | "quit" | "unknown";
 
 // ANSI codes
 const RESET = "\x1b[0m";
@@ -74,20 +74,21 @@ function parseUserInput(answer: string): UserAction {
     case "d": case "drop": return "drop";
     case "A": case "all": return "accept-all";
     case "Q": case "quit": return "quit";
-    default: return "accept";
+    default: return "unknown";
   }
 }
 
 /** Log feedback for a user action. */
-function logAction(action: UserAction, isDefault: boolean): void {
+function logAction(action: UserAction): void {
   const messages: Record<UserAction, string> = {
-    "accept": isDefault ? "→ Accepted (unrecognized input, defaulting to accept)" : "→ Accepted",
+    "accept": "→ Accepted",
     "quarantine": "→ Quarantined (won't run in CI by default)",
     "drop": "→ Dropped (will not be saved)",
     "accept-all": "→ Accepted (accepting all remaining)",
     "quit": "", // handled separately
+    "unknown": "", // handled separately (re-prompt)
   };
-  if (action !== "quit") {
+  if (action !== "quit" && action !== "unknown") {
     console.log(`  ${DIM}${messages[action]}${RESET}`);
   }
 }
@@ -118,9 +119,16 @@ export async function confirmProperties(
       if (acceptAll) { accepted.push(prop); continue; }
 
       displayProperty(prop, i, properties.length);
-      const raw = await askQuestion(rl, `\n  ${BOLD}Action [a/q/d/A/Q]:${RESET} `);
-      const action = parseUserInput(raw);
-      const isUnrecognized = raw !== "" && !["a","q","d","A","Q","accept","quarantine","drop","all","quit"].includes(raw);
+
+      // Re-prompt loop for unrecognized input
+      let action: UserAction = "unknown";
+      while (action === "unknown") {
+        const raw = await askQuestion(rl, `\n  ${BOLD}Action [a/q/d/A/Q]:${RESET} `);
+        action = parseUserInput(raw);
+        if (action === "unknown") {
+          console.log(`  ${DIM}→ Unrecognized: "${raw}". Use (a)ccept, (q)uarantine, (d)rop, (A)ll, (Q)uit${RESET}`);
+        }
+      }
 
       switch (action) {
         case "accept":
@@ -143,7 +151,7 @@ export async function confirmProperties(
           }
           return { accepted, quarantined, dropped };
       }
-      logAction(action, isUnrecognized);
+      logAction(action);
     }
   } finally {
     rl.close();

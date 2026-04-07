@@ -142,9 +142,10 @@ describe("confirmProperties", () => {
     assert.equal(result.dropped.length, 1);
   });
 
-  it("should default to accept for unrecognized input", async () => {
+  it("should re-prompt on unrecognized input then accept", async () => {
     const props = [makeProperty("prop_001")];
-    const result = await runConfirmWithInputs(props, ["xyz"]);
+    // "xyz" is unrecognized → re-prompt, then "a" accepts
+    const result = await runConfirmWithInputs(props, ["xyz", "a"]);
     assert.equal(result.accepted.length, 1);
   });
 });
