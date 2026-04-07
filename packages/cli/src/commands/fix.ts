@@ -301,7 +301,9 @@ export async function fixCommand(
   // Step 2: Create LLM client
   const llmClient: LlmClient | null = config.mock
     ? null
-    : createClient(config.apiKey!, config.model, config.provider, config.baseURL);
+    : config.apiKey
+      ? createClient(config.apiKey, config.model, config.provider, config.baseURL)
+      : null;
 
   // Step 3: Diagnose each violation
   console.log("  Diagnosing violations...");
@@ -429,7 +431,16 @@ export async function fixCommand(
       break;
     }
 
+    // Null guard: verification may have failed entirely
+    if (!verificationResult) {
+      console.log(`  Verification did not complete (attempt ${attempt}/${maxAttempts})`);
+      retryFeedback = "Verification could not run — the fixed source may have syntax errors.";
+      continue;
+    }
+
     // Build retry feedback
+    const failCount = verificationResult.failed.length;
+    const errCount = verificationResult.errors.length;
     const newFailures = verificationResult.failed
       .map((f) => {
         const p = activeProperties.find((prop) => prop.id === f.propertyId);
@@ -440,11 +451,11 @@ export async function fixCommand(
       .map((e) => `- ${e.propertyId}: ${e.errorMessage.slice(0, 200)}`)
       .join("\n");
 
-    retryFeedback = `Your fix broke ${verificationResult.failed.length} property/properties and caused ${verificationResult.errors.length} error(s):\n\n`;
+    retryFeedback = `Your fix broke ${failCount} propert${failCount === 1 ? "y" : "ies"} and caused ${errCount} error(s):\n\n`;
     if (newFailures) retryFeedback += `Failures:\n${newFailures}\n\n`;
     if (newErrors) retryFeedback += `Errors:\n${newErrors}\n`;
 
-    console.log(`  Verification failed: ${verificationResult.failed.length} failure(s), ${verificationResult.errors.length} error(s)`);
+    console.log(`  Verification failed: ${failCount} failure(s), ${errCount} error(s)`);
   }
 
   if (!bestFix) {

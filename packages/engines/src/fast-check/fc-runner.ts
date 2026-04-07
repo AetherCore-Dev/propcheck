@@ -2,7 +2,7 @@
  * fast-check test runner — spawns Node.js to execute generated test files.
  */
 
-import * as fs from "node:fs";
+import * as fsPromises from "node:fs/promises";
 import * as path from "node:path";
 import type { PropertyDefinition, RunConfig, ExecutionResult } from "@propcheck/common";
 import { runProcess } from "../shared/process-runner";
@@ -22,13 +22,12 @@ export async function runFastCheckTest(
 ): Promise<ExecutionResult> {
   const startTime = Date.now();
   const cwd = path.dirname(testFilePath);
-  const isESM = testFilePath.endsWith(".mjs");
 
   // Create .mts copy if needed (CJS+TS compatibility)
   let mtsPath: string | null = null;
   if (options?.needsMtsCopy && options.targetFile) {
     mtsPath = options.targetFile.replace(/\.ts$/, ".mts").replace(/\.tsx$/, ".mtsx");
-    fs.copyFileSync(options.targetFile, mtsPath);
+    await fsPromises.copyFile(options.targetFile, mtsPath);
   }
 
   try {
@@ -61,10 +60,10 @@ export async function runFastCheckTest(
     // Clean up .mts copy
     if (mtsPath) {
       try {
-        fs.unlinkSync(mtsPath);
+        await fsPromises.unlink(mtsPath);
       } catch (e) {
         if (e instanceof Error && (e as NodeJS.ErrnoException).code !== "ENOENT") {
-          console.warn(`  Warning: Failed to clean up ${mtsPath}: ${(e as Error).message}`);
+          console.warn(`  Warning: Failed to clean up ${mtsPath}: ${e.message}`);
         }
       }
     }
