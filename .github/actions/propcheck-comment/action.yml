@@ -1,0 +1,299 @@
+name: "propcheck PR Comment"
+description: "Run propcheck on PR changed files and post results as a PR comment"
+author: "AetherCore-Dev"
+
+branding:
+  icon: "message-square"
+  color: "blue"
+
+inputs:
+  mode:
+    description: "Run mode: quick (100x), default (1000x), thorough (10000x)"
+    required: false
+    default: "quick"
+  mock:
+    description: "Use mock mode (no API key needed, for demo/testing)"
+    required: false
+    default: "false"
+  api-key:
+    description: "LLM API key (only needed if properties not yet inferred)"
+    required: false
+  version:
+    description: "propcheck version to install"
+    required: false
+    default: "latest"
+  comment:
+    description: "Post PR comment with results (true/false)"
+    required: false
+    default: "true"
+  fail-on-violation:
+    description: "Fail the workflow if property violations found"
+    required: false
+    default: "true"
+
+outputs:
+  passed:
+    description: "Number of properties that passed"
+    value: ${{ steps.run.outputs.passed }}
+  failed:
+    description: "Number of properties that failed"
+    value: ${{ steps.run.outputs.failed }}
+  errors:
+    description: "Number of properties that errored"
+    value: ${{ steps.run.outputs.errors }}
+  total:
+    description: "Total properties tested"
+    value: ${{ steps.run.outputs.total }}
+  json:
+    description: "Full JSON results"
+    value: ${{ steps.run.outputs.json_file }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: "20"
+
+    - name: Install propcheck
+      shell: bash
+      run: npm install -g "propcheck@${{ inputs.version }}" fast-check typescript
+
+    - name: Detect changed files and run propcheck
+      id: run
+      shell: bash
+      env:
+        PROPCHECK_API_KEY: ${{ inputs.api-key }}
+        PROPCHECK_MOCK: ${{ inputs.mock }}
+      run: |
+        set -euo pipefail
+
+        MODE="${{ inputs.mode }}"
+        MODE_FLAG=""
+        case "$MODE" in
+          quick)    MODE_FLAG="--quick" ;;
+          thorough) MODE_FLAG="--thorough" ;;
+          *)        MODE_FLAG="" ;;
+        esac
+
+        # Detect changed source files in this PR
+        CHANGED_FILES=$(git diff --name-only --diff-filter=ACMR "${{ github.event.pull_request.base.sha }}" HEAD \
+          | grep -E '\.(ts|tsx|js|jsx|py)$' \
+          | grep -v 'node_modules\|dist/\|dist-bundle/\|\.propcheck/' \
+          || true)
+
+        if [ -z "$CHANGED_FILES" ]; then
+          echo "No source files changed in this PR."
+          echo "passed=0" >> $GITHUB_OUTPUT
+          echo "failed=0" >> $GITHUB_OUTPUT
+          echo "errors=0" >> $GITHUB_OUTPUT
+          echo "total=0" >> $GITHUB_OUTPUT
+          echo "no_files=true" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+
+        echo "Changed source files:"
+        echo "$CHANGED_FILES"
+        echo ""
+
+        # Ensure .propcheck/ exists
+        propcheck init 2>/dev/null || true
+
+        # Collect JSON results for all changed files
+        TOTAL_PASSED=0
+        TOTAL_FAILED=0
+        TOTAL_ERRORS=0
+        ALL_JSON="[]"
+        EXIT_CODE=0
+
+        for FILE in $CHANGED_FILES; do
+          if [ ! -f "$FILE" ]; then
+            continue
+          fi
+
+          echo "--- Testing: $FILE ---"
+
+          # Run propcheck with JSON output
+          JSON_OUTPUT=$(propcheck run $MODE_FLAG --json --ignore-stale "$FILE" 2>&1) || true
+
+          # Parse the JSON if valid
+          if echo "$JSON_OUTPUT" | python3 -c "import sys,json; json.load(sys.stdin)" 2>/dev/null; then
+            PASSED=$(echo "$JSON_OUTPUT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('summary',{}).get('passed',0))")
+            FAILED=$(echo "$JSON_OUTPUT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('summary',{}).get('failed',0))")
+            ERRORS=$(echo "$JSON_OUTPUT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('summary',{}).get('errors',0))")
+
+            TOTAL_PASSED=$((TOTAL_PASSED + PASSED))
+            TOTAL_FAILED=$((TOTAL_FAILED + FAILED))
+            TOTAL_ERRORS=$((TOTAL_ERRORS + ERRORS))
+
+            if [ "$FAILED" -gt 0 ] || [ "$ERRORS" -gt 0 ]; then
+              EXIT_CODE=1
+            fi
+
+            # Append to aggregated results
+            ALL_JSON=$(echo "$ALL_JSON" | python3 -c "
+        import sys, json
+        arr = json.load(sys.stdin)
+        arr.append(json.loads('''$JSON_OUTPUT'''))
+        print(json.dumps(arr))
+        " 2>/dev/null || echo "$ALL_JSON")
+          else
+            echo "  (no properties or parse error)"
+          fi
+        done
+
+        TOTAL=$((TOTAL_PASSED + TOTAL_FAILED + TOTAL_ERRORS))
+
+        # Write outputs
+        echo "passed=$TOTAL_PASSED" >> $GITHUB_OUTPUT
+        echo "failed=$TOTAL_FAILED" >> $GITHUB_OUTPUT
+        echo "errors=$TOTAL_ERRORS" >> $GITHUB_OUTPUT
+        echo "total=$TOTAL" >> $GITHUB_OUTPUT
+        echo "no_files=false" >> $GITHUB_OUTPUT
+
+        # Write full JSON to temp file
+        JSON_FILE=$(mktemp /tmp/propcheck-results-XXXXXX.json)
+        echo "$ALL_JSON" > "$JSON_FILE"
+        echo "json_file=$JSON_FILE" >> $GITHUB_OUTPUT
+
+        exit 0
+
+    - name: Post PR comment
+      if: inputs.comment == 'true' && github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      env:
+        PASSED: ${{ steps.run.outputs.passed }}
+        FAILED: ${{ steps.run.outputs.failed }}
+        ERRORS: ${{ steps.run.outputs.errors }}
+        TOTAL: ${{ steps.run.outputs.total }}
+        NO_FILES: ${{ steps.run.outputs.no_files }}
+        JSON_FILE: ${{ steps.run.outputs.json_file }}
+      with:
+        script: |
+          const fs = require('fs');
+
+          const passed = parseInt(process.env.PASSED || '0');
+          const failed = parseInt(process.env.FAILED || '0');
+          const errors = parseInt(process.env.ERRORS || '0');
+          const total = parseInt(process.env.TOTAL || '0');
+          const noFiles = process.env.NO_FILES === 'true';
+          const jsonFile = process.env.JSON_FILE;
+
+          // Build comment body
+          let body = '';
+          const MARKER = '<!-- propcheck-pr-comment -->';
+
+          if (noFiles) {
+            body = `${MARKER}
+          ## propcheck — No source files changed
+
+          No \`.ts\`, \`.js\`, or \`.py\` files were modified in this PR.
+
+          ---
+          > Powered by [propcheck](https://github.com/AetherCore-Dev/propcheck)`;
+
+          } else if (total === 0) {
+            body = `${MARKER}
+          ## propcheck — No properties to test
+
+          Changed files have no inferred properties yet.
+          Run \`propcheck infer <file>\` to discover properties.
+
+          ---
+          > Powered by [propcheck](https://github.com/AetherCore-Dev/propcheck)`;
+
+          } else {
+            const icon = failed > 0 ? '❌' : errors > 0 ? '⚠️' : '✅';
+            const headline = failed > 0
+              ? `Found **${failed} property violation${failed === 1 ? '' : 's'}**`
+              : `All **${passed} propert${passed === 1 ? 'y' : 'ies'}** passed`;
+
+            body = `${MARKER}
+          ## ${icon} propcheck — ${headline}
+
+          | Metric | Count |
+          |--------|-------|
+          | Properties tested | ${total} |
+          | ✅ Passed | ${passed} |
+          | ❌ Failed | ${failed} |
+          | ⚠️ Errors | ${errors} |`;
+
+            // Parse JSON for failure details
+            if (jsonFile && fs.existsSync(jsonFile)) {
+              try {
+                const results = JSON.parse(fs.readFileSync(jsonFile, 'utf8'));
+                const allFailures = [];
+
+                for (const result of results) {
+                  const filePath = result.filePath || 'unknown';
+                  for (const f of (result.failed || [])) {
+                    allFailures.push({
+                      file: filePath,
+                      propertyId: f.propertyId,
+                      counterexample: f.counterexample,
+                      errorMessage: f.errorMessage,
+                      seed: f.seed,
+                    });
+                  }
+                }
+
+                if (allFailures.length > 0) {
+                  body += '\n\n### Violations\n';
+                  for (const f of allFailures.slice(0, 10)) {
+                    const ce = typeof f.counterexample === 'object'
+                      ? JSON.stringify(f.counterexample, null, 2)
+                      : String(f.counterexample);
+                    body += `\n<details>\n<summary><code>${f.propertyId}</code> in <code>${f.file}</code></summary>\n\n`;
+                    body += `**Error:** ${f.errorMessage}\n\n`;
+                    body += `**Counterexample:**\n\`\`\`json\n${ce}\n\`\`\`\n\n`;
+                    if (f.seed) {
+                      body += `**Reproduce:** \`propcheck run --seed ${f.seed} ${f.file}\`\n`;
+                    }
+                    body += `\n</details>\n`;
+                  }
+                  if (allFailures.length > 10) {
+                    body += `\n*... and ${allFailures.length - 10} more violation(s)*\n`;
+                  }
+                }
+              } catch (e) {
+                // JSON parse failed — skip details
+              }
+            }
+
+            body += `\n\n---\n> Powered by [propcheck](https://github.com/AetherCore-Dev/propcheck) — AI property-based testing`;
+          }
+
+          // Find existing propcheck comment to update (avoid spam)
+          const { data: comments } = await github.rest.issues.listComments({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+          });
+
+          const existing = comments.find(c =>
+            c.body && c.body.includes(MARKER)
+          );
+
+          if (existing) {
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: existing.id,
+              body,
+            });
+          } else {
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
+          }
+
+    - name: Fail if violations found
+      if: inputs.fail-on-violation == 'true' && steps.run.outputs.failed > 0
+      shell: bash
+      run: |
+        echo "❌ propcheck found ${{ steps.run.outputs.failed }} property violation(s)"
+        exit 1

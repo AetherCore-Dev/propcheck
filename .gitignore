@@ -10,6 +10,10 @@ dist/
 *.log
 *.tgz
 
+# Coverage
+coverage/
+.c8_output/
+
 # Temp files from propcheck fix/validation
 .tmp_*.js
 *.fix.tmp.*.ts
