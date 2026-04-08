@@ -288,13 +288,15 @@ export function generateFastCheckTest(
   targetFile: string,
   testDir: string,
   config: RunConfig,
+  options?: { readonly hasStripTypes?: boolean },
 ): { readonly content: string; readonly fileName: string; readonly needsMtsCopy?: boolean } {
   const isTS = targetFile.endsWith(".ts") || targetFile.endsWith(".tsx");
   const explicitCJS = isExplicitCJSProject(targetFile);
   // Use ESM + .mts copy when:
   //   1. CJS project + TS target (Node 24+ rejects export syntax in require'd .ts), OR
   //   2. TS target + Node < 22.6.0 (no --experimental-strip-types support)
-  const needsMtsCopy = isTS && (explicitCJS || !supportsStripTypes());
+  const hasStripTypes = options?.hasStripTypes ?? supportsStripTypes();
+  const needsMtsCopy = isTS && (explicitCJS || !hasStripTypes);
 
   // When project is explicit CJS + target is .ts, Node 24 can't require() TS files
   // with export syntax. We generate ESM .mjs test files that import a .mts copy instead.

@@ -50,6 +50,7 @@ describe("fc-codegen", () => {
       "/project/src/math.ts",
       "/project/.propcheck/tests",
       defaultConfig,
+      { hasStripTypes: true },
     );
 
     assert.ok(result.content.includes("fast-check"), "Should reference fast-check");
@@ -68,6 +69,7 @@ describe("fc-codegen", () => {
       "/project/src/math.ts",
       "/project/.propcheck/tests",
       defaultConfig,
+      { hasStripTypes: true },
     );
 
     // Import should use forward slashes and be relative
@@ -94,6 +96,7 @@ describe("fc-codegen", () => {
         path.join(srcDir, "math.ts"),
         testsDir,
         defaultConfig,
+        { hasStripTypes: true },
       );
 
       assert.equal(result.fileName, "math.fc.cjs");
@@ -838,6 +841,21 @@ describe("fc-codegen", () => {
     // due to the depth guard, preventing stack overflow.
     assert.ok(result.content.includes("fc.record("), "Should still generate outer fc.record");
     assert.ok(result.content.includes("fc.anything()"), "Deep nesting should fall back to fc.anything");
+  });
+
+  it("should emit ESM .mjs for TS targets when hasStripTypes is false", () => {
+    const props = [makeProp()];
+    const result = generateFastCheckTest(
+      props,
+      "/project/src/math.ts",
+      "/project/.propcheck/tests",
+      defaultConfig,
+      { hasStripTypes: false },
+    );
+
+    assert.equal(result.fileName, "math.fc.mjs", "Should use .mjs when strip-types unavailable");
+    assert.ok(result.content.includes("import"), "Should use ESM import syntax");
+    assert.equal(result.needsMtsCopy, true, "Should signal .mts copy needed");
   });
 
   it("should strip block comment terminators from description in comments", () => {
