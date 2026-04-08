@@ -839,4 +839,27 @@ describe("fc-codegen", () => {
     assert.ok(result.content.includes("fc.record("), "Should still generate outer fc.record");
     assert.ok(result.content.includes("fc.anything()"), "Deep nesting should fall back to fc.anything");
   });
+
+  it("should strip block comment terminators from description in comments", () => {
+    const prop = makeProp({
+      description: "Ensure result */ is safe /* and */ balanced",
+    });
+
+    const result = generateFastCheckTest(
+      [prop],
+      "/project/src/test.ts",
+      "/project/.propcheck/tests",
+      defaultConfig,
+    );
+
+    // The description is embedded in // comments, but */ should still be neutralized
+    assert.ok(
+      !result.content.includes("*/"),
+      "Generated code must not contain unescaped block comment terminator from description",
+    );
+    assert.ok(
+      result.content.includes("* /"),
+      "Block comment terminator should be neutralized to '* /'",
+    );
+  });
 });

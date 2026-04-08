@@ -8,6 +8,30 @@ import { EngineError } from "@propcheck/common";
 /** Maximum bytes to capture from stdout/stderr to prevent OOM. */
 const MAX_OUTPUT_BYTES = 10 * 1024 * 1024; // 10MB
 
+/** Env var prefixes/names that must never leak to generated test subprocesses. */
+const SENSITIVE_ENV_PATTERNS: readonly RegExp[] = [
+  /^(?:PROPCHECK_)?API_?KEY$/i,
+  /^(?:PROPCHECK_)?SECRET/i,
+  /^(?:PROPCHECK_)?TOKEN$/i,
+  /^ANTHROPIC_API_KEY$/i,
+  /^OPENAI_API_KEY$/i,
+  /^AWS_SECRET/i,
+  /^GITHUB_TOKEN$/i,
+  /^NPM_TOKEN$/i,
+  /^GH_TOKEN$/i,
+];
+
+/** Remove sensitive keys from caller-provided env overrides. @internal Exported for testing. */
+export function filterSensitiveEnv(env: Record<string, string>): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const [key, value] of Object.entries(env)) {
+    if (!SENSITIVE_ENV_PATTERNS.some((p) => p.test(key))) {
+      result[key] = value;
+    }
+  }
+  return result;
+}
+
 export interface ProcessResult {
   readonly stdout: string;
   readonly stderr: string;
@@ -51,8 +75,8 @@ export function runProcess(
         // Python-specific
         PYTHONPATH: process.env["PYTHONPATH"] ?? "",
         VIRTUAL_ENV: process.env["VIRTUAL_ENV"] ?? "",
-        // Caller overrides (e.g. NODE_PATH)
-        ...options.env,
+        // Caller overrides (e.g. NODE_PATH) — strip any sensitive keys
+        ...filterSensitiveEnv(options.env ?? {}),
       },
       shell: false,
       stdio: ["ignore", "pipe", "pipe"],

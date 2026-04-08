@@ -19,9 +19,12 @@ const JS_BUILTINS = new Set([
   "console", "globalThis",
 ]);
 
-/** Strip newlines and limit length for safe embedding in code comments. */
+/** Strip newlines, block-comment terminators, and limit length for safe embedding in code comments. */
 function toSafeComment(s: string): string {
-  return s.replace(/[\r\n\u2028\u2029]/g, " ").slice(0, 200);
+  return s
+    .replace(/[\r\n\u2028\u2029]/g, " ")
+    .replace(/\*\//g, "* /")
+    .slice(0, 200);
 }
 
 /**
