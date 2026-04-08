@@ -36,3 +36,24 @@ export function calculateTotal(prices: number[]): number {
 export function formatPrice(price: number): string {
   return price.toFixed(2);
 }
+
+/**
+ * Clamp a value between min and max bounds.
+ * @param value - The value to clamp
+ * @param min - Lower bound
+ * @param max - Upper bound
+ * @returns Clamped value
+ */
+export function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
+
+/**
+ * Calculate tax amount given a price and tax rate.
+ * @param price - Pre-tax price (non-negative)
+ * @param rate - Tax rate as decimal (e.g. 0.08 for 8%)
+ * @returns Tax amount
+ */
+export function calculateTax(price: number, rate: number): number {
+  return price * rate;
+}

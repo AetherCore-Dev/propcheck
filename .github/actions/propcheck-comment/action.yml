@@ -124,10 +124,10 @@ runs:
           propcheck run $MODE_FLAG --json --ignore-stale "$FILE" > "$RESULT_FILE" 2>&1 || true
 
           # Validate JSON and extract counts using node (no python dependency)
-          COUNTS=$(node -e "
+          COUNTS=$(RESULT_FILE="$RESULT_FILE" node -e "
             const fs = require('fs');
             try {
-              const data = JSON.parse(fs.readFileSync('${RESULT_FILE}', 'utf8'));
+              const data = JSON.parse(fs.readFileSync(process.env.RESULT_FILE, 'utf8'));
               const s = data.summary || {};
               console.log([s.passed||0, s.failed||0, s.errors||0].join(' '));
             } catch { console.log('INVALID'); }
@@ -144,11 +144,11 @@ runs:
             fi
 
             # Append result to aggregated JSON array using node
-            node -e "
+            JSON_FILE="$JSON_FILE" RESULT_FILE="$RESULT_FILE" node -e "
               const fs = require('fs');
-              const arr = JSON.parse(fs.readFileSync('${JSON_FILE}', 'utf8'));
-              arr.push(JSON.parse(fs.readFileSync('${RESULT_FILE}', 'utf8')));
-              fs.writeFileSync('${JSON_FILE}', JSON.stringify(arr));
+              const arr = JSON.parse(fs.readFileSync(process.env.JSON_FILE, 'utf8'));
+              arr.push(JSON.parse(fs.readFileSync(process.env.RESULT_FILE, 'utf8')));
+              fs.writeFileSync(process.env.JSON_FILE, JSON.stringify(arr));
             " 2>/dev/null || true
           else
             echo "  (no properties or parse error)"
@@ -290,8 +290,10 @@ runs:
           }
 
     - name: Fail if violations found
-      if: inputs.fail-on-violation == 'true' && steps.run.outputs.failed > 0
+      if: inputs.fail-on-violation == 'true' && steps.run.outputs.failed != '0' && steps.run.outputs.no_files != 'true'
       shell: bash
+      env:
+        FAILED_COUNT: ${{ steps.run.outputs.failed }}
       run: |
-        echo "propcheck found ${{ steps.run.outputs.failed }} property violation(s)"
+        echo "propcheck found ${FAILED_COUNT} property violation(s)"
         exit 1
