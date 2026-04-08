@@ -12,6 +12,7 @@
 import type { LlmClient, ApiResponse, LlmToolSchema, LlmCallOptions } from "./client";
 import type { FunctionSignature, ParameterInfo } from "@propcheck/common";
 import { generateAdaptiveProperties } from "./adaptive-generator";
+import { matchTemplates } from "./templates";
 
 /**
  * Mock responses keyed by function name.
@@ -715,7 +716,9 @@ export function createMockClient(): LlmClient {
         }
       }
 
-      // Adaptive generation for unmatched functions
+      // Adaptive generation for unmatched functions:
+      // 1. Try community templates first (domain-specific, high quality)
+      // 2. Fall back to adaptive generator (signature-based, generic)
       if (unmatchedFunctions.length > 0) {
         const signatures = extractSignaturesFromPrompt(userPrompt);
         for (const sig of signatures) {
@@ -723,8 +726,15 @@ export function createMockClient(): LlmClient {
           if (matchedFunctions.includes(sig.name) || matchedFunctions.includes(sig.qualifiedName)) {
             continue;
           }
-          const adaptiveProps = generateAdaptiveProperties(sig);
-          allProperties.push(...adaptiveProps);
+          // Try community templates first
+          const templateProps = matchTemplates(sig);
+          if (templateProps.length > 0) {
+            allProperties.push(...templateProps);
+          } else {
+            // Fall back to adaptive generator
+            const adaptiveProps = generateAdaptiveProperties(sig);
+            allProperties.push(...adaptiveProps);
+          }
         }
       }
 

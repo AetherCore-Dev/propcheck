@@ -178,3 +178,4 @@ export { mockDiagnoseViolation, mockGenerateFix } from "./mock-fix";
 export { generateAdaptiveProperties, mapParamGenerators, selectCategories, buildSeedInputs } from "./adaptive-generator";
 export type { RawMockProperty } from "./adaptive-generator";
 export { extractSignaturesFromPrompt } from "./mock-client";
+export { matchTemplates, getAvailableDomains, getTemplateStats } from "./templates";
