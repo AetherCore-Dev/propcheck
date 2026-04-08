@@ -1,59 +1,41 @@
-# propcheck Demo — Terminal Recording Script
-# Usage: vhs < demo.tape
-# Requires: vhs (brew install charmbracelet/tap/vhs)
-#
-# Prerequisites (run once before recording):
-#   npm install && npx tsc --build
-#   cd packages/cli && npx tsup && cd ../..
-#   node packages/cli/dist/index.js infer --mock examples/price-utils.ts
-
 Output demo.gif
-Set FontSize 18
-Set Width 1200
-Set Height 700
+Set Shell "bash"
+Set FontSize 14
+Set Width 900
+Set Height 500
+Set Padding 10
 Set Theme "Catppuccin Mocha"
-Set Padding 24
-Set TypingSpeed 40ms
-Set WindowBar Colorful
-Set WindowBarSize 40
-Set CursorBlink false
 
-# ── Scene 1: Tests pass — build false confidence ──
-Type "# Your tests all pass..."
+Type "# propcheck — AI-powered property-based testing"
 Enter
-Sleep 1.2s
-Type "NODE_NO_WARNINGS=1 node --experimental-strip-types --test examples/price-utils.test.ts"
-Enter
-Sleep 3.5s
-Type ""
-Enter
-Type "# 12 tests. 100% coverage. All green. Ship it?"
-Enter
-Sleep 2.5s
-Ctrl+L
+Sleep 500ms
 
-# ── Scene 2: propcheck discovers rules ──
-Type "# Let's see what propcheck thinks..."
+Type "npx propcheck --version"
 Enter
 Sleep 1s
-Type "npx propcheck infer --mock examples/price-utils.ts"
-Enter
-Sleep 6s
-Ctrl+L
 
-# ── Scene 3: THE REVEAL ──
-Type "npx propcheck run examples/price-utils.ts"
+Type "# Step 1: Infer properties from source code (mock mode)"
 Enter
-Sleep 8s
+Sleep 500ms
 
-# Let the audience absorb the FAIL
+Type "npx propcheck infer --mock test-fixtures/typescript/sort-utils.ts"
+Enter
 Sleep 4s
-Ctrl+L
 
-# ── Scene 4: Call to action ──
-Type "# Bug found: 150% discount → negative price. Tests missed it."
+Type "# Step 2: Run discovered property tests"
 Enter
+Sleep 500ms
+
+Type "npx propcheck run --quick test-fixtures/typescript/sort-utils.ts"
+Enter
+Sleep 4s
+
+Type "# Step 3: View property inventory"
+Enter
+Sleep 500ms
+
+Type "npx propcheck props"
+Enter
+Sleep 3s
+
 Sleep 2s
-Type "# Get started: npx propcheck init && npx propcheck infer --mock YOUR_FILE.ts"
-Enter
-Sleep 4s

@@ -12,8 +12,8 @@ AI-powered testing tool. AI reads your code once → discovers rules that should
 - Bundler: tsup (~320KB single-file bundle)
 - Test runner: Node.js `--experimental-strip-types` for direct .ts import
 
-## Project Status (2026-04-07)
-**Phase 1 MVP: COMPLETE + Production Hardening** — full CLI pipeline verified end-to-end across CJS/ESM/no-type project configurations. 399 unit tests, 0 failures. All identified security/UX/coverage issues resolved (13/13 from 4-agent review). Adaptive mock generator enables `--mock` mode for any user code. npm 0.4.2 published.
+## Project Status (2026-04-09)
+**Phase 1 MVP: COMPLETE + Production Hardening** — full CLI pipeline verified end-to-end across CJS/ESM/no-type project configurations. 400 unit tests, 0 failures. All identified security/UX/coverage issues resolved (13/13 from 4-agent review). Adaptive mock generator enables `--mock` mode for any user code. Node 18/20/22+ cross-version compatibility. npm 0.4.4 published.
 
 ### What's Done
 - Full CLI: `init`, `infer`, `run`, `badge`, `quality`, `props`, `property`, `fix` commands
@@ -68,12 +68,12 @@ AI-powered testing tool. AI reads your code once → discovers rules that should
 7. `fc-runner.ts` .mts cleanup errors now warn instead of silent swallow
 8. `--max-attempts 0` now rejected (was silently treated as 3)
 
-**Test coverage expansion (361 → 399 tests):**
+**Test coverage expansion (361 → 400 tests):**
 - mock-fix: 12 tests (mockDiagnoseViolation, mockGenerateFix)
 - mock-refinement: 10 tests (weak strengthening, bug_found, ID uniqueness)
 - fc-runner: 5 tests (.mts lifecycle, cleanup-under-failure, path injection)
 - autoWeakenProperty: +10 edge cases (string literals, nested parens, array generators, tolerance patterns)
-- fc-codegen: +1 test (block comment terminator sanitization)
+- fc-codegen: +2 tests (block comment terminator sanitization, ESM fallback for old Node)
 - process-runner: +10 tests (filterSensitiveEnv — API key, token, secret blocklist)
 
 ### Real LLM Validation Results (2026-03-29, Claude Opus 4.6 via OpenAI-compatible proxy)
@@ -100,7 +100,7 @@ AI-powered testing tool. AI reads your code once → discovers rules that should
 ## Key Architecture Decisions
 1. TypeScript Compiler API over tree-sitter WASM (simpler, better types)
 2. CJS output for CLI compatibility (not ESM)
-3. `--experimental-strip-types` to run generated tests against .ts source
+3. `--experimental-strip-types` (Node 22.6+) or `ts.transpileModule` fallback (Node 18/20) to run generated tests against .ts source
 4. Mock client matches by `### funcName` prompt headings
 5. Properties persisted in `.propcheck/properties.json` (infer once, run free)
 6. Scoring: 13-point rubric with tautology/redundancy/triviality checks
@@ -144,7 +144,7 @@ PROPCHECK_API_KEY=sk-xxx node packages/cli/dist/index.js infer \
 # CLI (bundled — same commands via dist-bundle)
 node packages/cli/dist-bundle/index.js --help
 
-# Run unit tests (399 tests across 8 packages)
+# Run unit tests (400 tests across 8 packages)
 node packages/parser/dist/__tests__/parser.test.js                          # 12 tests
 node packages/store/dist/__tests__/store.test.js                            # 14 tests
 node packages/store/dist/__tests__/store-edge.test.js                       # 9 tests
@@ -155,7 +155,7 @@ node packages/llm/dist/__tests__/adaptive-generator.test.js                 # 40
 node packages/llm/dist/__tests__/mock-fix.test.js                           # 12 tests
 node packages/llm/dist/__tests__/mock-refinement.test.js                    # 10 tests
 node packages/engines/dist/__tests__/e2e.test.js                            # E2E
-node packages/engines/dist/__tests__/fc-codegen.test.js                     # 30 tests
+node packages/engines/dist/__tests__/fc-codegen.test.js                     # 31 tests
 node packages/engines/dist/__tests__/hyp-codegen.test.js                    # 9 tests
 node packages/engines/dist/__tests__/result-parser.test.js                  # 10 tests
 node packages/engines/dist/__tests__/fc-runner.test.js                      # 5 tests
