@@ -10,6 +10,29 @@ import { runProcess } from "../shared/process-runner";
 import { parseJsonLines, mapResults } from "../shared/result-parser";
 
 /**
+ * Strip TypeScript type annotations from source code using the TS compiler.
+ * Falls back to returning the original source if typescript is not available.
+ */
+function stripTypeAnnotations(source: string): string {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const ts = require("typescript") as typeof import("typescript");
+    const result = ts.transpileModule(source, {
+      compilerOptions: {
+        target: ts.ScriptTarget.ESNext,
+        module: ts.ModuleKind.ESNext,
+        // Preserve ESM syntax, just strip types
+        removeComments: false,
+      },
+    });
+    return result.outputText;
+  } catch {
+    // typescript not available — return source as-is and hope for the best
+    return source;
+  }
+}
+
+/**
  * Run a generated fast-check test file and parse results.
  *
  * When the generated test needs a copy of the target with a different extension
@@ -30,7 +53,16 @@ export async function runFastCheckTest(
   if (options?.needsMtsCopy && options.targetFile) {
     const ext = options.copyExt ?? ".mts";
     copyPath = options.targetFile.replace(/\.tsx?$/, ext);
-    await fsPromises.copyFile(options.targetFile, copyPath);
+
+    if (ext === ".mjs") {
+      // For .mjs copies (Node < 22.6): strip TS type annotations since
+      // Node 18/20 cannot parse TypeScript syntax in .mjs files
+      const source = await fsPromises.readFile(options.targetFile, "utf8");
+      await fsPromises.writeFile(copyPath, stripTypeAnnotations(source), "utf8");
+    } else {
+      // For .mts copies (CJS projects on Node 22.6+): direct copy
+      await fsPromises.copyFile(options.targetFile, copyPath);
+    }
   }
 
   try {
