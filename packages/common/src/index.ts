@@ -68,3 +68,4 @@ export type { ChangedFile, ChangedFilesResult } from "./utils/git";
 export { validateAssertion, validateGeneratorKey } from "./utils/assertion-sanitizer";
 export { findSourceFiles } from "./utils/file-scanner";
 export { deepEqual } from "./utils/deep-equal";
+export { supportsStripTypes } from "./utils/node-compat";

@@ -5,6 +5,7 @@
 import * as fsPromises from "node:fs/promises";
 import * as path from "node:path";
 import type { PropertyDefinition, RunConfig, ExecutionResult } from "@propcheck/common";
+import { supportsStripTypes } from "@propcheck/common";
 import { runProcess } from "../shared/process-runner";
 import { parseJsonLines, mapResults } from "../shared/result-parser";
 
@@ -32,7 +33,7 @@ export async function runFastCheckTest(
 
   try {
     const nodeArgs = [
-      "--experimental-strip-types",
+      ...(supportsStripTypes() ? ["--experimental-strip-types"] : []),
       "--no-warnings",
       testFilePath,
     ];

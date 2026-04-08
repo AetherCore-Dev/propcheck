@@ -5,7 +5,7 @@
  */
 
 import type { PropertyDefinition, GeneratorSpec, RunConfig } from "@propcheck/common";
-import { toForwardSlash } from "@propcheck/common";
+import { toForwardSlash, supportsStripTypes } from "@propcheck/common";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
@@ -291,10 +291,14 @@ export function generateFastCheckTest(
 ): { readonly content: string; readonly fileName: string; readonly needsMtsCopy?: boolean } {
   const isTS = targetFile.endsWith(".ts") || targetFile.endsWith(".tsx");
   const explicitCJS = isExplicitCJSProject(targetFile);
-  const needsMtsCopy = isTS && explicitCJS;
+  // Use ESM + .mts copy when:
+  //   1. CJS project + TS target (Node 24+ rejects export syntax in require'd .ts), OR
+  //   2. TS target + Node < 22.6.0 (no --experimental-strip-types support)
+  const needsMtsCopy = isTS && (explicitCJS || !supportsStripTypes());
 
   // When project is explicit CJS + target is .ts, Node 24 can't require() TS files
   // with export syntax. We generate ESM .mjs test files that import a .mts copy instead.
+  // Same approach for Node < 22.6.0 which lacks --experimental-strip-types.
   const useESM = needsMtsCopy;
 
   const relativeImport = toForwardSlash(
