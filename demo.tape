@@ -1,36 +1,33 @@
 Output demo.gif
 Set Shell "bash"
-Set FontSize 13
-Set Width 1000
+Set FontSize 14
+Set Width 1100
 Set Height 600
 Set Padding 10
 Set Theme "Catppuccin Mocha"
 Set TypingSpeed 30ms
 
-Type "# propcheck — AI finds bugs your tests miss"
+# Act 1: False sense of security
+Type "cat examples/demo/discount.js"
 Enter
-Sleep 800ms
+Sleep 2s
 
-Type "cat test-fixtures/typescript/cart-buggy.ts"
+Type "node --test examples/demo/discount.test.js"
 Enter
 Sleep 3s
 
-Type "# Step 1: AI reads code → discovers rules that should always be true"
-Enter
-Sleep 600ms
-
-Type "npx propcheck infer --mock test-fixtures/typescript/cart-buggy.ts"
+# Act 2: propcheck finds the bug
+Type "npx propcheck infer --mock examples/demo/discount.js"
 Enter
 Sleep 6s
 
-Type "# Step 2: Thousands of random inputs test those rules → finds bugs"
-Enter
-Sleep 600ms
-
-Type "npx propcheck run --quick test-fixtures/typescript/cart-buggy.ts"
+Type "npx propcheck run --quick examples/demo/discount.js"
 Enter
 Sleep 6s
 
-Type "# Bug found! discount > 100% gives negative price. AI catches what humans miss."
+# Act 3: Tagline
+Type "echo ''"
+Enter
+Type "echo 'Your tests passed. Your code has bugs. propcheck finds them.'"
 Enter
 Sleep 3s
