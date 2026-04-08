@@ -12,23 +12,25 @@ import { parseJsonLines, mapResults } from "../shared/result-parser";
 /**
  * Run a generated fast-check test file and parse results.
  *
- * When the generated test needs a .mts copy of the target (CJS+TS projects),
+ * When the generated test needs a copy of the target with a different extension
+ * (e.g. .mts for CJS+TS on Node 24+, or .mjs for TS on Node < 22.6),
  * this function creates and cleans up the temporary copy.
  */
 export async function runFastCheckTest(
   testFilePath: string,
   properties: readonly PropertyDefinition[],
   config: RunConfig,
-  options?: { readonly targetFile?: string; readonly needsMtsCopy?: boolean },
+  options?: { readonly targetFile?: string; readonly needsMtsCopy?: boolean; readonly copyExt?: string },
 ): Promise<ExecutionResult> {
   const startTime = Date.now();
   const cwd = path.dirname(testFilePath);
 
-  // Create .mts copy if needed (CJS+TS compatibility)
-  let mtsPath: string | null = null;
+  // Create copy with alternate extension if needed
+  let copyPath: string | null = null;
   if (options?.needsMtsCopy && options.targetFile) {
-    mtsPath = options.targetFile.replace(/\.ts$/, ".mts").replace(/\.tsx$/, ".mtsx");
-    await fsPromises.copyFile(options.targetFile, mtsPath);
+    const ext = options.copyExt ?? ".mts";
+    copyPath = options.targetFile.replace(/\.tsx?$/, ext);
+    await fsPromises.copyFile(options.targetFile, copyPath);
   }
 
   try {
@@ -58,13 +60,13 @@ export async function runFastCheckTest(
     const rawResults = parseJsonLines(result.stdout);
     return mapResults(rawResults, properties, config, Date.now() - startTime, result.stderr, "Test execution error");
   } finally {
-    // Clean up .mts copy
-    if (mtsPath) {
+    // Clean up copy
+    if (copyPath) {
       try {
-        await fsPromises.unlink(mtsPath);
+        await fsPromises.unlink(copyPath);
       } catch (e) {
         if (e instanceof Error && (e as NodeJS.ErrnoException).code !== "ENOENT") {
-          console.warn(`  Warning: Failed to clean up ${mtsPath}: ${e.message}`);
+          console.warn(`  Warning: Failed to clean up ${copyPath}: ${e.message}`);
         }
       }
     }

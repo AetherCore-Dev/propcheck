@@ -271,6 +271,7 @@ export async function fixCommand(
   const execResult = await runFastCheckTest(testFilePath, activeProperties, runConfig, {
     targetFile: targetPath,
     needsMtsCopy: generated.needsMtsCopy,
+    copyExt: generated.copyExt,
   });
 
   // Filter to specific property if requested
@@ -408,7 +409,7 @@ export async function fixCommand(
         verifyTestPath,
         activeProperties,
         runConfig,
-        { targetFile: tmpPath, needsMtsCopy: verifyGenerated.needsMtsCopy },
+        { targetFile: tmpPath, needsMtsCopy: verifyGenerated.needsMtsCopy, copyExt: verifyGenerated.copyExt },
       );
 
       // Clean up verify test file

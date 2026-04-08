@@ -289,19 +289,21 @@ export function generateFastCheckTest(
   testDir: string,
   config: RunConfig,
   options?: { readonly hasStripTypes?: boolean },
-): { readonly content: string; readonly fileName: string; readonly needsMtsCopy?: boolean } {
+): { readonly content: string; readonly fileName: string; readonly needsMtsCopy?: boolean; readonly copyExt?: string } {
   const isTS = targetFile.endsWith(".ts") || targetFile.endsWith(".tsx");
   const explicitCJS = isExplicitCJSProject(targetFile);
-  // Use ESM + .mts copy when:
-  //   1. CJS project + TS target (Node 24+ rejects export syntax in require'd .ts), OR
-  //   2. TS target + Node < 22.6.0 (no --experimental-strip-types support)
   const hasStripTypes = options?.hasStripTypes ?? supportsStripTypes();
-  const needsMtsCopy = isTS && (explicitCJS || !hasStripTypes);
 
-  // When project is explicit CJS + target is .ts, Node 24 can't require() TS files
-  // with export syntax. We generate ESM .mjs test files that import a .mts copy instead.
-  // Same approach for Node < 22.6.0 which lacks --experimental-strip-types.
-  const useESM = needsMtsCopy;
+  // Determine ESM strategy for TS targets:
+  //   1. CJS project + TS + strip-types available: .mts copy (Node 24+ rejects require() of .ts with export)
+  //   2. TS + no strip-types (Node < 22.6): .mjs copy (Node 18/20 don't know .mts)
+  const needsCJSMtsCopy = isTS && explicitCJS && hasStripTypes;
+  const needsOldNodeMjsCopy = isTS && !hasStripTypes;
+  const needsESMCopy = needsCJSMtsCopy || needsOldNodeMjsCopy;
+  const useESM = needsESMCopy;
+
+  // Choose copy extension: .mts for CJS projects (Node 22.6+), .mjs for old Node
+  const copyExt = needsCJSMtsCopy ? ".mts" : ".mjs";
 
   const relativeImport = toForwardSlash(
     path.relative(testDir, targetFile),
@@ -309,9 +311,10 @@ export function generateFastCheckTest(
 
   let importPathStr: string;
   if (useESM) {
-    // For ESM tests: import the .mts copy (same dir as original, .ts → .mts)
-    const mtsTarget = targetFile.replace(/\.ts$/, ".mts").replace(/\.tsx$/, ".mtsx");
-    importPathStr = toForwardSlash(path.relative(testDir, mtsTarget));
+    // For ESM tests: import the copy (same dir as original)
+    const copyTarget = targetFile
+      .replace(/\.tsx?$/, copyExt);
+    importPathStr = toForwardSlash(path.relative(testDir, copyTarget));
     if (!importPathStr.startsWith(".")) importPathStr = `./${importPathStr}`;
   } else if (isTS) {
     // Keep .ts extension — Node with --experimental-strip-types needs it
@@ -467,6 +470,7 @@ export function generateFastCheckTest(
   return {
     content: lines.join("\n"),
     fileName,
-    needsMtsCopy: needsMtsCopy || undefined,
+    needsMtsCopy: needsESMCopy || undefined,
+    copyExt: needsESMCopy ? copyExt : undefined,
   };
 }

@@ -855,7 +855,8 @@ describe("fc-codegen", () => {
 
     assert.equal(result.fileName, "math.fc.mjs", "Should use .mjs when strip-types unavailable");
     assert.ok(result.content.includes("import"), "Should use ESM import syntax");
-    assert.equal(result.needsMtsCopy, true, "Should signal .mts copy needed");
+    assert.equal(result.needsMtsCopy, true, "Should signal copy needed");
+    assert.equal(result.copyExt, ".mjs", "Should use .mjs extension for Node < 22.6");
   });
 
   it("should strip block comment terminators from description in comments", () => {
