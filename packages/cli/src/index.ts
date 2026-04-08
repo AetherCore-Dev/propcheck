@@ -35,6 +35,7 @@ import { qualityCommand } from "./commands/quality";
 import { propsCommand } from "./commands/props";
 import { propertyCommand } from "./commands/property";
 import { fixCommand } from "./commands/fix";
+import { templatesCommand } from "./commands/templates";
 
 import chalk from "chalk";
 
@@ -49,7 +50,7 @@ program
     "  1  Test failure found (bug detected)\n" +
     "  2  Configuration or setup error"
   )
-  .version("0.4.2")
+  .version("0.4.3")
   .option("--no-color", "Disable colored output")
   .hook("preAction", () => {
     if (program.opts().color === false) {
@@ -127,5 +128,11 @@ program
   .option("--max-attempts <n>", "Maximum fix attempts (default: 3)", "3")
   .option("--json", "Output fix result as JSON")
   .action(fixCommand);
+
+program
+  .command("templates")
+  .description("List available community property templates")
+  .option("--json", "Output as JSON")
+  .action(templatesCommand);
 
 program.parse();
