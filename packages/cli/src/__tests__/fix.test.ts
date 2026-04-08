@@ -50,7 +50,7 @@ describe("fix command", () => {
   it("should exit 2 when file not found", () => {
     const dir = makeTmpProject();
     tmpDirs.push(dir);
-    const { exitCode, stdout } = run(["fix", "--mock", "nonexistent.ts"], dir);
+    const { exitCode, stdout } = run(["fix", "--mock", "nonexistent.js"], dir);
     assert.equal(exitCode, 2);
     assert.ok(stdout.includes("File not found"), stdout);
   });
@@ -59,12 +59,12 @@ describe("fix command", () => {
     const dir = makeTmpProject();
     tmpDirs.push(dir);
 
-    // Create a source file but no properties
-    fs.writeFileSync(path.join(dir, "test.ts"), "export function add(a: number, b: number) { return a + b; }");
+    // Create a source file but no properties (plain JS — works on all Node versions)
+    fs.writeFileSync(path.join(dir, "test.js"), "function add(a, b) { return a + b; }\nmodule.exports = { add };\n");
     // Create empty properties.json
     fs.writeFileSync(path.join(dir, ".propcheck", "properties.json"), JSON.stringify({ version: 2, modules: {} }));
 
-    const { exitCode, stdout } = run(["fix", "--mock", "test.ts"], dir);
+    const { exitCode, stdout } = run(["fix", "--mock", "test.js"], dir);
     assert.equal(exitCode, 2);
     assert.ok(stdout.includes("No properties found"), stdout);
   });
@@ -73,15 +73,15 @@ describe("fix command", () => {
     const dir = makeTmpProject();
     tmpDirs.push(dir);
 
-    // Create a correct source file
-    const source = `export function add(a, b) { return a + b; }\n`;
-    fs.writeFileSync(path.join(dir, "math.ts"), source);
+    // Create a correct source file (plain JS — works on all Node versions)
+    const source = `function add(a, b) { return a + b; }\nmodule.exports = { add };\n`;
+    fs.writeFileSync(path.join(dir, "math.js"), source);
 
     // First infer to generate properties
-    run(["infer", "--mock", "math.ts"], dir);
+    run(["infer", "--mock", "math.js"], dir);
 
     // Now run fix — should find nothing to fix
-    const { exitCode, stdout } = run(["fix", "--mock", "math.ts"], dir);
+    const { exitCode, stdout } = run(["fix", "--mock", "math.js"], dir);
     assert.equal(exitCode, 0);
     assert.ok(stdout.includes("pass") || stdout.includes("nothing to fix"), stdout);
   });
@@ -91,19 +91,21 @@ describe("fix command", () => {
     tmpDirs.push(dir);
 
     // Create source with a known bug (discount > 100% allows negative prices)
+    // Plain JS — works on all Node versions
     const buggySource = [
-      "export function applyDiscount(price, discount) {",
+      "function applyDiscount(price, discount) {",
       "  return price * (1 - discount / 100);",
       "}",
+      "module.exports = { applyDiscount };",
     ].join("\n");
-    fs.writeFileSync(path.join(dir, "cart.ts"), buggySource);
+    fs.writeFileSync(path.join(dir, "cart.js"), buggySource);
 
     // Infer and run fix with --apply
-    run(["infer", "--mock", "cart.ts"], dir);
-    run(["fix", "--mock", "--apply", "cart.ts"], dir);
+    run(["infer", "--mock", "cart.js"], dir);
+    run(["fix", "--mock", "--apply", "cart.js"], dir);
 
     // Check that .bak file was created
-    const bakPath = path.join(dir, "cart.ts.bak");
+    const bakPath = path.join(dir, "cart.js.bak");
     if (fs.existsSync(bakPath)) {
       const bakContent = fs.readFileSync(bakPath, "utf-8");
       assert.equal(bakContent, buggySource, "Backup should contain original source");
@@ -115,11 +117,11 @@ describe("fix command", () => {
     const dir = makeTmpProject();
     tmpDirs.push(dir);
 
-    const source = `export function add(a, b) { return a + b; }\n`;
-    fs.writeFileSync(path.join(dir, "math.ts"), source);
-    run(["infer", "--mock", "math.ts"], dir);
+    const source = `function add(a, b) { return a + b; }\nmodule.exports = { add };\n`;
+    fs.writeFileSync(path.join(dir, "math.js"), source);
+    run(["infer", "--mock", "math.js"], dir);
 
-    const { exitCode, stdout } = run(["fix", "--mock", "--property", "prop_999", "math.ts"], dir);
+    const { exitCode, stdout } = run(["fix", "--mock", "--property", "prop_999", "math.js"], dir);
     assert.equal(exitCode, 2);
     assert.ok(stdout.includes("not found"), stdout);
   });
