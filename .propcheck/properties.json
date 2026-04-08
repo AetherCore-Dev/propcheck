@@ -1,66 +1,11 @@
 {
   "version": 2,
   "modules": {
-    "test-fixtures/typescript/cart-buggy.ts": {
+    "examples/price-utils.ts": {
       "schemaVersion": 2,
-      "module": "test-fixtures/typescript/cart-buggy.ts",
-      "filePath": "test-fixtures/typescript/cart-buggy.ts",
+      "module": "examples/price-utils.ts",
+      "filePath": "examples/price-utils.ts",
       "properties": [
-        {
-          "id": "prop_001",
-          "targetFunction": "applyDiscount",
-          "description": "Discounted price should be non-negative for valid inputs",
-          "category": "boundary",
-          "assertion": "applyDiscount(price, discount) >= 0",
-          "generators": {
-            "price": {
-              "type": "float",
-              "constraints": {
-                "min": 0,
-                "max": 10000
-              }
-            },
-            "discount": {
-              "type": "float",
-              "constraints": {
-                "min": 0,
-                "max": 200
-              }
-            }
-          },
-          "seedInputs": [
-            {
-              "label": "normal",
-              "value": {
-                "price": 100,
-                "discount": 20
-              }
-            },
-            {
-              "label": "boundary",
-              "value": {
-                "price": 0,
-                "discount": 100
-              }
-            },
-            {
-              "label": "extreme",
-              "value": {
-                "price": 0.01,
-                "discount": 150
-              }
-            }
-          ],
-          "score": 13,
-          "confidence": 0.92,
-          "evidence": "@param discount - Discount percentage (0-100); prices should not go negative",
-          "sourceHash": "b06bb2dd5c55b3ec31ce469896b2cf8ee84a375b72551e08f192b908fec7b6a9",
-          "inferredAt": "2026-03-27T05:45:59.772Z",
-          "modelId": "claude-opus-4-20250514-mock",
-          "riskScore": 13,
-          "riskTags": [],
-          "status": "accepted"
-        },
         {
           "id": "prop_002",
           "targetFunction": "applyDiscount",
@@ -107,14 +52,22 @@
             }
           ],
           "score": 13,
+          "riskScore": 11,
+          "riskTags": [
+            "doc_domain_mismatch"
+          ],
+          "status": "risky",
           "confidence": 0.88,
           "evidence": "Discount reduces price; @param discount - Discount percentage (0-100)",
-          "sourceHash": "b06bb2dd5c55b3ec31ce469896b2cf8ee84a375b72551e08f192b908fec7b6a9",
-          "inferredAt": "2026-03-27T05:45:59.773Z",
+          "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
+          "inferredAt": "2026-04-07T07:05:50.255Z",
           "modelId": "claude-opus-4-20250514-mock",
-          "riskScore": 13,
-          "riskTags": [],
-          "status": "accepted"
+          "validation": {
+            "smokePasses": 100,
+            "canaryPasses": 8,
+            "seedsTested": [],
+            "lastValidatedAt": "2026-04-07T07:05:54.431Z"
+          }
         },
         {
           "id": "prop_003",
@@ -151,15 +104,23 @@
               }
             }
           ],
-          "score": 13,
+          "score": 11,
+          "riskScore": 8,
+          "riskTags": [
+            "float_exact_equality"
+          ],
+          "status": "risky",
           "confidence": 0.98,
           "evidence": "Zero discount means no change to price",
-          "sourceHash": "b06bb2dd5c55b3ec31ce469896b2cf8ee84a375b72551e08f192b908fec7b6a9",
-          "inferredAt": "2026-03-27T05:45:59.773Z",
+          "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
+          "inferredAt": "2026-04-07T07:05:50.255Z",
           "modelId": "claude-opus-4-20250514-mock",
-          "riskScore": 13,
-          "riskTags": [],
-          "status": "accepted"
+          "validation": {
+            "smokePasses": 100,
+            "canaryPasses": 6,
+            "seedsTested": [],
+            "lastValidatedAt": "2026-04-07T07:05:56.806Z"
+          }
         },
         {
           "id": "prop_004",
@@ -196,15 +157,23 @@
               }
             }
           ],
-          "score": 13,
+          "score": 11,
+          "riskScore": 8,
+          "riskTags": [
+            "float_exact_equality"
+          ],
+          "status": "risky",
           "confidence": 0.95,
           "evidence": "100% discount = free; price * (1 - 100/100) = 0",
-          "sourceHash": "b06bb2dd5c55b3ec31ce469896b2cf8ee84a375b72551e08f192b908fec7b6a9",
-          "inferredAt": "2026-03-27T05:45:59.773Z",
+          "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
+          "inferredAt": "2026-04-07T07:05:50.255Z",
           "modelId": "claude-opus-4-20250514-mock",
-          "riskScore": 13,
-          "riskTags": [],
-          "status": "accepted"
+          "validation": {
+            "smokePasses": 100,
+            "canaryPasses": 6,
+            "seedsTested": [],
+            "lastValidatedAt": "2026-04-07T07:05:59.279Z"
+          }
         },
         {
           "id": "prop_005",
@@ -220,14 +189,20 @@
             }
           ],
           "score": 10,
-          "confidence": 0.95,
-          "evidence": "@param prices - Array of item prices; empty cart costs nothing",
-          "sourceHash": "b06bb2dd5c55b3ec31ce469896b2cf8ee84a375b72551e08f192b908fec7b6a9",
-          "inferredAt": "2026-03-27T05:45:59.773Z",
-          "modelId": "claude-opus-4-20250514-mock",
           "riskScore": 10,
           "riskTags": [],
-          "status": "accepted"
+          "status": "accepted",
+          "confidence": 0.95,
+          "evidence": "@param prices - Array of item prices; empty cart costs nothing",
+          "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
+          "inferredAt": "2026-04-07T07:05:50.255Z",
+          "modelId": "claude-opus-4-20250514-mock",
+          "validation": {
+            "smokePasses": 100,
+            "canaryPasses": 0,
+            "seedsTested": [],
+            "lastValidatedAt": "2026-04-07T07:05:59.279Z"
+          }
         },
         {
           "id": "prop_006",
@@ -264,15 +239,23 @@
               }
             }
           ],
-          "score": 13,
+          "score": 11,
+          "riskScore": 8,
+          "riskTags": [
+            "float_exact_equality"
+          ],
+          "status": "risky",
           "confidence": 0.97,
           "evidence": "Single item total = the item itself",
-          "sourceHash": "b06bb2dd5c55b3ec31ce469896b2cf8ee84a375b72551e08f192b908fec7b6a9",
-          "inferredAt": "2026-03-27T05:45:59.773Z",
+          "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
+          "inferredAt": "2026-04-07T07:05:50.255Z",
           "modelId": "claude-opus-4-20250514-mock",
-          "riskScore": 13,
-          "riskTags": [],
-          "status": "accepted"
+          "validation": {
+            "smokePasses": 100,
+            "canaryPasses": 6,
+            "seedsTested": [],
+            "lastValidatedAt": "2026-04-07T07:06:01.807Z"
+          }
         },
         {
           "id": "prop_007",
@@ -284,8 +267,8 @@
             "prices": {
               "type": "array",
               "constraints": {
-                "element": "float",
-                "maxLength": 20
+                "maxLength": 20,
+                "element": "float"
               }
             }
           },
@@ -316,14 +299,23 @@
             }
           ],
           "score": 13,
+          "riskScore": 10,
+          "riskTags": [
+            "wide_numeric_domain",
+            "missing_precondition"
+          ],
+          "status": "risky",
           "confidence": 0.85,
           "evidence": "@returns Total sum; sum of non-negative numbers is non-negative",
-          "sourceHash": "b06bb2dd5c55b3ec31ce469896b2cf8ee84a375b72551e08f192b908fec7b6a9",
-          "inferredAt": "2026-03-27T05:45:59.773Z",
+          "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
+          "inferredAt": "2026-04-07T07:05:50.255Z",
           "modelId": "claude-opus-4-20250514-mock",
-          "riskScore": 13,
-          "riskTags": [],
-          "status": "accepted"
+          "validation": {
+            "smokePasses": 100,
+            "canaryPasses": 4,
+            "seedsTested": [],
+            "lastValidatedAt": "2026-04-07T07:06:03.468Z"
+          }
         },
         {
           "id": "prop_008",
@@ -361,14 +353,20 @@
             }
           ],
           "score": 13,
-          "confidence": 0.93,
-          "evidence": "@returns Formatted string like \"99.99\"; toFixed(2) always gives 2 decimals",
-          "sourceHash": "b06bb2dd5c55b3ec31ce469896b2cf8ee84a375b72551e08f192b908fec7b6a9",
-          "inferredAt": "2026-03-27T05:45:59.773Z",
-          "modelId": "claude-opus-4-20250514-mock",
           "riskScore": 13,
           "riskTags": [],
-          "status": "accepted"
+          "status": "accepted",
+          "confidence": 0.93,
+          "evidence": "@returns Formatted string like \"99.99\"; toFixed(2) always gives 2 decimals",
+          "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
+          "inferredAt": "2026-04-07T07:05:50.255Z",
+          "modelId": "claude-opus-4-20250514-mock",
+          "validation": {
+            "smokePasses": 100,
+            "canaryPasses": 0,
+            "seedsTested": [],
+            "lastValidatedAt": "2026-04-07T07:06:03.468Z"
+          }
         },
         {
           "id": "prop_009",
@@ -406,43 +404,40 @@
             }
           ],
           "score": 13,
-          "confidence": 0.8,
-          "evidence": "Formatted price should round-trip within rounding tolerance",
-          "sourceHash": "b06bb2dd5c55b3ec31ce469896b2cf8ee84a375b72551e08f192b908fec7b6a9",
-          "inferredAt": "2026-03-27T05:45:59.773Z",
-          "modelId": "claude-opus-4-20250514-mock",
           "riskScore": 13,
           "riskTags": [],
-          "status": "accepted"
-        }
-      ],
-      "sourceHash": "b06bb2dd5c55b3ec31ce469896b2cf8ee84a375b72551e08f192b908fec7b6a9",
-      "inferredAt": "2026-03-27T05:45:59.773Z"
-    },
-    "examples/price-utils.ts": {
-      "schemaVersion": 2,
-      "module": "examples/price-utils.ts",
-      "filePath": "examples/price-utils.ts",
-      "properties": [
+          "status": "accepted",
+          "confidence": 0.8,
+          "evidence": "Formatted price should round-trip within rounding tolerance",
+          "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
+          "inferredAt": "2026-04-07T07:05:50.255Z",
+          "modelId": "claude-opus-4-20250514-mock",
+          "validation": {
+            "smokePasses": 100,
+            "canaryPasses": 0,
+            "seedsTested": [],
+            "lastValidatedAt": "2026-04-07T07:06:03.468Z"
+          }
+        },
         {
           "id": "prop_001",
           "targetFunction": "applyDiscount",
-          "description": "Zero discount returns the original price unchanged",
+          "description": "Discounted price should be non-negative for valid inputs",
           "category": "boundary",
-          "assertion": "Math.abs(applyDiscount(price, 0) - price) < 0.01",
+          "assertion": "(() => { try { return applyDiscount(price, discount) >= 0; } catch { return true; } })()",
           "generators": {
-            "discount": {
-              "type": "float",
-              "constraints": {
-                "min": 0,
-                "max": 0
-              }
-            },
             "price": {
               "type": "float",
               "constraints": {
                 "min": 0,
-                "max": 1000000
+                "max": 10000
+              }
+            },
+            "discount": {
+              "type": "float",
+              "constraints": {
+                "min": 0,
+                "max": 200
               }
             }
           },
@@ -450,22 +445,22 @@
             {
               "label": "normal",
               "value": {
-                "discount": 0,
-                "price": 49.99
+                "price": 100,
+                "discount": 20
               }
             },
             {
               "label": "boundary",
               "value": {
-                "discount": 0,
-                "price": 0
+                "price": 0,
+                "discount": 100
               }
             },
             {
               "label": "extreme",
               "value": {
-                "discount": 0,
-                "price": 999999.99
+                "price": 0.01,
+                "discount": 150
               }
             }
           ],
@@ -475,1236 +470,22 @@
             "missing_precondition",
             "doc_domain_mismatch"
           ],
-          "status": "risky",
-          "confidence": 0.99,
-          "evidence": "@param discount - Discount percentage (0-100); formula: price * (1 - discount / 100) => price * 1 = price when discount=0",
+          "status": "refined",
+          "confidence": 0.92,
+          "evidence": "@param discount - Discount percentage (0-100); prices should not go negative",
           "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
-          "inferredAt": "2026-04-01T14:40:18.457Z",
-          "modelId": "claude-sonnet-4-6",
+          "inferredAt": "2026-04-07T07:05:50.253Z",
+          "modelId": "claude-opus-4-20250514-mock",
           "validation": {
             "smokePasses": 100,
-            "canaryPasses": 7,
+            "canaryPasses": 8,
             "seedsTested": [],
-            "lastValidatedAt": "2026-04-01T14:40:23.303Z"
-          }
-        },
-        {
-          "id": "prop_002",
-          "targetFunction": "applyDiscount",
-          "description": "100% discount always yields zero",
-          "category": "boundary",
-          "assertion": "Math.abs(applyDiscount(price, 100)) < 0.01",
-          "generators": {
-            "discount": {
-              "type": "float",
-              "constraints": {
-                "min": 100,
-                "max": 100
-              }
-            },
-            "price": {
-              "type": "float",
-              "constraints": {
-                "min": 0,
-                "max": 1000000
-              }
-            }
-          },
-          "seedInputs": [
-            {
-              "label": "normal",
-              "value": {
-                "discount": 100,
-                "price": 49.99
-              }
-            },
-            {
-              "label": "boundary",
-              "value": {
-                "discount": 100,
-                "price": 0
-              }
-            },
-            {
-              "label": "extreme",
-              "value": {
-                "discount": 100,
-                "price": 999999.99
-              }
-            }
-          ],
-          "score": 13,
-          "riskScore": 10,
-          "riskTags": [
-            "missing_precondition",
-            "doc_domain_mismatch"
-          ],
-          "status": "risky",
-          "confidence": 0.99,
-          "evidence": "formula: price * (1 - 100/100) = price * 0 = 0; @param discount - Discount percentage (0-100)",
-          "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
-          "inferredAt": "2026-04-01T14:40:18.459Z",
-          "modelId": "claude-sonnet-4-6",
-          "validation": {
-            "smokePasses": 100,
-            "canaryPasses": 7,
-            "seedsTested": [],
-            "lastValidatedAt": "2026-04-01T14:40:27.259Z"
-          }
-        },
-        {
-          "id": "prop_003",
-          "targetFunction": "applyDiscount",
-          "description": "Discounted price is always less than or equal to the original price for valid discount range",
-          "category": "monotonic",
-          "assertion": "applyDiscount(price, discount) <= price + 0.01",
-          "generators": {
-            "discount": {
-              "type": "float",
-              "constraints": {
-                "min": 0,
-                "max": 100
-              }
-            },
-            "price": {
-              "type": "float",
-              "constraints": {
-                "min": 0,
-                "max": 1000000
-              }
-            }
-          },
-          "seedInputs": [
-            {
-              "label": "normal",
-              "value": {
-                "discount": 20,
-                "price": 49.99
-              }
-            },
-            {
-              "label": "boundary",
-              "value": {
-                "discount": 50,
-                "price": 0
-              }
-            },
-            {
-              "label": "extreme",
-              "value": {
-                "discount": 99.99,
-                "price": 999999.99
-              }
-            }
-          ],
-          "score": 13,
-          "riskScore": 13,
-          "riskTags": [],
-          "status": "accepted",
-          "confidence": 0.98,
-          "evidence": "@param discount - Discount percentage (0-100); @param price - Original price (non-negative); multiplying by (1 - d/100) where d in [0,100] yields a factor in [0,1]",
-          "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
-          "inferredAt": "2026-04-01T14:40:18.459Z",
-          "modelId": "claude-sonnet-4-6",
-          "validation": {
-            "smokePasses": 100,
-            "canaryPasses": 0,
-            "seedsTested": [],
-            "lastValidatedAt": "2026-04-01T14:40:27.259Z"
-          }
-        },
-        {
-          "id": "prop_004",
-          "targetFunction": "applyDiscount",
-          "description": "Discounted price is non-negative when price and discount are within documented valid ranges",
-          "category": "boundary",
-          "assertion": "applyDiscount(price, discount) >= -0.01",
-          "generators": {
-            "discount": {
-              "type": "float",
-              "constraints": {
-                "min": 0,
-                "max": 100
-              }
-            },
-            "price": {
-              "type": "float",
-              "constraints": {
-                "min": 0,
-                "max": 1000000
-              }
-            }
-          },
-          "seedInputs": [
-            {
-              "label": "normal",
-              "value": {
-                "discount": 25,
-                "price": 100
-              }
-            },
-            {
-              "label": "boundary",
-              "value": {
-                "discount": 0,
-                "price": 0
-              }
-            },
-            {
-              "label": "extreme",
-              "value": {
-                "discount": 100,
-                "price": 1000000
-              }
-            }
-          ],
-          "score": 13,
-          "riskScore": 13,
-          "riskTags": [],
-          "status": "accepted",
-          "confidence": 0.98,
-          "evidence": "@param price - Original price (non-negative); @param discount - Discount percentage (0-100); product of two non-negatives is non-negative",
-          "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
-          "inferredAt": "2026-04-01T14:40:18.459Z",
-          "modelId": "claude-sonnet-4-6",
-          "validation": {
-            "smokePasses": 100,
-            "canaryPasses": 0,
-            "seedsTested": [],
-            "lastValidatedAt": "2026-04-01T14:40:27.259Z"
-          }
-        },
-        {
-          "id": "prop_005",
-          "targetFunction": "applyDiscount",
-          "description": "Applying two sequential discounts is equivalent to a single combined discount (metamorphic: chaining discounts)",
-          "category": "metamorphic",
-          "assertion": "Math.abs(applyDiscount(applyDiscount(price, d1), d2) - applyDiscount(price, 100 - (1 - d1/100) * (1 - d2/100) * 100)) < 0.05",
-          "generators": {
-            "d1": {
-              "type": "float",
-              "constraints": {
-                "min": 0,
-                "max": 100
-              }
-            },
-            "d2": {
-              "type": "float",
-              "constraints": {
-                "min": 0,
-                "max": 100
-              }
-            },
-            "price": {
-              "type": "float",
-              "constraints": {
-                "min": 0,
-                "max": 10000
-              }
-            }
-          },
-          "seedInputs": [
-            {
-              "label": "normal",
-              "value": {
-                "d1": 10,
-                "d2": 10,
-                "price": 100
-              }
-            },
-            {
-              "label": "boundary",
-              "value": {
-                "d1": 0,
-                "d2": 0,
-                "price": 0
-              }
-            },
-            {
-              "label": "extreme",
-              "value": {
-                "d1": 50,
-                "d2": 50,
-                "price": 9999.99
-              }
-            }
-          ],
-          "score": 13,
-          "riskScore": 13,
-          "riskTags": [],
-          "status": "accepted",
-          "confidence": 0.93,
-          "evidence": "formula: price*(1-d1/100)*(1-d2/100) = price*(1 - combined/100) where combined = 100 - (1-d1/100)*(1-d2/100)*100",
-          "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
-          "inferredAt": "2026-04-01T14:40:18.459Z",
-          "modelId": "claude-sonnet-4-6",
-          "validation": {
-            "smokePasses": 100,
-            "canaryPasses": 0,
-            "seedsTested": [],
-            "lastValidatedAt": "2026-04-01T14:40:27.259Z"
-          }
-        },
-        {
-          "id": "prop_006",
-          "targetFunction": "calculateTotal",
-          "description": "Total of an empty array is zero",
-          "category": "boundary",
-          "assertion": "calculateTotal([]) === 0",
-          "generators": {
-            "prices": {
-              "type": "array",
-              "constraints": {
-                "maxLength": 0,
-                "items": {
-                  "constraints": {
-                    "max": 1000,
-                    "min": 0
-                  },
-                  "type": "float"
-                },
-                "minLength": 0
-              }
-            }
-          },
-          "seedInputs": [
-            {
-              "label": "boundary",
-              "value": {
-                "prices": []
-              }
-            },
-            {
-              "label": "normal",
-              "value": {
-                "prices": [
-                  10
-                ]
-              }
-            },
-            {
-              "label": "extreme",
-              "value": {
-                "prices": [
-                  0,
-                  0,
-                  0
-                ]
-              }
-            }
-          ],
-          "score": 13,
-          "riskScore": 13,
-          "riskTags": [],
-          "status": "accepted",
-          "confidence": 0.99,
-          "evidence": "prices.reduce((sum, p) => sum + p, 0) with empty array returns the initial value 0",
-          "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
-          "inferredAt": "2026-04-01T14:40:18.460Z",
-          "modelId": "claude-sonnet-4-6",
-          "validation": {
-            "smokePasses": 100,
-            "canaryPasses": 0,
-            "seedsTested": [],
-            "lastValidatedAt": "2026-04-01T14:40:27.259Z"
-          }
-        },
-        {
-          "id": "prop_007",
-          "targetFunction": "calculateTotal",
-          "description": "Total of a single-element array equals that element",
-          "category": "boundary",
-          "assertion": "Math.abs(calculateTotal([price]) - price) < 0.01",
-          "generators": {
-            "price": {
-              "type": "float",
-              "constraints": {
-                "min": 0,
-                "max": 1000000
-              }
-            }
-          },
-          "seedInputs": [
-            {
-              "label": "normal",
-              "value": {
-                "prices": [
-                  49.99
-                ]
-              }
-            },
-            {
-              "label": "boundary",
-              "value": {
-                "prices": [
-                  0
-                ]
-              }
-            },
-            {
-              "label": "extreme",
-              "value": {
-                "prices": [
-                  999999.99
-                ]
-              }
-            }
-          ],
-          "score": 13,
-          "riskScore": 12,
-          "riskTags": [
-            "missing_precondition"
-          ],
-          "status": "risky",
-          "confidence": 0.99,
-          "evidence": "reduce with a single element: 0 + p = p; @param prices - Array of individual item prices",
-          "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
-          "inferredAt": "2026-04-01T14:40:18.460Z",
-          "modelId": "claude-sonnet-4-6",
-          "validation": {
-            "smokePasses": 100,
-            "canaryPasses": 7,
-            "seedsTested": [],
-            "lastValidatedAt": "2026-04-01T14:40:31.273Z"
-          }
-        },
-        {
-          "id": "prop_008",
-          "targetFunction": "calculateTotal",
-          "description": "Total is conserved when the array is split and recombined (additivity)",
-          "category": "conservation",
-          "assertion": "Math.abs(calculateTotal(prices) - (calculateTotal(prices.slice(0, Math.floor(prices.length/2))) + calculateTotal(prices.slice(Math.floor(prices.length/2))))) < 0.05",
-          "generators": {
-            "prices": {
-              "type": "array",
-              "constraints": {
-                "maxLength": 50,
-                "items": {
-                  "constraints": {
-                    "max": 10000,
-                    "min": 0
-                  },
-                  "type": "float"
-                },
-                "minLength": 2
-              }
-            }
-          },
-          "seedInputs": [
-            {
-              "label": "normal",
-              "value": {
-                "prices": [
-                  10,
-                  20,
-                  30
-                ]
-              }
-            },
-            {
-              "label": "boundary",
-              "value": {
-                "prices": [
-                  0,
-                  0
-                ]
-              }
-            },
-            {
-              "label": "extreme",
-              "value": {
-                "prices": [
-                  9999.99,
-                  9999.99,
-                  9999.99,
-                  9999.99
-                ]
-              }
-            }
-          ],
-          "score": 13,
-          "riskScore": 13,
-          "riskTags": [],
-          "status": "accepted",
-          "confidence": 0.96,
-          "evidence": "reduce is a linear sum; splitting and summing sub-arrays must equal the full sum by associativity of addition",
-          "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
-          "inferredAt": "2026-04-01T14:40:18.460Z",
-          "modelId": "claude-sonnet-4-6",
-          "validation": {
-            "smokePasses": 100,
-            "canaryPasses": 0,
-            "seedsTested": [],
-            "lastValidatedAt": "2026-04-01T14:40:31.273Z"
-          }
-        },
-        {
-          "id": "prop_009",
-          "targetFunction": "calculateTotal",
-          "description": "Adding a new item increases the total by exactly that item's price",
-          "category": "metamorphic",
-          "assertion": "Math.abs(calculateTotal([...prices, newItem]) - (calculateTotal(prices) + newItem)) < 0.01",
-          "generators": {
-            "newItem": {
-              "type": "float",
-              "constraints": {
-                "min": 0,
-                "max": 10000
-              }
-            },
-            "prices": {
-              "type": "array",
-              "constraints": {
-                "maxLength": 50,
-                "items": {
-                  "constraints": {
-                    "max": 10000,
-                    "min": 0
-                  },
-                  "type": "float"
-                },
-                "minLength": 0
-              }
-            }
-          },
-          "seedInputs": [
-            {
-              "label": "normal",
-              "value": {
-                "newItem": 5.99,
-                "prices": [
-                  10,
-                  20
-                ]
-              }
-            },
-            {
-              "label": "boundary",
-              "value": {
-                "newItem": 0,
-                "prices": []
-              }
-            },
-            {
-              "label": "extreme",
-              "value": {
-                "newItem": 9999.99,
-                "prices": [
-                  9999.99
-                ]
-              }
-            }
-          ],
-          "score": 13,
-          "riskScore": 13,
-          "riskTags": [],
-          "status": "accepted",
-          "confidence": 0.98,
-          "evidence": "sum is linear: sum(prices ++ [x]) = sum(prices) + x by definition of reduce",
-          "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
-          "inferredAt": "2026-04-01T14:40:18.460Z",
-          "modelId": "claude-sonnet-4-6",
-          "validation": {
-            "smokePasses": 100,
-            "canaryPasses": 0,
-            "seedsTested": [],
-            "lastValidatedAt": "2026-04-01T14:40:31.273Z"
-          }
-        },
-        {
-          "id": "prop_010",
-          "targetFunction": "calculateTotal",
-          "description": "Total is non-negative when all input prices are non-negative",
-          "category": "boundary",
-          "assertion": "calculateTotal(prices) >= 0",
-          "generators": {
-            "prices": {
-              "type": "array",
-              "constraints": {
-                "maxLength": 100,
-                "items": {
-                  "constraints": {
-                    "max": 100000,
-                    "min": 0
-                  },
-                  "type": "float"
-                },
-                "minLength": 0
-              }
-            }
-          },
-          "seedInputs": [
-            {
-              "label": "normal",
-              "value": {
-                "prices": [
-                  1.99,
-                  2.99,
-                  3.99
-                ]
-              }
-            },
-            {
-              "label": "boundary",
-              "value": {
-                "prices": []
-              }
-            },
-            {
-              "label": "extreme",
-              "value": {
-                "prices": [
-                  99999.99,
-                  99999.99
-                ]
-              }
-            }
-          ],
-          "score": 13,
-          "riskScore": 12,
-          "riskTags": [
-            "missing_precondition"
-          ],
-          "status": "risky",
-          "confidence": 0.97,
-          "evidence": "@param prices - Array of individual item prices; sum of non-negatives is non-negative",
-          "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
-          "inferredAt": "2026-04-01T14:40:18.460Z",
-          "modelId": "claude-sonnet-4-6",
-          "validation": {
-            "smokePasses": 100,
-            "canaryPasses": 4,
-            "seedsTested": [],
-            "lastValidatedAt": "2026-04-01T14:40:33.500Z"
-          }
-        },
-        {
-          "id": "prop_011",
-          "targetFunction": "formatPrice",
-          "description": "Output always has exactly 2 decimal places",
-          "category": "type-preservation",
-          "assertion": "/^-?\\d+\\.\\d{2}$/.test(formatPrice(price))",
-          "generators": {
-            "price": {
-              "type": "float",
-              "constraints": {
-                "min": 0,
-                "max": 1000000
-              }
-            }
-          },
-          "seedInputs": [
-            {
-              "label": "normal",
-              "value": {
-                "price": 49.99
-              }
-            },
-            {
-              "label": "boundary",
-              "value": {
-                "price": 0
-              }
-            },
-            {
-              "label": "extreme",
-              "value": {
-                "price": 999999.99
-              }
-            }
-          ],
-          "score": 13,
-          "riskScore": 13,
-          "riskTags": [],
-          "status": "accepted",
-          "confidence": 0.99,
-          "evidence": "@returns Formatted string like \"49.99\"; uses price.toFixed(2) which always produces exactly 2 decimal digits",
-          "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
-          "inferredAt": "2026-04-01T14:40:18.460Z",
-          "modelId": "claude-sonnet-4-6",
-          "validation": {
-            "smokePasses": 100,
-            "canaryPasses": 0,
-            "seedsTested": [],
-            "lastValidatedAt": "2026-04-01T14:40:33.500Z"
-          }
-        },
-        {
-          "id": "prop_012",
-          "targetFunction": "formatPrice",
-          "description": "Parsing the formatted price back to a float is within rounding tolerance of the original (roundtrip within 0.005)",
-          "category": "roundtrip",
-          "assertion": "Math.abs(parseFloat(formatPrice(price)) - price) < 0.005",
-          "generators": {
-            "price": {
-              "type": "float",
-              "constraints": {
-                "min": 0,
-                "max": 100000
-              }
-            }
-          },
-          "seedInputs": [
-            {
-              "label": "normal",
-              "value": {
-                "price": 49.99
-              }
-            },
-            {
-              "label": "boundary",
-              "value": {
-                "price": 0
-              }
-            },
-            {
-              "label": "extreme",
-              "value": {
-                "price": 99999.994
-              }
-            }
-          ],
-          "score": 13,
-          "riskScore": 13,
-          "riskTags": [],
-          "status": "accepted",
-          "confidence": 0.95,
-          "evidence": "toFixed(2) rounds to 2 decimal places; parseFloat of a 2-decimal string differs from original by at most 0.005 (half of last decimal unit)",
-          "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
-          "inferredAt": "2026-04-01T14:40:18.460Z",
-          "modelId": "claude-sonnet-4-6",
-          "validation": {
-            "smokePasses": 100,
-            "canaryPasses": 0,
-            "seedsTested": [],
-            "lastValidatedAt": "2026-04-01T14:40:33.500Z"
-          }
-        },
-        {
-          "id": "prop_015",
-          "targetFunction": "formatPrice",
-          "description": "formatPrice of calculateTotal matches formatting the sum directly (cross-function consistency with calculateTotal)",
-          "category": "cross-function",
-          "assertion": "formatPrice(calculateTotal(prices)) === calculateTotal(prices).toFixed(2)",
-          "generators": {
-            "prices": {
-              "type": "array",
-              "constraints": {
-                "maxLength": 20,
-                "items": {
-                  "constraints": {
-                    "max": 1000,
-                    "min": 0
-                  },
-                  "type": "float"
-                },
-                "minLength": 0
-              }
-            }
-          },
-          "seedInputs": [
-            {
-              "label": "normal",
-              "value": {
-                "prices": [
-                  10,
-                  20.5,
-                  5.99
-                ]
-              }
-            },
-            {
-              "label": "boundary",
-              "value": {
-                "prices": []
-              }
-            },
-            {
-              "label": "extreme",
-              "value": {
-                "prices": [
-                  999.99,
-                  999.99,
-                  999.99
-                ]
-              }
-            }
-          ],
-          "score": 13,
-          "riskScore": 13,
-          "riskTags": [],
-          "status": "accepted",
-          "confidence": 0.98,
-          "evidence": "formatPrice delegates to toFixed(2); calculateTotal returns a number; the composition must equal calling toFixed(2) on the total directly",
-          "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
-          "inferredAt": "2026-04-01T14:40:18.460Z",
-          "modelId": "claude-sonnet-4-6",
-          "validation": {
-            "smokePasses": 100,
-            "canaryPasses": 0,
-            "seedsTested": [],
-            "lastValidatedAt": "2026-04-01T14:40:33.500Z"
+            "lastValidatedAt": "2026-04-07T07:06:06.811Z"
           }
         }
       ],
       "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
-      "inferredAt": "2026-04-01T14:40:33.500Z"
-    },
-    "test-fixtures/typescript/sort-utils.ts": {
-      "schemaVersion": 2,
-      "module": "test-fixtures/typescript/sort-utils.ts",
-      "filePath": "test-fixtures/typescript/sort-utils.ts",
-      "properties": [
-        {
-          "id": "prop_001",
-          "targetFunction": "sortNumbers",
-          "description": "Output length equals input length",
-          "category": "conservation",
-          "assertion": "sortNumbers(arr).length === arr.length",
-          "generators": {
-            "arr": {
-              "type": "array",
-              "constraints": {
-                "maxLength": 50,
-                "element": "float"
-              }
-            }
-          },
-          "seedInputs": [
-            {
-              "label": "normal",
-              "value": {
-                "arr": [
-                  3,
-                  1,
-                  2
-                ]
-              }
-            },
-            {
-              "label": "boundary",
-              "value": {
-                "arr": []
-              }
-            },
-            {
-              "label": "extreme",
-              "value": {
-                "arr": [
-                  1
-                ]
-              }
-            }
-          ],
-          "score": 11,
-          "riskScore": 6,
-          "riskTags": [
-            "float_exact_equality",
-            "wide_numeric_domain"
-          ],
-          "status": "risky",
-          "confidence": 0.99,
-          "evidence": "Sorting should not add or remove elements",
-          "sourceHash": "2d5dcb502c0513bf85eaf5fa9f06dcaff798e6f9d9b29d93bdcc09071b2116a2",
-          "inferredAt": "2026-03-31T02:47:47.249Z",
-          "modelId": "claude-opus-4-20250514-mock",
-          "validation": {
-            "smokePasses": 100,
-            "canaryPasses": 4,
-            "seedsTested": [],
-            "lastValidatedAt": "2026-03-31T02:47:49.162Z"
-          },
-          "humanVerified": true
-        },
-        {
-          "id": "prop_002",
-          "targetFunction": "sortNumbers",
-          "description": "Output is monotonically non-decreasing",
-          "category": "monotonic",
-          "assertion": "sortNumbers(arr).every((v, i, a) => i === 0 || a[i-1] <= v)",
-          "generators": {
-            "arr": {
-              "type": "array",
-              "constraints": {
-                "maxLength": 50,
-                "element": "float"
-              }
-            }
-          },
-          "seedInputs": [
-            {
-              "label": "normal",
-              "value": {
-                "arr": [
-                  5,
-                  2,
-                  8,
-                  1
-                ]
-              }
-            },
-            {
-              "label": "boundary",
-              "value": {
-                "arr": [
-                  1,
-                  1,
-                  1
-                ]
-              }
-            },
-            {
-              "label": "extreme",
-              "value": {
-                "arr": [
-                  100,
-                  -100,
-                  0
-                ]
-              }
-            }
-          ],
-          "score": 11,
-          "riskScore": 6,
-          "riskTags": [
-            "float_exact_equality",
-            "wide_numeric_domain"
-          ],
-          "status": "risky",
-          "confidence": 0.99,
-          "evidence": "@returns New sorted array; ascending order",
-          "sourceHash": "2d5dcb502c0513bf85eaf5fa9f06dcaff798e6f9d9b29d93bdcc09071b2116a2",
-          "inferredAt": "2026-03-31T02:47:47.250Z",
-          "modelId": "claude-opus-4-20250514-mock",
-          "validation": {
-            "smokePasses": 100,
-            "canaryPasses": 4,
-            "seedsTested": [],
-            "lastValidatedAt": "2026-03-31T02:47:50.624Z"
-          }
-        },
-        {
-          "id": "prop_003",
-          "targetFunction": "sortNumbers",
-          "description": "Sorting is idempotent",
-          "category": "idempotent",
-          "assertion": "JSON.stringify(sortNumbers(sortNumbers(arr))) === JSON.stringify(sortNumbers(arr))",
-          "generators": {
-            "arr": {
-              "type": "array",
-              "constraints": {
-                "maxLength": 30,
-                "element": "float"
-              }
-            }
-          },
-          "seedInputs": [
-            {
-              "label": "normal",
-              "value": {
-                "arr": [
-                  3,
-                  1,
-                  2
-                ]
-              }
-            },
-            {
-              "label": "boundary",
-              "value": {
-                "arr": []
-              }
-            },
-            {
-              "label": "extreme",
-              "value": {
-                "arr": [
-                  1,
-                  2,
-                  3
-                ]
-              }
-            }
-          ],
-          "score": 11,
-          "riskScore": 6,
-          "riskTags": [
-            "float_exact_equality",
-            "wide_numeric_domain"
-          ],
-          "status": "risky",
-          "confidence": 0.97,
-          "evidence": "Sorting an already sorted array should be a no-op",
-          "sourceHash": "2d5dcb502c0513bf85eaf5fa9f06dcaff798e6f9d9b29d93bdcc09071b2116a2",
-          "inferredAt": "2026-03-31T02:47:47.250Z",
-          "modelId": "claude-opus-4-20250514-mock",
-          "validation": {
-            "smokePasses": 100,
-            "canaryPasses": 4,
-            "seedsTested": [],
-            "lastValidatedAt": "2026-03-31T02:47:52.179Z"
-          }
-        },
-        {
-          "id": "prop_004",
-          "targetFunction": "unique",
-          "description": "Output has no duplicate elements",
-          "category": "boundary",
-          "assertion": "new Set(unique(arr)).size === unique(arr).length",
-          "generators": {
-            "arr": {
-              "type": "array",
-              "constraints": {
-                "maxLength": 50,
-                "element": "integer"
-              }
-            }
-          },
-          "seedInputs": [
-            {
-              "label": "normal",
-              "value": {
-                "arr": [
-                  1,
-                  2,
-                  2,
-                  3
-                ]
-              }
-            },
-            {
-              "label": "boundary",
-              "value": {
-                "arr": []
-              }
-            },
-            {
-              "label": "extreme",
-              "value": {
-                "arr": [
-                  1,
-                  1,
-                  1,
-                  1
-                ]
-              }
-            }
-          ],
-          "score": 13,
-          "riskScore": 11,
-          "riskTags": [
-            "wide_numeric_domain"
-          ],
-          "status": "risky",
-          "confidence": 0.99,
-          "evidence": "Uses new Set() which removes duplicates",
-          "sourceHash": "2d5dcb502c0513bf85eaf5fa9f06dcaff798e6f9d9b29d93bdcc09071b2116a2",
-          "inferredAt": "2026-03-31T02:47:47.251Z",
-          "modelId": "claude-opus-4-20250514-mock",
-          "validation": {
-            "smokePasses": 100,
-            "canaryPasses": 4,
-            "seedsTested": [],
-            "lastValidatedAt": "2026-03-31T02:47:53.675Z"
-          }
-        },
-        {
-          "id": "prop_005",
-          "targetFunction": "unique",
-          "description": "Output length is at most input length",
-          "category": "conservation",
-          "assertion": "unique(arr).length <= arr.length",
-          "generators": {
-            "arr": {
-              "type": "array",
-              "constraints": {
-                "maxLength": 50,
-                "element": "integer"
-              }
-            }
-          },
-          "seedInputs": [
-            {
-              "label": "normal",
-              "value": {
-                "arr": [
-                  1,
-                  2,
-                  3
-                ]
-              }
-            },
-            {
-              "label": "boundary",
-              "value": {
-                "arr": []
-              }
-            },
-            {
-              "label": "extreme",
-              "value": {
-                "arr": [
-                  5,
-                  5,
-                  5
-                ]
-              }
-            }
-          ],
-          "score": 13,
-          "riskScore": 11,
-          "riskTags": [
-            "wide_numeric_domain"
-          ],
-          "status": "risky",
-          "confidence": 0.98,
-          "evidence": "Removing duplicates can only reduce or maintain length",
-          "sourceHash": "2d5dcb502c0513bf85eaf5fa9f06dcaff798e6f9d9b29d93bdcc09071b2116a2",
-          "inferredAt": "2026-03-31T02:47:47.251Z",
-          "modelId": "claude-opus-4-20250514-mock",
-          "validation": {
-            "smokePasses": 100,
-            "canaryPasses": 4,
-            "seedsTested": [],
-            "lastValidatedAt": "2026-03-31T02:47:55.198Z"
-          }
-        },
-        {
-          "id": "prop_006",
-          "targetFunction": "unique",
-          "description": "Unique is idempotent",
-          "category": "idempotent",
-          "assertion": "JSON.stringify(unique(unique(arr))) === JSON.stringify(unique(arr))",
-          "generators": {
-            "arr": {
-              "type": "array",
-              "constraints": {
-                "maxLength": 30,
-                "element": "integer"
-              }
-            }
-          },
-          "seedInputs": [
-            {
-              "label": "normal",
-              "value": {
-                "arr": [
-                  1,
-                  2,
-                  2,
-                  3
-                ]
-              }
-            },
-            {
-              "label": "boundary",
-              "value": {
-                "arr": []
-              }
-            },
-            {
-              "label": "extreme",
-              "value": {
-                "arr": [
-                  1
-                ]
-              }
-            }
-          ],
-          "score": 13,
-          "riskScore": 11,
-          "riskTags": [
-            "wide_numeric_domain"
-          ],
-          "status": "risky",
-          "confidence": 0.96,
-          "evidence": "Applying unique to already-unique array should be a no-op",
-          "sourceHash": "2d5dcb502c0513bf85eaf5fa9f06dcaff798e6f9d9b29d93bdcc09071b2116a2",
-          "inferredAt": "2026-03-31T02:47:47.251Z",
-          "modelId": "claude-opus-4-20250514-mock",
-          "validation": {
-            "smokePasses": 100,
-            "canaryPasses": 4,
-            "seedsTested": [],
-            "lastValidatedAt": "2026-03-31T02:47:57.125Z"
-          }
-        },
-        {
-          "id": "prop_007",
-          "targetFunction": "mergeSorted",
-          "description": "Output length equals sum of input lengths",
-          "category": "conservation",
-          "assertion": "mergeSorted(a, b).length === a.length + b.length",
-          "generators": {
-            "a": {
-              "type": "array",
-              "constraints": {
-                "maxLength": 30,
-                "element": "integer"
-              }
-            },
-            "b": {
-              "type": "array",
-              "constraints": {
-                "maxLength": 30,
-                "element": "integer"
-              }
-            }
-          },
-          "seedInputs": [
-            {
-              "label": "normal",
-              "value": {
-                "a": [
-                  1,
-                  3,
-                  5
-                ],
-                "b": [
-                  2,
-                  4,
-                  6
-                ]
-              }
-            },
-            {
-              "label": "boundary",
-              "value": {
-                "a": [],
-                "b": []
-              }
-            },
-            {
-              "label": "extreme",
-              "value": {
-                "a": [
-                  1
-                ],
-                "b": []
-              }
-            }
-          ],
-          "score": 13,
-          "riskScore": 11,
-          "riskTags": [
-            "wide_numeric_domain"
-          ],
-          "status": "risky",
-          "confidence": 0.99,
-          "evidence": "Merge should include all elements from both arrays",
-          "sourceHash": "2d5dcb502c0513bf85eaf5fa9f06dcaff798e6f9d9b29d93bdcc09071b2116a2",
-          "inferredAt": "2026-03-31T02:47:47.251Z",
-          "modelId": "claude-opus-4-20250514-mock",
-          "validation": {
-            "smokePasses": 100,
-            "canaryPasses": 7,
-            "seedsTested": [],
-            "lastValidatedAt": "2026-03-31T02:48:00.085Z"
-          }
-        }
-      ],
-      "sourceHash": "2d5dcb502c0513bf85eaf5fa9f06dcaff798e6f9d9b29d93bdcc09071b2116a2",
-      "inferredAt": "2026-03-31T02:48:00.085Z"
+      "inferredAt": "2026-04-07T07:06:06.811Z"
     },
     "test-fixtures/typescript/string-utils.ts": {
       "schemaVersion": 2,
@@ -1752,13 +533,13 @@
           "confidence": 0.99,
           "evidence": "Reverse is its own inverse: reverse(reverse(x)) === x",
           "sourceHash": "23c6f6b6a46643df9474221da9b84951824faebf94d0f336f4b839abeafe1dc5",
-          "inferredAt": "2026-03-31T02:48:29.268Z",
+          "inferredAt": "2026-04-03T09:52:49.788Z",
           "modelId": "claude-opus-4-20250514-mock",
           "validation": {
             "smokePasses": 100,
             "canaryPasses": 0,
             "seedsTested": [],
-            "lastValidatedAt": "2026-03-31T02:48:29.694Z"
+            "lastValidatedAt": "2026-04-03T09:52:50.616Z"
           }
         },
         {
@@ -1802,13 +583,13 @@
           "confidence": 0.99,
           "evidence": "Reversing characters does not change count",
           "sourceHash": "23c6f6b6a46643df9474221da9b84951824faebf94d0f336f4b839abeafe1dc5",
-          "inferredAt": "2026-03-31T02:48:29.270Z",
+          "inferredAt": "2026-04-03T09:52:49.790Z",
           "modelId": "claude-opus-4-20250514-mock",
           "validation": {
             "smokePasses": 100,
             "canaryPasses": 0,
             "seedsTested": [],
-            "lastValidatedAt": "2026-03-31T02:48:29.694Z"
+            "lastValidatedAt": "2026-04-03T09:52:50.616Z"
           }
         },
         {
@@ -1852,13 +633,13 @@
           "confidence": 0.93,
           "evidence": "Reversing puts first element at the end",
           "sourceHash": "23c6f6b6a46643df9474221da9b84951824faebf94d0f336f4b839abeafe1dc5",
-          "inferredAt": "2026-03-31T02:48:29.270Z",
+          "inferredAt": "2026-04-03T09:52:49.790Z",
           "modelId": "claude-opus-4-20250514-mock",
           "validation": {
             "smokePasses": 100,
             "canaryPasses": 0,
             "seedsTested": [],
-            "lastValidatedAt": "2026-03-31T02:48:29.694Z"
+            "lastValidatedAt": "2026-04-03T09:52:50.616Z"
           }
         },
         {
@@ -1912,13 +693,13 @@
           "confidence": 0.95,
           "evidence": "@param maxLen - Maximum length; result should respect this limit",
           "sourceHash": "23c6f6b6a46643df9474221da9b84951824faebf94d0f336f4b839abeafe1dc5",
-          "inferredAt": "2026-03-31T02:48:29.270Z",
+          "inferredAt": "2026-04-03T09:52:49.790Z",
           "modelId": "claude-opus-4-20250514-mock",
           "validation": {
             "smokePasses": 100,
             "canaryPasses": 0,
             "seedsTested": [],
-            "lastValidatedAt": "2026-03-31T02:48:29.694Z"
+            "lastValidatedAt": "2026-04-03T09:52:50.616Z"
           }
         },
         {
@@ -1972,13 +753,13 @@
           "confidence": 0.97,
           "evidence": "if (str.length <= maxLen) return str — code returns unchanged",
           "sourceHash": "23c6f6b6a46643df9474221da9b84951824faebf94d0f336f4b839abeafe1dc5",
-          "inferredAt": "2026-03-31T02:48:29.270Z",
+          "inferredAt": "2026-04-03T09:52:49.790Z",
           "modelId": "claude-opus-4-20250514-mock",
           "validation": {
             "smokePasses": 100,
             "canaryPasses": 0,
             "seedsTested": [],
-            "lastValidatedAt": "2026-03-31T02:48:29.694Z"
+            "lastValidatedAt": "2026-04-03T09:52:50.616Z"
           }
         },
         {
@@ -2032,13 +813,13 @@
           "confidence": 0.96,
           "evidence": "return str.slice(0, maxLen - 3) + '...' — adds ellipsis",
           "sourceHash": "23c6f6b6a46643df9474221da9b84951824faebf94d0f336f4b839abeafe1dc5",
-          "inferredAt": "2026-03-31T02:48:29.270Z",
+          "inferredAt": "2026-04-03T09:52:49.790Z",
           "modelId": "claude-opus-4-20250514-mock",
           "validation": {
             "smokePasses": 100,
             "canaryPasses": 0,
             "seedsTested": [],
-            "lastValidatedAt": "2026-03-31T02:48:29.694Z"
+            "lastValidatedAt": "2026-04-03T09:52:50.616Z"
           }
         },
         {
@@ -2061,13 +842,13 @@
           "confidence": 0.95,
           "evidence": "Empty string reversed equals itself",
           "sourceHash": "23c6f6b6a46643df9474221da9b84951824faebf94d0f336f4b839abeafe1dc5",
-          "inferredAt": "2026-03-31T02:48:29.270Z",
+          "inferredAt": "2026-04-03T09:52:49.790Z",
           "modelId": "claude-opus-4-20250514-mock",
           "validation": {
             "smokePasses": 100,
             "canaryPasses": 0,
             "seedsTested": [],
-            "lastValidatedAt": "2026-03-31T02:48:29.694Z"
+            "lastValidatedAt": "2026-04-03T09:52:50.616Z"
           }
         },
         {
@@ -2111,13 +892,13 @@
           "confidence": 0.95,
           "evidence": "Any single character reads the same forwards and backwards",
           "sourceHash": "23c6f6b6a46643df9474221da9b84951824faebf94d0f336f4b839abeafe1dc5",
-          "inferredAt": "2026-03-31T02:48:29.270Z",
+          "inferredAt": "2026-04-03T09:52:49.790Z",
           "modelId": "claude-opus-4-20250514-mock",
           "validation": {
             "smokePasses": 100,
             "canaryPasses": 0,
             "seedsTested": [],
-            "lastValidatedAt": "2026-03-31T02:48:29.694Z"
+            "lastValidatedAt": "2026-04-03T09:52:50.616Z"
           }
         },
         {
@@ -2161,18 +942,18 @@
           "confidence": 0.88,
           "evidence": "str + reverse(str) is always a palindrome by construction",
           "sourceHash": "23c6f6b6a46643df9474221da9b84951824faebf94d0f336f4b839abeafe1dc5",
-          "inferredAt": "2026-03-31T02:48:29.270Z",
+          "inferredAt": "2026-04-03T09:52:49.790Z",
           "modelId": "claude-opus-4-20250514-mock",
           "validation": {
             "smokePasses": 100,
             "canaryPasses": 0,
             "seedsTested": [],
-            "lastValidatedAt": "2026-03-31T02:48:29.694Z"
+            "lastValidatedAt": "2026-04-03T09:52:50.616Z"
           }
         }
       ],
       "sourceHash": "23c6f6b6a46643df9474221da9b84951824faebf94d0f336f4b839abeafe1dc5",
-      "inferredAt": "2026-03-31T02:48:29.694Z"
+      "inferredAt": "2026-04-03T09:52:50.616Z"
     },
     "test-fixtures/python/calculator.py": {
       "schemaVersion": 2,
@@ -2231,13 +1012,13 @@
           "confidence": 0.99,
           "evidence": "Addition: a + b == b + a for all integers",
           "sourceHash": "0c71969442c51055aae1c85372046a030fa68d61af39d9325d3cfbed6fd0511f",
-          "inferredAt": "2026-03-31T02:49:04.484Z",
+          "inferredAt": "2026-04-03T07:00:56.222Z",
           "modelId": "claude-opus-4-20250514-mock",
           "validation": {
             "smokePasses": 100,
             "canaryPasses": 0,
             "seedsTested": [],
-            "lastValidatedAt": "2026-03-31T02:49:06.161Z"
+            "lastValidatedAt": "2026-04-03T07:00:58.314Z"
           }
         },
         {
@@ -2282,13 +1063,13 @@
           "confidence": 0.99,
           "evidence": "a + 0 = a; additive identity",
           "sourceHash": "0c71969442c51055aae1c85372046a030fa68d61af39d9325d3cfbed6fd0511f",
-          "inferredAt": "2026-03-31T02:49:04.486Z",
+          "inferredAt": "2026-04-03T07:00:56.224Z",
           "modelId": "claude-opus-4-20250514-mock",
           "validation": {
             "smokePasses": 100,
             "canaryPasses": 0,
             "seedsTested": [],
-            "lastValidatedAt": "2026-03-31T02:49:06.161Z"
+            "lastValidatedAt": "2026-04-03T07:00:58.314Z"
           }
         },
         {
@@ -2353,13 +1134,13 @@
           "confidence": 0.97,
           "evidence": "(a + b) + c == a + (b + c); associativity of addition",
           "sourceHash": "0c71969442c51055aae1c85372046a030fa68d61af39d9325d3cfbed6fd0511f",
-          "inferredAt": "2026-03-31T02:49:04.486Z",
+          "inferredAt": "2026-04-03T07:00:56.224Z",
           "modelId": "claude-opus-4-20250514-mock",
           "validation": {
             "smokePasses": 100,
             "canaryPasses": 0,
             "seedsTested": [],
-            "lastValidatedAt": "2026-03-31T02:49:06.161Z"
+            "lastValidatedAt": "2026-04-03T07:00:58.314Z"
           }
         },
         {
@@ -2406,13 +1187,13 @@
           "confidence": 0.98,
           "evidence": "a / 1 = a; division by unity identity",
           "sourceHash": "0c71969442c51055aae1c85372046a030fa68d61af39d9325d3cfbed6fd0511f",
-          "inferredAt": "2026-03-31T02:49:04.486Z",
+          "inferredAt": "2026-04-03T07:00:56.224Z",
           "modelId": "claude-opus-4-20250514-mock",
           "validation": {
             "smokePasses": 100,
             "canaryPasses": 6,
             "seedsTested": [],
-            "lastValidatedAt": "2026-03-31T02:49:11.108Z"
+            "lastValidatedAt": "2026-04-03T07:01:11.552Z"
           }
         },
         {
@@ -2459,349 +1240,36 @@
           "confidence": 0.97,
           "evidence": "0 / b = 0 for any non-zero b",
           "sourceHash": "0c71969442c51055aae1c85372046a030fa68d61af39d9325d3cfbed6fd0511f",
-          "inferredAt": "2026-03-31T02:49:04.486Z",
+          "inferredAt": "2026-04-03T07:00:56.224Z",
           "modelId": "claude-opus-4-20250514-mock",
           "validation": {
             "smokePasses": 100,
             "canaryPasses": 3,
             "seedsTested": [],
-            "lastValidatedAt": "2026-03-31T02:49:14.019Z"
+            "lastValidatedAt": "2026-04-03T07:01:17.185Z"
           }
         }
       ],
       "sourceHash": "0c71969442c51055aae1c85372046a030fa68d61af39d9325d3cfbed6fd0511f",
-      "inferredAt": "2026-03-31T02:49:14.020Z"
+      "inferredAt": "2026-04-03T07:01:17.185Z"
     },
-    "test-fixtures/typescript/cart.ts": {
+    "examples/test-user-code.ts": {
       "schemaVersion": 2,
-      "module": "test-fixtures/typescript/cart.ts",
-      "filePath": "test-fixtures/typescript/cart.ts",
+      "module": "examples/test-user-code.ts",
+      "filePath": "examples/test-user-code.ts",
       "properties": [
         {
           "id": "prop_001",
-          "targetFunction": "applyDiscount",
-          "description": "Discounted price should be non-negative for valid inputs",
+          "targetFunction": "average",
+          "description": "average should return a finite number for valid inputs",
           "category": "boundary",
-          "assertion": "applyDiscount(price, discount) >= 0",
+          "assertion": "Number.isFinite(average(numbers))",
           "generators": {
-            "price": {
-              "type": "float",
-              "constraints": {
-                "min": 0,
-                "max": 10000
-              }
-            },
-            "discount": {
-              "type": "float",
-              "constraints": {
-                "min": 0,
-                "max": 200
-              }
-            }
-          },
-          "seedInputs": [
-            {
-              "label": "normal",
-              "value": {
-                "price": 100,
-                "discount": 20
-              }
-            },
-            {
-              "label": "boundary",
-              "value": {
-                "price": 0,
-                "discount": 100
-              }
-            },
-            {
-              "label": "extreme",
-              "value": {
-                "price": 0.01,
-                "discount": 150
-              }
-            }
-          ],
-          "score": 13,
-          "riskScore": 10,
-          "riskTags": [
-            "missing_precondition",
-            "doc_domain_mismatch"
-          ],
-          "status": "risky",
-          "confidence": 0.92,
-          "evidence": "@param discount - Discount percentage (0-100); prices should not go negative",
-          "sourceHash": "d9d64f51d3671cac08413a39170fa67551231f36afc7af24d20828c9193485a8",
-          "inferredAt": "2026-03-31T02:49:47.187Z",
-          "modelId": "claude-opus-4-20250514-mock",
-          "validation": {
-            "smokePasses": 100,
-            "canaryPasses": 8,
-            "seedsTested": [],
-            "lastValidatedAt": "2026-03-31T02:49:50.686Z"
-          }
-        },
-        {
-          "id": "prop_002",
-          "targetFunction": "applyDiscount",
-          "description": "Discount should not increase the price when discount is positive",
-          "category": "monotonic",
-          "assertion": "discount >= 0 ? applyDiscount(price, discount) <= price : true",
-          "generators": {
-            "price": {
-              "type": "float",
-              "constraints": {
-                "min": 0,
-                "max": 10000
-              }
-            },
-            "discount": {
-              "type": "float",
-              "constraints": {
-                "min": -50,
-                "max": 200
-              }
-            }
-          },
-          "seedInputs": [
-            {
-              "label": "normal",
-              "value": {
-                "price": 100,
-                "discount": 25
-              }
-            },
-            {
-              "label": "boundary",
-              "value": {
-                "price": 100,
-                "discount": 0
-              }
-            },
-            {
-              "label": "extreme",
-              "value": {
-                "price": 1,
-                "discount": 200
-              }
-            }
-          ],
-          "score": 13,
-          "riskScore": 11,
-          "riskTags": [
-            "doc_domain_mismatch"
-          ],
-          "status": "risky",
-          "confidence": 0.88,
-          "evidence": "Discount reduces price; @param discount - Discount percentage (0-100)",
-          "sourceHash": "d9d64f51d3671cac08413a39170fa67551231f36afc7af24d20828c9193485a8",
-          "inferredAt": "2026-03-31T02:49:47.189Z",
-          "modelId": "claude-opus-4-20250514-mock",
-          "validation": {
-            "smokePasses": 100,
-            "canaryPasses": 8,
-            "seedsTested": [],
-            "lastValidatedAt": "2026-03-31T02:49:53.733Z"
-          }
-        },
-        {
-          "id": "prop_003",
-          "targetFunction": "applyDiscount",
-          "description": "Zero discount returns original price unchanged",
-          "category": "boundary",
-          "assertion": "applyDiscount(price, 0) === price",
-          "generators": {
-            "price": {
-              "type": "float",
-              "constraints": {
-                "min": 0,
-                "max": 10000
-              }
-            }
-          },
-          "seedInputs": [
-            {
-              "label": "normal",
-              "value": {
-                "price": 49.99
-              }
-            },
-            {
-              "label": "boundary",
-              "value": {
-                "price": 0
-              }
-            },
-            {
-              "label": "extreme",
-              "value": {
-                "price": 99999.99
-              }
-            }
-          ],
-          "score": 11,
-          "riskScore": 8,
-          "riskTags": [
-            "float_exact_equality"
-          ],
-          "status": "risky",
-          "confidence": 0.98,
-          "evidence": "Zero discount means no change to price",
-          "sourceHash": "d9d64f51d3671cac08413a39170fa67551231f36afc7af24d20828c9193485a8",
-          "inferredAt": "2026-03-31T02:49:47.189Z",
-          "modelId": "claude-opus-4-20250514-mock",
-          "validation": {
-            "smokePasses": 100,
-            "canaryPasses": 6,
-            "seedsTested": [],
-            "lastValidatedAt": "2026-03-31T02:49:55.923Z"
-          }
-        },
-        {
-          "id": "prop_004",
-          "targetFunction": "applyDiscount",
-          "description": "100% discount results in zero price",
-          "category": "boundary",
-          "assertion": "applyDiscount(price, 100) === 0",
-          "generators": {
-            "price": {
-              "type": "float",
-              "constraints": {
-                "min": 0,
-                "max": 10000
-              }
-            }
-          },
-          "seedInputs": [
-            {
-              "label": "normal",
-              "value": {
-                "price": 50
-              }
-            },
-            {
-              "label": "boundary",
-              "value": {
-                "price": 0
-              }
-            },
-            {
-              "label": "extreme",
-              "value": {
-                "price": 0.001
-              }
-            }
-          ],
-          "score": 11,
-          "riskScore": 8,
-          "riskTags": [
-            "float_exact_equality"
-          ],
-          "status": "risky",
-          "confidence": 0.95,
-          "evidence": "100% discount = free; price * (1 - 100/100) = 0",
-          "sourceHash": "d9d64f51d3671cac08413a39170fa67551231f36afc7af24d20828c9193485a8",
-          "inferredAt": "2026-03-31T02:49:47.189Z",
-          "modelId": "claude-opus-4-20250514-mock",
-          "validation": {
-            "smokePasses": 100,
-            "canaryPasses": 6,
-            "seedsTested": [],
-            "lastValidatedAt": "2026-03-31T02:49:58.141Z"
-          }
-        },
-        {
-          "id": "prop_005",
-          "targetFunction": "calculateTotal",
-          "description": "Total of empty array is zero",
-          "category": "boundary",
-          "assertion": "calculateTotal([]) === 0",
-          "generators": {},
-          "seedInputs": [
-            {
-              "label": "boundary",
-              "value": {}
-            }
-          ],
-          "score": 10,
-          "riskScore": 10,
-          "riskTags": [],
-          "status": "accepted",
-          "confidence": 0.95,
-          "evidence": "@param prices - Array of item prices; empty cart costs nothing",
-          "sourceHash": "d9d64f51d3671cac08413a39170fa67551231f36afc7af24d20828c9193485a8",
-          "inferredAt": "2026-03-31T02:49:47.189Z",
-          "modelId": "claude-opus-4-20250514-mock",
-          "validation": {
-            "smokePasses": 100,
-            "canaryPasses": 0,
-            "seedsTested": [],
-            "lastValidatedAt": "2026-03-31T02:49:58.141Z"
-          }
-        },
-        {
-          "id": "prop_006",
-          "targetFunction": "calculateTotal",
-          "description": "Total of single-item array equals the item",
-          "category": "boundary",
-          "assertion": "calculateTotal([price]) === price",
-          "generators": {
-            "price": {
-              "type": "float",
-              "constraints": {
-                "min": 0,
-                "max": 10000
-              }
-            }
-          },
-          "seedInputs": [
-            {
-              "label": "normal",
-              "value": {
-                "price": 42.99
-              }
-            },
-            {
-              "label": "boundary",
-              "value": {
-                "price": 0
-              }
-            },
-            {
-              "label": "extreme",
-              "value": {
-                "price": 99999
-              }
-            }
-          ],
-          "score": 11,
-          "riskScore": 8,
-          "riskTags": [
-            "float_exact_equality"
-          ],
-          "status": "risky",
-          "confidence": 0.97,
-          "evidence": "Single item total = the item itself",
-          "sourceHash": "d9d64f51d3671cac08413a39170fa67551231f36afc7af24d20828c9193485a8",
-          "inferredAt": "2026-03-31T02:49:47.189Z",
-          "modelId": "claude-opus-4-20250514-mock",
-          "validation": {
-            "smokePasses": 100,
-            "canaryPasses": 6,
-            "seedsTested": [],
-            "lastValidatedAt": "2026-03-31T02:50:00.468Z"
-          }
-        },
-        {
-          "id": "prop_007",
-          "targetFunction": "calculateTotal",
-          "description": "Total is non-negative when all prices are non-negative",
-          "category": "boundary",
-          "assertion": "prices.every(p => p >= 0) ? calculateTotal(prices) >= 0 : true",
-          "generators": {
-            "prices": {
+            "numbers": {
               "type": "array",
               "constraints": {
+                "min": -1000,
+                "max": 1000,
                 "maxLength": 20,
                 "element": "float"
               }
@@ -2811,50 +1279,531 @@
             {
               "label": "normal",
               "value": {
-                "prices": [
-                  10,
-                  20,
-                  30
+                "numbers": [
+                  1,
+                  1
                 ]
               }
             },
             {
               "label": "boundary",
               "value": {
-                "prices": []
+                "numbers": []
               }
             },
             {
               "label": "extreme",
               "value": {
-                "prices": [
-                  0.01
+                "numbers": [
+                  1
                 ]
               }
             }
           ],
           "score": 13,
-          "riskScore": 10,
+          "riskScore": 13,
+          "riskTags": [],
+          "status": "accepted",
+          "confidence": 0.85,
+          "evidence": "Signature: average(numbers): number",
+          "sourceHash": "98ab8f363a465246714440332077c0c3da8913915850c852cfb3505078e7a2ad",
+          "inferredAt": "2026-04-06T10:11:21.697Z",
+          "modelId": "claude-opus-4-20250514-mock",
+          "validation": {
+            "smokePasses": 100,
+            "canaryPasses": 0,
+            "seedsTested": [],
+            "lastValidatedAt": "2026-04-06T10:11:22.669Z"
+          }
+        },
+        {
+          "id": "prop_002",
+          "targetFunction": "average",
+          "description": "average should always return a number",
+          "category": "type-preservation",
+          "assertion": "typeof average(numbers) === \"number\"",
+          "generators": {
+            "numbers": {
+              "type": "array",
+              "constraints": {
+                "min": -1000,
+                "max": 1000,
+                "maxLength": 20,
+                "element": "float"
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "numbers": [
+                  1,
+                  1
+                ]
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "numbers": []
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "numbers": [
+                  1
+                ]
+              }
+            }
+          ],
+          "score": 11,
+          "riskScore": 8,
           "riskTags": [
-            "wide_numeric_domain",
-            "missing_precondition"
+            "float_exact_equality"
           ],
           "status": "risky",
           "confidence": 0.85,
-          "evidence": "@returns Total sum; sum of non-negative numbers is non-negative",
-          "sourceHash": "d9d64f51d3671cac08413a39170fa67551231f36afc7af24d20828c9193485a8",
-          "inferredAt": "2026-03-31T02:49:47.189Z",
+          "evidence": "Signature declares return type: number",
+          "sourceHash": "98ab8f363a465246714440332077c0c3da8913915850c852cfb3505078e7a2ad",
+          "inferredAt": "2026-04-06T10:11:21.698Z",
           "modelId": "claude-opus-4-20250514-mock",
           "validation": {
             "smokePasses": 100,
             "canaryPasses": 4,
             "seedsTested": [],
-            "lastValidatedAt": "2026-03-31T02:50:02.467Z"
+            "lastValidatedAt": "2026-04-06T10:11:24.713Z"
+          }
+        },
+        {
+          "id": "prop_003",
+          "targetFunction": "average",
+          "description": "average should return a defined, non-null value",
+          "category": "boundary",
+          "assertion": "average(numbers) !== null && average(numbers) !== undefined",
+          "generators": {
+            "numbers": {
+              "type": "array",
+              "constraints": {
+                "min": -1000,
+                "max": 1000,
+                "maxLength": 20,
+                "element": "float"
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "numbers": [
+                  1,
+                  1
+                ]
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "numbers": []
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "numbers": [
+                  1
+                ]
+              }
+            }
+          ],
+          "score": 11,
+          "riskScore": 8,
+          "riskTags": [
+            "float_exact_equality"
+          ],
+          "status": "risky",
+          "confidence": 0.85,
+          "evidence": "Generic safety check for average",
+          "sourceHash": "98ab8f363a465246714440332077c0c3da8913915850c852cfb3505078e7a2ad",
+          "inferredAt": "2026-04-06T10:11:21.698Z",
+          "modelId": "claude-opus-4-20250514-mock",
+          "validation": {
+            "smokePasses": 100,
+            "canaryPasses": 4,
+            "seedsTested": [],
+            "lastValidatedAt": "2026-04-06T10:11:26.719Z"
+          }
+        },
+        {
+          "id": "prop_004",
+          "targetFunction": "isValidEmail",
+          "description": "isValidEmail should return a boolean for all inputs",
+          "category": "boundary",
+          "assertion": "typeof isValidEmail(email) === \"boolean\"",
+          "generators": {
+            "email": {
+              "type": "string",
+              "constraints": {
+                "maxLength": 100
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "email": "hello"
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "email": ""
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "email": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              }
+            }
+          ],
+          "score": 13,
+          "riskScore": 13,
+          "riskTags": [],
+          "status": "accepted",
+          "confidence": 0.85,
+          "evidence": "Signature: isValidEmail returns boolean",
+          "sourceHash": "98ab8f363a465246714440332077c0c3da8913915850c852cfb3505078e7a2ad",
+          "inferredAt": "2026-04-06T10:11:21.698Z",
+          "modelId": "claude-opus-4-20250514-mock",
+          "validation": {
+            "smokePasses": 100,
+            "canaryPasses": 0,
+            "seedsTested": [],
+            "lastValidatedAt": "2026-04-06T10:11:26.719Z"
+          }
+        },
+        {
+          "id": "prop_005",
+          "targetFunction": "isValidEmail",
+          "description": "isValidEmail should be deterministic (same inputs → same output)",
+          "category": "metamorphic",
+          "assertion": "JSON.stringify(isValidEmail(email)) === JSON.stringify(isValidEmail(email))",
+          "generators": {
+            "email": {
+              "type": "string",
+              "constraints": {
+                "maxLength": 100
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "email": "hello"
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "email": ""
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "email": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              }
+            }
+          ],
+          "score": 13,
+          "riskScore": 13,
+          "riskTags": [],
+          "status": "accepted",
+          "confidence": 0.85,
+          "evidence": "Metamorphic: determinism property for isValidEmail",
+          "sourceHash": "98ab8f363a465246714440332077c0c3da8913915850c852cfb3505078e7a2ad",
+          "inferredAt": "2026-04-06T10:11:21.698Z",
+          "modelId": "claude-opus-4-20250514-mock",
+          "validation": {
+            "smokePasses": 100,
+            "canaryPasses": 0,
+            "seedsTested": [],
+            "lastValidatedAt": "2026-04-06T10:11:26.719Z"
+          }
+        },
+        {
+          "id": "prop_006",
+          "targetFunction": "isValidEmail",
+          "description": "isValidEmail should return a defined, non-null value",
+          "category": "boundary",
+          "assertion": "isValidEmail(email) !== null && isValidEmail(email) !== undefined",
+          "generators": {
+            "email": {
+              "type": "string",
+              "constraints": {
+                "maxLength": 100
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "email": "hello"
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "email": ""
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "email": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              }
+            }
+          ],
+          "score": 13,
+          "riskScore": 13,
+          "riskTags": [],
+          "status": "accepted",
+          "confidence": 0.85,
+          "evidence": "Generic safety check for isValidEmail",
+          "sourceHash": "98ab8f363a465246714440332077c0c3da8913915850c852cfb3505078e7a2ad",
+          "inferredAt": "2026-04-06T10:11:21.698Z",
+          "modelId": "claude-opus-4-20250514-mock",
+          "validation": {
+            "smokePasses": 100,
+            "canaryPasses": 0,
+            "seedsTested": [],
+            "lastValidatedAt": "2026-04-06T10:11:26.719Z"
+          }
+        },
+        {
+          "id": "prop_007",
+          "targetFunction": "clamp",
+          "description": "clamp should return a finite number for valid inputs",
+          "category": "boundary",
+          "assertion": "Number.isFinite(clamp(value, min, max))",
+          "generators": {
+            "value": {
+              "type": "float",
+              "constraints": {
+                "min": -1000,
+                "max": 1000
+              }
+            },
+            "min": {
+              "type": "float",
+              "constraints": {
+                "min": -1000,
+                "max": 1000
+              }
+            },
+            "max": {
+              "type": "float",
+              "constraints": {
+                "min": -1000,
+                "max": 1000
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "value": 0,
+                "min": 0,
+                "max": 0
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "value": -1000,
+                "min": -1000,
+                "max": -1000
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "value": 1000,
+                "min": 1000,
+                "max": 1000
+              }
+            }
+          ],
+          "score": 13,
+          "riskScore": 13,
+          "riskTags": [],
+          "status": "accepted",
+          "confidence": 0.85,
+          "evidence": "Signature: clamp(value, min, max): number",
+          "sourceHash": "98ab8f363a465246714440332077c0c3da8913915850c852cfb3505078e7a2ad",
+          "inferredAt": "2026-04-06T10:11:21.698Z",
+          "modelId": "claude-opus-4-20250514-mock",
+          "validation": {
+            "smokePasses": 100,
+            "canaryPasses": 0,
+            "seedsTested": [],
+            "lastValidatedAt": "2026-04-06T10:11:26.719Z"
+          }
+        },
+        {
+          "id": "prop_008",
+          "targetFunction": "clamp",
+          "description": "Applying clamp twice should equal applying it once",
+          "category": "idempotent",
+          "assertion": "JSON.stringify(clamp(clamp(value))) === JSON.stringify(clamp(value))",
+          "generators": {
+            "value": {
+              "type": "float",
+              "constraints": {
+                "min": -1000,
+                "max": 1000
+              }
+            },
+            "min": {
+              "type": "float",
+              "constraints": {
+                "min": -1000,
+                "max": 1000
+              }
+            },
+            "max": {
+              "type": "float",
+              "constraints": {
+                "min": -1000,
+                "max": 1000
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "value": 0,
+                "min": 0,
+                "max": 0
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "value": -1000,
+                "min": -1000,
+                "max": -1000
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "value": 1000,
+                "min": 1000,
+                "max": 1000
+              }
+            }
+          ],
+          "score": 11,
+          "riskScore": 8,
+          "riskTags": [
+            "float_exact_equality"
+          ],
+          "status": "risky",
+          "confidence": 0.85,
+          "evidence": "Return type matches input type — idempotent candidate",
+          "sourceHash": "98ab8f363a465246714440332077c0c3da8913915850c852cfb3505078e7a2ad",
+          "inferredAt": "2026-04-06T10:11:21.698Z",
+          "modelId": "claude-opus-4-20250514-mock",
+          "validation": {
+            "smokePasses": 100,
+            "canaryPasses": 8,
+            "seedsTested": [],
+            "lastValidatedAt": "2026-04-06T10:11:30.603Z"
+          }
+        },
+        {
+          "id": "prop_009",
+          "targetFunction": "clamp",
+          "description": "Applying clamp twice should return original (involution)",
+          "category": "roundtrip",
+          "assertion": "approxEqual(clamp(clamp(value)), value || JSON.stringify(clamp(clamp(value))) === JSON.stringify(value))",
+          "generators": {
+            "value": {
+              "type": "float",
+              "constraints": {
+                "min": -1000,
+                "max": 1000
+              }
+            },
+            "min": {
+              "type": "float",
+              "constraints": {
+                "min": -1000,
+                "max": 1000
+              }
+            },
+            "max": {
+              "type": "float",
+              "constraints": {
+                "min": -1000,
+                "max": 1000
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "value": 0,
+                "min": 0,
+                "max": 0
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "value": -1000,
+                "min": -1000,
+                "max": -1000
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "value": 1000,
+                "min": 1000,
+                "max": 1000
+              }
+            }
+          ],
+          "score": 11,
+          "riskScore": 11,
+          "riskTags": [],
+          "status": "refined",
+          "confidence": 0.85,
+          "evidence": "Return type matches input type — potential involution",
+          "sourceHash": "98ab8f363a465246714440332077c0c3da8913915850c852cfb3505078e7a2ad",
+          "inferredAt": "2026-04-06T10:11:21.699Z",
+          "modelId": "claude-opus-4-20250514-mock",
+          "validation": {
+            "smokePasses": 100,
+            "canaryPasses": 0,
+            "seedsTested": [],
+            "lastValidatedAt": "2026-04-06T10:11:30.603Z"
           }
         }
       ],
-      "sourceHash": "d9d64f51d3671cac08413a39170fa67551231f36afc7af24d20828c9193485a8",
-      "inferredAt": "2026-03-31T02:50:02.468Z"
+      "sourceHash": "98ab8f363a465246714440332077c0c3da8913915850c852cfb3505078e7a2ad",
+      "inferredAt": "2026-04-06T10:11:30.603Z"
     }
   }
 }
