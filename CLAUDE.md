@@ -13,10 +13,12 @@ AI-powered testing tool. AI reads your code once → discovers rules that should
 - Test runner: Node.js `--experimental-strip-types` for direct .ts import
 
 ## Project Status (2026-04-09)
-**Phase 1 MVP: COMPLETE + Production Hardening** — full CLI pipeline verified end-to-end across CJS/ESM/no-type project configurations. 400 unit tests, 0 failures. All identified security/UX/coverage issues resolved (13/13 from 4-agent review). Adaptive mock generator enables `--mock` mode for any user code. Node 18/20/22+ cross-version compatibility. npm 0.4.4 published.
+**Phase 1 MVP: COMPLETE + Production Hardening** — full CLI pipeline verified end-to-end across CJS/ESM/no-type project configurations. 435 unit tests + 4 E2E tests, 0 failures. All identified security/UX/coverage issues resolved. Adaptive mock generator enables `--mock` mode for any user code. Node 18/20/22+ cross-version compatibility. npm 0.4.4 published.
 
 ### What's Done
-- Full CLI: `init`, `infer`, `run`, `badge`, `quality`, `props`, `property`, `fix` commands
+- Full CLI: `init`, `infer`, `run`, `badge`, `quality`, `props`, `property`, `fix`, `templates` commands
+- **Community property templates**: 10 domains, 18 curated templates (sorting, formatting, validation, clamping, math, filtering, string-transform, parsing, mapping, deduplicate) — auto-matched in `--mock` mode before adaptive generator
+- **PR Comment Bot**: GitHub Action (`.github/actions/propcheck-comment/`) posts property test results as PR comments — validated on PR #1
 - **Adaptive mock generator**: `--mock` mode generates meaningful properties for ANY function (not just hardcoded demos) via FunctionSignature analysis — 3-tier param→generator mapping, signal-based category selection, template-based assertion synthesis
 - **`propcheck init` auto-setup**: creates `.propcheck/`, auto-configures `.gitignore`, shows actionable next steps
 - **`propcheck fix`**: dual-agent auto-fix — diagnose violations (Tester Agent) → generate minimal fix (Generator Agent) → verify all properties pass
@@ -92,9 +94,7 @@ AI-powered testing tool. AI reads your code once → discovers rules that should
 - Full E2E verified: infer --mock → trial-run → persist → run → report
 
 ### What's NOT Done (Phase 2 Roadmap)
-- PR Comment Bot (auto-comment propcheck results on PRs)
 - VS Code extension
-- Community property templates
 - CI coverage reporting (c8/istanbul)
 
 ## Key Architecture Decisions
@@ -133,6 +133,8 @@ node packages/cli/dist/index.js property <file> <id>           # Inspect a prope
 node packages/cli/dist/index.js property <file> <id> --status quarantined  # Update status
 node packages/cli/dist/index.js fix --mock <file>              # Auto-fix violations
 node packages/cli/dist/index.js fix --mock --apply <file>      # Fix and apply
+node packages/cli/dist/index.js templates                       # List community templates
+node packages/cli/dist/index.js templates --json                # JSON output
 
 # Real LLM inference (OpenAI-compatible provider)
 PROPCHECK_API_KEY=sk-xxx node packages/cli/dist/index.js infer \
@@ -144,7 +146,7 @@ PROPCHECK_API_KEY=sk-xxx node packages/cli/dist/index.js infer \
 # CLI (bundled — same commands via dist-bundle)
 node packages/cli/dist-bundle/index.js --help
 
-# Run unit tests (400 tests across 8 packages)
+# Run unit tests (435 tests across 8 packages)
 node packages/parser/dist/__tests__/parser.test.js                          # 12 tests
 node packages/store/dist/__tests__/store.test.js                            # 14 tests
 node packages/store/dist/__tests__/store-edge.test.js                       # 9 tests
@@ -154,6 +156,7 @@ node packages/llm/dist/__tests__/response-parser-edge.test.js               # 15
 node packages/llm/dist/__tests__/adaptive-generator.test.js                 # 40 tests
 node packages/llm/dist/__tests__/mock-fix.test.js                           # 12 tests
 node packages/llm/dist/__tests__/mock-refinement.test.js                    # 10 tests
+node packages/llm/dist/__tests__/templates.test.js                          # 15 tests
 node packages/engines/dist/__tests__/e2e.test.js                            # E2E
 node packages/engines/dist/__tests__/fc-codegen.test.js                     # 31 tests
 node packages/engines/dist/__tests__/hyp-codegen.test.js                    # 9 tests
@@ -178,6 +181,5 @@ cd packages/cli && npm publish
 ```
 
 ## Next Priority
-1. PR Comment Bot
+1. VS Code extension
 2. CI coverage reporting (c8/istanbul)
-3. VS Code extension

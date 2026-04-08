@@ -547,7 +547,12 @@ var require_loader = __commonJS({
         config = { ...config, mock: true };
       }
       if (envBaseURL) {
-        config = { ...config, baseURL: envBaseURL };
+        const urlResult = zod_1.z.string().url().safeParse(envBaseURL);
+        if (urlResult.success) {
+          config = { ...config, baseURL: urlResult.data };
+        } else {
+          console.warn(`  Warning: PROPCHECK_BASE_URL is not a valid URL \u2014 ignored.`);
+        }
       }
       if (envProvider === "anthropic" || envProvider === "openai-compatible") {
         config = { ...config, provider: envProvider };
@@ -1750,7 +1755,7 @@ var require_client = __commonJS({
     }
     function sanitizeErrorMessage(err) {
       const raw = err instanceof Error ? err.message : String(err);
-      return raw.replace(/Bearer\s+\S+/gi, "Bearer [REDACTED]").replace(/sk-[a-zA-Z0-9_-]{10,}/g, "sk-[REDACTED]").replace(/key[=:]\s*\S+/gi, "key=[REDACTED]");
+      return raw.replace(/Bearer\s+\S+/gi, "Bearer [REDACTED]").replace(/\b(?:sk-|sk_|hf_|ghp_|gho_|ghu_|ghs_|ghr_)[a-zA-Z0-9_-]{10,}/g, "[REDACTED]").replace(/key[=:]\s*\S+/gi, "key=[REDACTED]").replace(/\beyJ[a-zA-Z0-9_-]{20,}\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+/g, "[JWT_REDACTED]");
     }
     function sleep(ms) {
       return new Promise((resolve7) => setTimeout(resolve7, ms));
@@ -1864,7 +1869,7 @@ var require_openai_client = __commonJS({
     }
     function sanitizeErrorMessage(err) {
       const raw = err instanceof Error ? err.message : typeof err === "string" ? err : String(err);
-      return raw.replace(/Bearer\s+\S+/gi, "Bearer [REDACTED]").replace(/sk-[a-zA-Z0-9_-]{10,}/g, "sk-[REDACTED]").replace(/key[=:]\s*\S+/gi, "key=[REDACTED]");
+      return raw.replace(/Bearer\s+\S+/gi, "Bearer [REDACTED]").replace(/\b(?:sk-|sk_|hf_|ghp_|gho_|ghu_|ghs_|ghr_)[a-zA-Z0-9_-]{10,}/g, "[REDACTED]").replace(/key[=:]\s*\S+/gi, "key=[REDACTED]").replace(/\beyJ[a-zA-Z0-9_-]{20,}\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+/g, "[JWT_REDACTED]");
     }
     function sleep(ms) {
       return new Promise((resolve7) => setTimeout(resolve7, ms));
@@ -2243,31 +2248,453 @@ var require_adaptive_generator = __commonJS({
           properties.push(prop);
         }
       }
-      padToMinimumProperties(properties, usedAssertions, sig, generators);
-      return properties;
+      const padded = padToMinimumProperties(properties, usedAssertions, sig, generators);
+      return padded;
     }
     function padToMinimumProperties(properties, usedAssertions, sig, generators) {
       if (properties.length >= 3)
-        return;
+        return properties;
+      const result = [...properties];
+      const seen = new Set(usedAssertions);
       const boundary = buildBoundaryProperty(sig, generators);
-      if (boundary && !usedAssertions.has(boundary.assertion)) {
-        usedAssertions.add(boundary.assertion);
-        properties.push(boundary);
+      if (boundary && !seen.has(boundary.assertion)) {
+        seen.add(boundary.assertion);
+        result.push(boundary);
       }
-      if (properties.length >= 3)
-        return;
+      if (result.length >= 3)
+        return result;
       const typeCheck = buildTypePreservationProperty(sig, generators);
-      if (typeCheck && !usedAssertions.has(typeCheck.assertion)) {
-        usedAssertions.add(typeCheck.assertion);
-        properties.push(typeCheck);
+      if (typeCheck && !seen.has(typeCheck.assertion)) {
+        seen.add(typeCheck.assertion);
+        result.push(typeCheck);
       }
-      if (properties.length >= 3)
-        return;
+      if (result.length >= 3)
+        return result;
       const call = buildCallExpr(sig.name, sig.parameters);
       const genericProp = buildProp(sig, "boundary", generators, `(() => { const r = ${call}; return r !== null && r !== undefined; })()`, `${sig.name} should return a defined, non-null value`, `Generic safety check for ${sig.name}`);
-      if (!usedAssertions.has(genericProp.assertion)) {
-        properties.push(genericProp);
+      if (!seen.has(genericProp.assertion)) {
+        result.push(genericProp);
       }
+      return result;
+    }
+  }
+});
+
+// ../llm/dist/templates.js
+var require_templates = __commonJS({
+  "../llm/dist/templates.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.matchTemplates = matchTemplates;
+    exports2.getAvailableDomains = getAvailableDomains2;
+    exports2.getTemplateStats = getTemplateStats2;
+    var DOMAIN_TEMPLATES = [
+      // === Sorting / Ordering ===
+      {
+        domain: "sorting",
+        namePatterns: [/sort/i, /order/i, /rank/i],
+        returnTypePattern: /\[\]|Array/,
+        properties: [
+          {
+            description: "{fn} preserves array length (conservation)",
+            category: "conservation",
+            assertion: "{fn}({p0}).length === {p0}.length",
+            generators: { "{p0}": { type: "array", constraints: { element: "integer", maxLength: 20 } } },
+            seedInputs: [
+              { label: "normal", value: { "{p0}": [3, 1, 4, 1, 5] } },
+              { label: "boundary", value: { "{p0}": [] } },
+              { label: "extreme", value: { "{p0}": [1] } }
+            ],
+            evidence: "Sorting must not add or remove elements",
+            confidence: 0.95
+          },
+          {
+            description: "{fn} is idempotent \u2014 sorting twice gives same result",
+            category: "idempotent",
+            assertion: "JSON.stringify({fn}({fn}({p0}))) === JSON.stringify({fn}({p0}))",
+            generators: { "{p0}": { type: "array", constraints: { element: "integer", maxLength: 20 } } },
+            seedInputs: [
+              { label: "normal", value: { "{p0}": [5, 2, 8, 1] } },
+              { label: "boundary", value: { "{p0}": [] } },
+              { label: "extreme", value: { "{p0}": [42] } }
+            ],
+            evidence: "Applying sort twice should yield same result as once",
+            confidence: 0.92
+          },
+          {
+            description: "{fn} produces monotonically non-decreasing output",
+            category: "monotonic",
+            assertion: "{fn}({p0}).every((v, i, a) => i === 0 || a[i-1] <= v)",
+            generators: { "{p0}": { type: "array", constraints: { element: "integer", maxLength: 20 } } },
+            seedInputs: [
+              { label: "normal", value: { "{p0}": [3, 1, 4] } },
+              { label: "boundary", value: { "{p0}": [] } },
+              { label: "extreme", value: { "{p0}": [-100, 100, 0] } }
+            ],
+            evidence: "Sort output should be ordered",
+            confidence: 0.9
+          }
+        ]
+      },
+      // === Formatting / Parsing ===
+      {
+        domain: "formatting",
+        namePatterns: [/format/i, /stringify/i, /serialize/i, /tostring/i, /display/i],
+        returnTypePattern: /string/i,
+        properties: [
+          {
+            description: "{fn} returns a non-empty string for valid input",
+            category: "boundary",
+            assertion: "{fn}({p0}).length > 0",
+            generators: { "{p0}": { type: "float", constraints: { min: 0, max: 1e5 } } },
+            seedInputs: [
+              { label: "normal", value: { "{p0}": 42.5 } },
+              { label: "boundary", value: { "{p0}": 0 } },
+              { label: "extreme", value: { "{p0}": 99999.99 } }
+            ],
+            evidence: "Formatted output should never be empty",
+            confidence: 0.9
+          },
+          {
+            description: "{fn} output is deterministic \u2014 same input gives same output",
+            category: "idempotent",
+            assertion: "{fn}({p0}) === {fn}({p0})",
+            generators: { "{p0}": { type: "float", constraints: { min: -1e3, max: 1e3 } } },
+            seedInputs: [
+              { label: "normal", value: { "{p0}": 3.14 } },
+              { label: "boundary", value: { "{p0}": 0 } },
+              { label: "extreme", value: { "{p0}": -999.99 } }
+            ],
+            evidence: "Pure function must be deterministic",
+            confidence: 0.95
+          }
+        ]
+      },
+      // === Parsing / Decoding ===
+      {
+        domain: "parsing",
+        namePatterns: [/parse/i, /decode/i, /deserialize/i, /fromstring/i],
+        properties: [
+          {
+            description: "{fn} returns a finite number for numeric strings",
+            category: "boundary",
+            assertion: "Number.isFinite({fn}(String({p0})))",
+            generators: { "{p0}": { type: "float", constraints: { min: -1e3, max: 1e3 } } },
+            seedInputs: [
+              { label: "normal", value: { "{p0}": 42 } },
+              { label: "boundary", value: { "{p0}": 0 } },
+              { label: "extreme", value: { "{p0}": -999 } }
+            ],
+            evidence: "Parser should produce finite numbers for valid numeric input",
+            confidence: 0.85
+          }
+        ]
+      },
+      // === Validation / Checking ===
+      {
+        domain: "validation",
+        namePatterns: [/^is[A-Z]/i, /^has[A-Z]/i, /^can[A-Z]/i, /valid/i, /check/i, /verify/i],
+        returnTypePattern: /boolean/i,
+        properties: [
+          {
+            description: "{fn} returns a boolean value",
+            category: "type-preservation",
+            assertion: "typeof {fn}({p0}) === 'boolean'",
+            generators: { "{p0}": { type: "string", constraints: { maxLength: 100 } } },
+            seedInputs: [
+              { label: "normal", value: { "{p0}": "test@example.com" } },
+              { label: "boundary", value: { "{p0}": "" } },
+              { label: "extreme", value: { "{p0}": "x".repeat(100) } }
+            ],
+            evidence: "Validators must return boolean, not truthy/falsy",
+            confidence: 0.95
+          },
+          {
+            description: "{fn} is deterministic \u2014 same input gives same result",
+            category: "idempotent",
+            assertion: "{fn}({p0}) === {fn}({p0})",
+            generators: { "{p0}": { type: "string", constraints: { maxLength: 100 } } },
+            seedInputs: [
+              { label: "normal", value: { "{p0}": "hello" } },
+              { label: "boundary", value: { "{p0}": "" } },
+              { label: "extreme", value: { "{p0}": "   " } }
+            ],
+            evidence: "Pure validation function must be deterministic",
+            confidence: 0.93
+          }
+        ]
+      },
+      // === Filtering / Mapping ===
+      {
+        domain: "filtering",
+        namePatterns: [/filter/i, /select/i, /exclude/i, /remove/i, /reject/i],
+        returnTypePattern: /\[\]|Array/,
+        properties: [
+          {
+            description: "{fn} result length is at most the input length (conservation)",
+            category: "conservation",
+            assertion: "{fn}({p0}).length <= {p0}.length",
+            generators: { "{p0}": { type: "array", constraints: { element: "integer", maxLength: 30 } } },
+            seedInputs: [
+              { label: "normal", value: { "{p0}": [1, 2, 3, 4, 5] } },
+              { label: "boundary", value: { "{p0}": [] } },
+              { label: "extreme", value: { "{p0}": [0] } }
+            ],
+            evidence: "Filtering cannot produce more elements than input",
+            confidence: 0.95
+          },
+          {
+            description: "{fn} is idempotent \u2014 filtering twice gives same result",
+            category: "idempotent",
+            assertion: "JSON.stringify({fn}({fn}({p0}))) === JSON.stringify({fn}({p0}))",
+            generators: { "{p0}": { type: "array", constraints: { element: "integer", maxLength: 20 } } },
+            seedInputs: [
+              { label: "normal", value: { "{p0}": [1, -1, 2, -2, 0] } },
+              { label: "boundary", value: { "{p0}": [] } },
+              { label: "extreme", value: { "{p0}": [999] } }
+            ],
+            evidence: "Applying filter twice should yield same result as once",
+            confidence: 0.88
+          }
+        ]
+      },
+      // === Clamping / Bounding ===
+      {
+        domain: "clamping",
+        namePatterns: [/clamp/i, /bound/i, /limit/i, /constrain/i, /cap/i],
+        properties: [
+          {
+            description: "{fn} result is within bounds",
+            category: "boundary",
+            assertion: "{fn}({p0}, {p1}, {p2}) >= {p1} && {fn}({p0}, {p1}, {p2}) <= {p2}",
+            generators: {
+              "{p0}": { type: "float", constraints: { min: -1e3, max: 1e3 } },
+              "{p1}": { type: "float", constraints: { min: -100, max: 0 } },
+              "{p2}": { type: "float", constraints: { min: 0, max: 100 } }
+            },
+            seedInputs: [
+              { label: "normal", value: { "{p0}": 50, "{p1}": 0, "{p2}": 100 } },
+              { label: "boundary", value: { "{p0}": 0, "{p1}": 0, "{p2}": 100 } },
+              { label: "extreme", value: { "{p0}": -999, "{p1}": -100, "{p2}": 100 } }
+            ],
+            evidence: "Clamped value must be within [min, max] bounds",
+            confidence: 0.95
+          },
+          {
+            description: "{fn} is idempotent \u2014 clamping a clamped value gives same result",
+            category: "idempotent",
+            assertion: "{fn}({fn}({p0}, {p1}, {p2}), {p1}, {p2}) === {fn}({p0}, {p1}, {p2})",
+            generators: {
+              "{p0}": { type: "float", constraints: { min: -1e3, max: 1e3 } },
+              "{p1}": { type: "float", constraints: { min: -100, max: 0 } },
+              "{p2}": { type: "float", constraints: { min: 0, max: 100 } }
+            },
+            seedInputs: [
+              { label: "normal", value: { "{p0}": 50, "{p1}": 0, "{p2}": 100 } },
+              { label: "boundary", value: { "{p0}": -100, "{p1}": -100, "{p2}": 100 } },
+              { label: "extreme", value: { "{p0}": 999, "{p1}": -100, "{p2}": 100 } }
+            ],
+            evidence: "Clamping is idempotent by definition",
+            confidence: 0.93
+          }
+        ]
+      },
+      // === Math / Calculation ===
+      {
+        domain: "math",
+        namePatterns: [/calc/i, /compute/i, /sum/i, /total/i, /average/i, /mean/i, /tax/i, /discount/i, /fee/i, /price/i, /cost/i],
+        returnTypePattern: /number/i,
+        properties: [
+          {
+            description: "{fn} returns a finite number",
+            category: "boundary",
+            assertion: "Number.isFinite({fn}({p0}))",
+            generators: { "{p0}": { type: "float", constraints: { min: 0, max: 1e4 } } },
+            seedInputs: [
+              { label: "normal", value: { "{p0}": 100 } },
+              { label: "boundary", value: { "{p0}": 0 } },
+              { label: "extreme", value: { "{p0}": 9999.99 } }
+            ],
+            evidence: "Numeric calculations should return finite values",
+            confidence: 0.92
+          }
+        ]
+      },
+      // === String transformation ===
+      {
+        domain: "string-transform",
+        namePatterns: [/trim/i, /strip/i, /clean/i, /normalize/i, /sanitize/i, /escape/i],
+        returnTypePattern: /string/i,
+        properties: [
+          {
+            description: "{fn} output length is at most input length",
+            category: "conservation",
+            assertion: "{fn}({p0}).length <= {p0}.length",
+            generators: { "{p0}": { type: "string", constraints: { maxLength: 200 } } },
+            seedInputs: [
+              { label: "normal", value: { "{p0}": "  hello  " } },
+              { label: "boundary", value: { "{p0}": "" } },
+              { label: "extreme", value: { "{p0}": "   " } }
+            ],
+            evidence: "Trimming/cleaning should not increase string length",
+            confidence: 0.88
+          },
+          {
+            description: "{fn} is idempotent \u2014 applying twice gives same result",
+            category: "idempotent",
+            assertion: "{fn}({fn}({p0})) === {fn}({p0})",
+            generators: { "{p0}": { type: "string", constraints: { maxLength: 200 } } },
+            seedInputs: [
+              { label: "normal", value: { "{p0}": "  hello world  " } },
+              { label: "boundary", value: { "{p0}": "" } },
+              { label: "extreme", value: { "{p0}": "already clean" } }
+            ],
+            evidence: "Normalization should be stable after first application",
+            confidence: 0.85
+          }
+        ]
+      },
+      // === Mapping / Transformation ===
+      {
+        domain: "mapping",
+        namePatterns: [/map/i, /transform/i, /convert/i],
+        returnTypePattern: /\[\]|Array/,
+        properties: [
+          {
+            description: "{fn} preserves array length (one-to-one mapping)",
+            category: "conservation",
+            assertion: "{fn}({p0}).length === {p0}.length",
+            generators: { "{p0}": { type: "array", constraints: { element: "integer", maxLength: 20 } } },
+            seedInputs: [
+              { label: "normal", value: { "{p0}": [1, 2, 3] } },
+              { label: "boundary", value: { "{p0}": [] } },
+              { label: "extreme", value: { "{p0}": [0] } }
+            ],
+            evidence: "Map operation produces same number of elements",
+            confidence: 0.9
+          }
+        ]
+      },
+      // === Unique / Deduplicate ===
+      {
+        domain: "deduplicate",
+        namePatterns: [/unique/i, /dedup/i, /distinct/i],
+        returnTypePattern: /\[\]|Array/,
+        properties: [
+          {
+            description: "{fn} result has no duplicates",
+            category: "boundary",
+            assertion: "new Set({fn}({p0})).size === {fn}({p0}).length",
+            generators: { "{p0}": { type: "array", constraints: { element: "integer", maxLength: 20 } } },
+            seedInputs: [
+              { label: "normal", value: { "{p0}": [1, 2, 2, 3, 3, 3] } },
+              { label: "boundary", value: { "{p0}": [] } },
+              { label: "extreme", value: { "{p0}": [1, 1, 1, 1, 1] } }
+            ],
+            evidence: "Deduplication output must contain unique elements only",
+            confidence: 0.95
+          },
+          {
+            description: "{fn} result length is at most input length",
+            category: "conservation",
+            assertion: "{fn}({p0}).length <= {p0}.length",
+            generators: { "{p0}": { type: "array", constraints: { element: "integer", maxLength: 20 } } },
+            seedInputs: [
+              { label: "normal", value: { "{p0}": [1, 2, 3] } },
+              { label: "boundary", value: { "{p0}": [] } },
+              { label: "extreme", value: { "{p0}": [42] } }
+            ],
+            evidence: "Removing duplicates cannot add elements",
+            confidence: 0.95
+          }
+        ]
+      }
+    ];
+    function instantiate(template, fnName, paramNames) {
+      let result = template.replace(/\{fn\}/g, fnName);
+      for (let i = 0; i < paramNames.length; i++) {
+        result = result.replace(new RegExp(`\\{p${i}\\}`, "g"), paramNames[i]);
+      }
+      return result;
+    }
+    function instantiateGenerators(generators, paramNames) {
+      const result = {};
+      for (const [key, spec] of Object.entries(generators)) {
+        let actualKey = key;
+        for (let i = 0; i < paramNames.length; i++) {
+          actualKey = actualKey.replace(`{p${i}}`, paramNames[i]);
+        }
+        result[actualKey] = spec;
+      }
+      return result;
+    }
+    function instantiateSeedInputs(seeds, paramNames) {
+      return seeds.map((seed) => {
+        if (typeof seed.value !== "object" || seed.value === null)
+          return seed;
+        const newValue = {};
+        for (const [key, val] of Object.entries(seed.value)) {
+          let actualKey = key;
+          for (let i = 0; i < paramNames.length; i++) {
+            actualKey = actualKey.replace(`{p${i}}`, paramNames[i]);
+          }
+          newValue[actualKey] = val;
+        }
+        return { ...seed, value: newValue };
+      });
+    }
+    function matchesDomain(domain, sig) {
+      const nameMatch = domain.namePatterns.some((p) => p.test(sig.name));
+      if (!nameMatch)
+        return false;
+      if (domain.minParams !== void 0 && sig.parameters.length < domain.minParams)
+        return false;
+      if (domain.returnTypePattern && sig.returnType) {
+        if (!domain.returnTypePattern.test(sig.returnType))
+          return false;
+      }
+      if (domain.paramTypePattern) {
+        const hasMatchingParam = sig.parameters.some((p) => p.type && domain.paramTypePattern.test(p.type));
+        if (!hasMatchingParam)
+          return false;
+      }
+      return true;
+    }
+    function matchTemplates(sig) {
+      const paramNames = sig.parameters.map((p) => p.name);
+      const results = [];
+      for (const domain of DOMAIN_TEMPLATES) {
+        if (!matchesDomain(domain, sig))
+          continue;
+        for (const template of domain.properties) {
+          const maxParamIdx = Math.max(...Array.from(template.assertion.matchAll(/\{p(\d+)\}/g)).map((m) => Number(m[1])), -1);
+          if (maxParamIdx >= paramNames.length)
+            continue;
+          results.push({
+            targetFunction: sig.name,
+            description: instantiate(template.description, sig.name, paramNames),
+            category: template.category,
+            assertion: instantiate(template.assertion, sig.name, paramNames),
+            generators: instantiateGenerators(template.generators, paramNames),
+            seedInputs: instantiateSeedInputs(template.seedInputs, paramNames),
+            evidence: template.evidence,
+            confidence: template.confidence
+          });
+        }
+        if (results.length >= 5)
+          break;
+      }
+      return results.slice(0, 5);
+    }
+    function getAvailableDomains2() {
+      return DOMAIN_TEMPLATES.map((d) => d.domain);
+    }
+    function getTemplateStats2() {
+      return DOMAIN_TEMPLATES.map((d) => ({
+        domain: d.domain,
+        templates: d.properties.length,
+        patterns: d.namePatterns.map((p) => p.source)
+      }));
     }
   }
 });
@@ -2280,6 +2707,7 @@ var require_mock_client = __commonJS({
     exports2.extractSignaturesFromPrompt = extractSignaturesFromPrompt;
     exports2.createMockClient = createMockClient;
     var adaptive_generator_1 = require_adaptive_generator();
+    var templates_1 = require_templates();
     var FUNCTION_PROPERTIES = {
       // ═══════════════════════════════════════
       // cart-buggy.ts
@@ -2937,8 +3365,13 @@ var require_mock_client = __commonJS({
               if (matchedFunctions.includes(sig.name) || matchedFunctions.includes(sig.qualifiedName)) {
                 continue;
               }
-              const adaptiveProps = (0, adaptive_generator_1.generateAdaptiveProperties)(sig);
-              allProperties.push(...adaptiveProps);
+              const templateProps = (0, templates_1.matchTemplates)(sig);
+              if (templateProps.length > 0) {
+                allProperties.push(...templateProps);
+              } else {
+                const adaptiveProps = (0, adaptive_generator_1.generateAdaptiveProperties)(sig);
+                allProperties.push(...adaptiveProps);
+              }
             }
           }
           if (allProperties.length === 0) {
@@ -3965,7 +4398,7 @@ var require_mock_refinement = __commonJS({
             const strengthened = {
               ...c.property,
               id: `prop_${idCounter++}`,
-              score: Math.min(c.property.score + 2, 15),
+              score: Math.min(c.property.score + 2, 13),
               confidence: Math.min(c.property.confidence + 0.1, 1),
               description: c.property.description + " (strengthened)"
             };
@@ -4227,7 +4660,7 @@ var require_dist5 = __commonJS({
   "../llm/dist/index.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.extractSignaturesFromPrompt = exports2.buildSeedInputs = exports2.selectCategories = exports2.mapParamGenerators = exports2.generateAdaptiveProperties = exports2.mockGenerateFix = exports2.mockDiagnoseViolation = exports2.buildFixPrompt = exports2.buildDiagnosePrompt = exports2.FIX_TOOL = exports2.FIX_SYSTEM_PROMPT = exports2.DIAGNOSE_TOOL = exports2.DIAGNOSE_SYSTEM_PROMPT = exports2.generateFix = exports2.diagnoseViolation = exports2.mockRefineProperties = exports2.buildRefinementPrompt = exports2.buildFeedbackSummary = exports2.classifyProperties = exports2.mockRepairProperty = exports2.repairProperty = exports2.getInferTool = exports2.getSystemPrompt = exports2.buildInferPrompt = exports2.computeRiskScore = exports2.detectRiskTags = exports2.isRedundant = exports2.scoreAndFilter = exports2.scoreProperty = exports2.parseInferResponse = exports2.createMockClient = exports2.createOpenAIClient = exports2.createLlmClient = void 0;
+    exports2.getTemplateStats = exports2.getAvailableDomains = exports2.matchTemplates = exports2.extractSignaturesFromPrompt = exports2.buildSeedInputs = exports2.selectCategories = exports2.mapParamGenerators = exports2.generateAdaptiveProperties = exports2.mockGenerateFix = exports2.mockDiagnoseViolation = exports2.buildFixPrompt = exports2.buildDiagnosePrompt = exports2.FIX_TOOL = exports2.FIX_SYSTEM_PROMPT = exports2.DIAGNOSE_TOOL = exports2.DIAGNOSE_SYSTEM_PROMPT = exports2.generateFix = exports2.diagnoseViolation = exports2.mockRefineProperties = exports2.buildRefinementPrompt = exports2.buildFeedbackSummary = exports2.classifyProperties = exports2.mockRepairProperty = exports2.repairProperty = exports2.getInferTool = exports2.getSystemPrompt = exports2.buildInferPrompt = exports2.computeRiskScore = exports2.detectRiskTags = exports2.isRedundant = exports2.scoreAndFilter = exports2.scoreProperty = exports2.parseInferResponse = exports2.createMockClient = exports2.createOpenAIClient = exports2.createLlmClient = void 0;
     exports2.createClient = createClient3;
     exports2.inferProperties = inferProperties2;
     exports2.refineProperties = refineProperties2;
@@ -4416,6 +4849,16 @@ var require_dist5 = __commonJS({
     var mock_client_3 = require_mock_client();
     Object.defineProperty(exports2, "extractSignaturesFromPrompt", { enumerable: true, get: function() {
       return mock_client_3.extractSignaturesFromPrompt;
+    } });
+    var templates_1 = require_templates();
+    Object.defineProperty(exports2, "matchTemplates", { enumerable: true, get: function() {
+      return templates_1.matchTemplates;
+    } });
+    Object.defineProperty(exports2, "getAvailableDomains", { enumerable: true, get: function() {
+      return templates_1.getAvailableDomains;
+    } });
+    Object.defineProperty(exports2, "getTemplateStats", { enumerable: true, get: function() {
+      return templates_1.getTemplateStats;
     } });
   }
 });
@@ -4961,7 +5404,7 @@ var require_fc_codegen = __commonJS({
     var fs7 = __importStar(require("fs"));
     var path10 = __importStar(require("path"));
     function toSafeComment(s) {
-      return s.replace(/[\r\n\u2028\u2029]/g, " ").slice(0, 200);
+      return s.replace(/[\r\n\u2028\u2029]/g, " ").replace(/\*\//g, "* /").slice(0, 200);
     }
     function isTypeModuleProject(targetFile) {
       let dir = path10.dirname(targetFile);
@@ -5289,10 +5732,31 @@ var require_process_runner = __commonJS({
   "../engines/dist/shared/process-runner.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.filterSensitiveEnv = filterSensitiveEnv;
     exports2.runProcess = runProcess;
     var node_child_process_1 = require("child_process");
     var common_1 = require_dist4();
     var MAX_OUTPUT_BYTES = 10 * 1024 * 1024;
+    var SENSITIVE_ENV_PATTERNS = [
+      /^(?:PROPCHECK_)?API_?KEY$/i,
+      /^(?:PROPCHECK_)?SECRET/i,
+      /^(?:PROPCHECK_)?TOKEN$/i,
+      /^ANTHROPIC_API_KEY$/i,
+      /^OPENAI_API_KEY$/i,
+      /^AWS_SECRET/i,
+      /^GITHUB_TOKEN$/i,
+      /^NPM_TOKEN$/i,
+      /^GH_TOKEN$/i
+    ];
+    function filterSensitiveEnv(env) {
+      const result = {};
+      for (const [key, value] of Object.entries(env)) {
+        if (!SENSITIVE_ENV_PATTERNS.some((p) => p.test(key))) {
+          result[key] = value;
+        }
+      }
+      return result;
+    }
     function runProcess(command, args, options = {}) {
       const timeout = options.timeout ?? 6e4;
       return new Promise((resolve7, reject) => {
@@ -5316,8 +5780,8 @@ var require_process_runner = __commonJS({
             // Python-specific
             PYTHONPATH: process.env["PYTHONPATH"] ?? "",
             VIRTUAL_ENV: process.env["VIRTUAL_ENV"] ?? "",
-            // Caller overrides (e.g. NODE_PATH)
-            ...options.env
+            // Caller overrides (e.g. NODE_PATH) — strip any sensitive keys
+            ...filterSensitiveEnv(options.env ?? {})
           },
           shell: false,
           stdio: ["ignore", "pipe", "pipe"]
@@ -5488,18 +5952,17 @@ var require_fc_runner = __commonJS({
     })();
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.runFastCheckTest = runFastCheckTest4;
-    var fs7 = __importStar(require("fs"));
+    var fsPromises2 = __importStar(require("fs/promises"));
     var path10 = __importStar(require("path"));
     var process_runner_1 = require_process_runner();
     var result_parser_1 = require_result_parser();
     async function runFastCheckTest4(testFilePath, properties, config, options) {
       const startTime = Date.now();
       const cwd = path10.dirname(testFilePath);
-      const isESM = testFilePath.endsWith(".mjs");
       let mtsPath = null;
       if (options?.needsMtsCopy && options.targetFile) {
         mtsPath = options.targetFile.replace(/\.ts$/, ".mts").replace(/\.tsx$/, ".mtsx");
-        fs7.copyFileSync(options.targetFile, mtsPath);
+        await fsPromises2.copyFile(options.targetFile, mtsPath);
       }
       try {
         const nodeArgs = [
@@ -5524,7 +5987,7 @@ var require_fc_runner = __commonJS({
       } finally {
         if (mtsPath) {
           try {
-            fs7.unlinkSync(mtsPath);
+            await fsPromises2.unlink(mtsPath);
           } catch (e) {
             if (e instanceof Error && e.code !== "ENOENT") {
               console.warn(`  Warning: Failed to clean up ${mtsPath}: ${e.message}`);
@@ -5582,7 +6045,7 @@ var require_hyp_codegen = __commonJS({
     var common_1 = require_dist4();
     var path10 = __importStar(require("path"));
     function toSafeComment(s) {
-      return s.replace(/[\r\n\u2028\u2029]/g, " ").slice(0, 200);
+      return s.replace(/[\r\n\u2028\u2029]/g, " ").replace(/"""/g, "'''").replace(/\*\//g, "* /").slice(0, 200);
     }
     function toPythonLiteral(value) {
       if (value === null || value === void 0)
@@ -6665,19 +7128,21 @@ function parseUserInput(answer) {
     case "quit":
       return "quit";
     default:
-      return "accept";
+      return "unknown";
   }
 }
-function logAction(action, isDefault) {
+function logAction(action) {
   const messages = {
-    "accept": isDefault ? "\u2192 Accepted (unrecognized input, defaulting to accept)" : "\u2192 Accepted",
+    "accept": "\u2192 Accepted",
     "quarantine": "\u2192 Quarantined (won't run in CI by default)",
     "drop": "\u2192 Dropped (will not be saved)",
     "accept-all": "\u2192 Accepted (accepting all remaining)",
-    "quit": ""
+    "quit": "",
     // handled separately
+    "unknown": ""
+    // handled separately (re-prompt)
   };
-  if (action !== "quit") {
+  if (action !== "quit" && action !== "unknown") {
     console.log(`  ${DIM}${messages[action]}${RESET}`);
   }
 }
@@ -6701,10 +7166,15 @@ async function confirmProperties(properties) {
         continue;
       }
       displayProperty(prop, i, properties.length);
-      const raw = await askQuestion(rl, `
+      let action = "unknown";
+      while (action === "unknown") {
+        const raw = await askQuestion(rl, `
   ${BOLD}Action [a/q/d/A/Q]:${RESET} `);
-      const action = parseUserInput(raw);
-      const isUnrecognized = raw !== "" && !["a", "q", "d", "A", "Q", "accept", "quarantine", "drop", "all", "quit"].includes(raw);
+        action = parseUserInput(raw);
+        if (action === "unknown") {
+          console.log(`  ${DIM}\u2192 Unrecognized: "${raw}". Use (a)ccept, (q)uarantine, (d)rop, (A)ll, (Q)uit${RESET}`);
+        }
+      }
       switch (action) {
         case "accept":
           accepted.push(prop);
@@ -6726,7 +7196,7 @@ async function confirmProperties(properties) {
           }
           return { accepted, quarantined, dropped };
       }
-      logAction(action, isUnrecognized);
+      logAction(action);
     }
   } finally {
     rl.close();
@@ -7738,6 +8208,14 @@ async function fixCommand(target, options) {
     console.error();
     process.exit(2);
   }
+  const maxAttemptsRaw = Number(options.maxAttempts ?? "3");
+  if (options.maxAttempts !== void 0 && (!Number.isInteger(maxAttemptsRaw) || maxAttemptsRaw < 1)) {
+    console.error(`
+  Error: --max-attempts must be an integer (1-5), got "${options.maxAttempts}"
+`);
+    process.exit(2);
+  }
+  const maxAttempts = Math.min(Math.max(1, maxAttemptsRaw), 5);
   const moduleKey = (0, import_common7.toForwardSlash)(path9.relative(projectRoot, targetPath));
   const storeDir = path9.join(projectRoot, config.storeDir);
   const propertySet = await (0, import_store8.getProperties)(storeDir, moduleKey);
@@ -7802,7 +8280,7 @@ async function fixCommand(target, options) {
   }
   console.log(`  Found ${failures.length} violation(s).
 `);
-  const llmClient = config.mock ? null : (0, import_llm4.createClient)(config.apiKey, config.model, config.provider, config.baseURL);
+  const llmClient = config.mock ? null : config.apiKey ? (0, import_llm4.createClient)(config.apiKey, config.model, config.provider, config.baseURL) : null;
   console.log("  Diagnosing violations...");
   const diagnoses = [];
   for (const failure of failures) {
@@ -7838,14 +8316,6 @@ async function fixCommand(target, options) {
   }
   console.log(`
   ${confirmedBugs.length} confirmed bug(s). Generating fix...`);
-  const maxAttemptsRaw = Number(options.maxAttempts ?? "3");
-  if (options.maxAttempts !== void 0 && (!Number.isInteger(maxAttemptsRaw) || maxAttemptsRaw < 1)) {
-    console.error(`
-  Error: --max-attempts must be an integer (1-5), got "${options.maxAttempts}"
-`);
-    process.exit(2);
-  }
-  const maxAttempts = Math.min(Math.max(1, maxAttemptsRaw), 5);
   let bestFix = null;
   let verificationResult = null;
   let retryFeedback;
@@ -7920,12 +8390,19 @@ async function fixCommand(target, options) {
 `);
       break;
     }
+    if (!verificationResult) {
+      console.log(`  Verification did not complete (attempt ${attempt}/${maxAttempts})`);
+      retryFeedback = "Verification could not run \u2014 the fixed source may have syntax errors.";
+      continue;
+    }
+    const failCount = verificationResult.failed.length;
+    const errCount = verificationResult.errors.length;
     const newFailures = verificationResult.failed.map((f) => {
       const p = activeProperties.find((prop) => prop.id === f.propertyId);
       return `- ${f.propertyId} (${p?.targetFunction ?? "?"}): ${f.errorMessage.slice(0, 200)}`;
     }).join("\n");
     const newErrors = verificationResult.errors.map((e) => `- ${e.propertyId}: ${e.errorMessage.slice(0, 200)}`).join("\n");
-    retryFeedback = `Your fix broke ${verificationResult.failed.length} property/properties and caused ${verificationResult.errors.length} error(s):
+    retryFeedback = `Your fix broke ${failCount} propert${failCount === 1 ? "y" : "ies"} and caused ${errCount} error(s):
 
 `;
     if (newFailures) retryFeedback += `Failures:
@@ -7935,7 +8412,7 @@ ${newFailures}
     if (newErrors) retryFeedback += `Errors:
 ${newErrors}
 `;
-    console.log(`  Verification failed: ${verificationResult.failed.length} failure(s), ${verificationResult.errors.length} error(s)`);
+    console.log(`  Verification failed: ${failCount} failure(s), ${errCount} error(s)`);
   }
   if (!bestFix) {
     console.error(`
@@ -8008,8 +8485,34 @@ ${newErrors}
   process.exit(allPassed ? 0 : 1);
 }
 
-// src/index.ts
+// src/commands/templates.ts
 var import_chalk2 = __toESM(require("chalk"));
+var import_llm5 = __toESM(require_dist5());
+async function templatesCommand(options) {
+  const stats = (0, import_llm5.getTemplateStats)();
+  if (options.json) {
+    console.log(JSON.stringify(stats, null, 2));
+    return;
+  }
+  console.log(import_chalk2.default.bold("\n  Community Property Templates\n"));
+  console.log(import_chalk2.default.dim("  Templates provide curated property patterns for common function types."));
+  console.log(import_chalk2.default.dim("  They are used automatically in --mock mode when a function name matches.\n"));
+  const maxDomainLen = Math.max(...stats.map((s) => s.domain.length));
+  for (const s of stats) {
+    const domain = s.domain.padEnd(maxDomainLen);
+    const count = String(s.templates).padStart(2);
+    const patterns = s.patterns.map((p) => import_chalk2.default.dim(p)).join(", ");
+    console.log(`  ${import_chalk2.default.cyan(domain)}  ${count} templates  ${patterns}`);
+  }
+  const totalTemplates = stats.reduce((sum, s) => sum + s.templates, 0);
+  const totalDomains = stats.length;
+  console.log(import_chalk2.default.dim(`
+  ${totalDomains} domains, ${totalTemplates} templates total
+`));
+}
+
+// src/index.ts
+var import_chalk3 = __toESM(require("chalk"));
 try {
   require.resolve("typescript");
 } catch {
@@ -8026,9 +8529,9 @@ try {
 var program = new import_commander.Command();
 program.name("propcheck").description(
   "AI-powered property-based testing \u2014 find bugs your tests miss\n\nExit codes:\n  0  All tests passed (or nothing to test)\n  1  Test failure found (bug detected)\n  2  Configuration or setup error"
-).version("0.4.2").option("--no-color", "Disable colored output").hook("preAction", () => {
+).version("0.4.3").option("--no-color", "Disable colored output").hook("preAction", () => {
   if (program.opts().color === false) {
-    import_chalk2.default.level = 0;
+    import_chalk3.default.level = 0;
   }
 });
 program.command("init").description("Set up propcheck in your project (creates .propcheck/ directory)").action(initCommand);
@@ -8039,5 +8542,6 @@ program.command("quality <target>").description("Check how good your rules are a
 program.command("props [target]").description("List all discovered rules and their status").option("--status <status>", "Filter: accepted, risky, refined, quarantined, dropped").option("--json", "Output as JSON").action(propsCommand);
 program.command("property <target> <propertyId>").description("View or update a specific rule (e.g., mark as quarantined)").option("--status <status>", "Set new status (marks as human-reviewed)").option("--json", "Output as JSON").action(propertyCommand);
 program.command("fix <target>").description("Auto-fix bugs found by propcheck run (uses AI to generate a patch)").option("--mock", "Use built-in demo mode (no API key needed)").option("--model <model>", "AI model to use").option("--provider <provider>", "AI provider: anthropic or openai-compatible").option("--base-url <url>", "Custom API endpoint").option("--apply", "Apply the fix directly (skip review)").option("--property <id>", "Fix only a specific rule violation").option("--max-attempts <n>", "Maximum fix attempts (default: 3)", "3").option("--json", "Output fix result as JSON").action(fixCommand);
+program.command("templates").description("List available community property templates").option("--json", "Output as JSON").action(templatesCommand);
 program.parse();
 //# sourceMappingURL=index.js.map

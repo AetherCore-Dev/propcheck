@@ -2,6 +2,26 @@
 
 All notable changes to propcheck are documented in this file.
 
+## [0.4.3] - 2026-04-08
+
+### Added
+- **`propcheck templates` command**: list all 10 community property template domains (18 templates total) with `--json` support
+- **PR Comment Bot**: GitHub Action (`.github/actions/propcheck-comment/`) auto-posts property test results on PRs — validated on PR #1
+- **Community property templates**: 10 domains (sorting, formatting, validation, clamping, math, filtering, string-transform, parsing, mapping, deduplicate) auto-matched in `--mock` mode
+- **15 template tests**: domain matching, instantiation, generator/seed resolution, edge cases
+
+### Security
+- **Comment injection prevention**: `toSafeComment()` now strips `*/` (JS) and `"""` (Python) to prevent breakout
+- **Subprocess env isolation**: `filterSensitiveEnv()` blocks 10 sensitive key patterns (API keys, tokens, secrets) from test subprocesses
+- **PR Action hardening**: `node -e` uses `process.env` instead of shell-interpolated paths; `fail-on-violation` uses proper string comparison
+
+### Fixed
+- **Null dereference**: `fix` command verification result now has null guard
+- **Unsafe assertion**: `config.apiKey!` replaced with safe ternary
+- **Immutability violation**: `padToMinimumProperties` returns new array instead of mutating
+- **Score cap**: mock-refinement capped at 13 (was incorrectly 15)
+- **Validation timing**: `--max-attempts` validated before expensive LLM calls
+
 ## [0.4.2] - 2026-04-07
 
 ### Improved
