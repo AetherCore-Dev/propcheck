@@ -39,6 +39,8 @@ interface DomainTemplate {
   readonly namePatterns: readonly RegExp[];
   /** Minimum number of parameters required */
   readonly minParams?: number;
+  /** Maximum number of parameters allowed */
+  readonly maxParams?: number;
   /** Required parameter type patterns */
   readonly paramTypePattern?: RegExp;
   /** Required return type pattern */
@@ -174,19 +176,6 @@ const DOMAIN_TEMPLATES: readonly DomainTemplate[] = [
     returnTypePattern: /boolean/i,
     properties: [
       {
-        description: "{fn} returns a boolean value",
-        category: "type-preservation",
-        assertion: "typeof {fn}({p0}) === 'boolean'",
-        generators: { "{p0}": { type: "string", constraints: { maxLength: 100 } } },
-        seedInputs: [
-          { label: "normal", value: { "{p0}": "test@example.com" } },
-          { label: "boundary", value: { "{p0}": "" } },
-          { label: "extreme", value: { "{p0}": "x".repeat(100) } },
-        ],
-        evidence: "Validators must return boolean, not truthy/falsy",
-        confidence: 0.95,
-      },
-      {
         description: "{fn} is deterministic — same input gives same result",
         category: "idempotent",
         assertion: "{fn}({p0}) === {fn}({p0})",
@@ -198,6 +187,32 @@ const DOMAIN_TEMPLATES: readonly DomainTemplate[] = [
         ],
         evidence: "Pure validation function must be deterministic",
         confidence: 0.93,
+      },
+      {
+        description: "{fn} rejects empty string",
+        category: "boundary",
+        assertion: "{fn}('') === false",
+        generators: {},
+        seedInputs: [
+          { label: "normal", value: {} },
+          { label: "boundary", value: {} },
+          { label: "extreme", value: {} },
+        ],
+        evidence: "Validators typically reject empty/blank input as invalid",
+        confidence: 0.80,
+      },
+      {
+        description: "{fn} accepts and rejects complementary sets — not always true or always false",
+        category: "boundary",
+        assertion: "{fn}('valid-test-input') !== {fn}('')",
+        generators: {},
+        seedInputs: [
+          { label: "normal", value: {} },
+          { label: "boundary", value: {} },
+          { label: "extreme", value: {} },
+        ],
+        evidence: "A meaningful validator must distinguish valid from invalid input",
+        confidence: 0.75,
       },
     ],
   },
@@ -280,9 +295,11 @@ const DOMAIN_TEMPLATES: readonly DomainTemplate[] = [
   },
 
   // === Math / Calculation ===
+  // Single-param math: only matches functions with exactly 1 param
   {
     domain: "math",
     namePatterns: [/calc/i, /compute/i, /sum/i, /total/i, /average/i, /mean/i, /tax/i, /discount/i, /fee/i, /price/i, /cost/i],
+    maxParams: 1,
     returnTypePattern: /number/i,
     properties: [
       {
@@ -297,6 +314,60 @@ const DOMAIN_TEMPLATES: readonly DomainTemplate[] = [
         ],
         evidence: "Numeric calculations should return finite values",
         confidence: 0.92,
+      },
+      {
+        description: "{fn} is deterministic — same input gives same result",
+        category: "idempotent",
+        assertion: "{fn}({p0}) === {fn}({p0})",
+        generators: { "{p0}": { type: "float", constraints: { min: 0, max: 10000 } } },
+        seedInputs: [
+          { label: "normal", value: { "{p0}": 42.5 } },
+          { label: "boundary", value: { "{p0}": 0 } },
+          { label: "extreme", value: { "{p0}": 9999 } },
+        ],
+        evidence: "Pure math function must be deterministic",
+        confidence: 0.95,
+      },
+    ],
+  },
+  // Two-param math: functions like calculateTax(price, rate), applyDiscount(price, pct)
+  {
+    domain: "math-2param",
+    namePatterns: [/calc/i, /compute/i, /tax/i, /discount/i, /fee/i, /price/i, /cost/i, /multiply/i, /divide/i],
+    minParams: 2,
+    returnTypePattern: /number/i,
+    properties: [
+      {
+        description: "{fn} returns a finite number for valid inputs",
+        category: "boundary",
+        assertion: "Number.isFinite({fn}({p0}, {p1}))",
+        generators: {
+          "{p0}": { type: "float", constraints: { min: 0, max: 10000 } },
+          "{p1}": { type: "float", constraints: { min: 0, max: 100 } },
+        },
+        seedInputs: [
+          { label: "normal", value: { "{p0}": 100, "{p1}": 10 } },
+          { label: "boundary", value: { "{p0}": 0, "{p1}": 0 } },
+          { label: "extreme", value: { "{p0}": 9999, "{p1}": 99 } },
+        ],
+        evidence: "Two-param numeric calculations should return finite values",
+        confidence: 0.92,
+      },
+      {
+        description: "{fn} is deterministic — same inputs give same result",
+        category: "idempotent",
+        assertion: "{fn}({p0}, {p1}) === {fn}({p0}, {p1})",
+        generators: {
+          "{p0}": { type: "float", constraints: { min: 0, max: 10000 } },
+          "{p1}": { type: "float", constraints: { min: 0, max: 100 } },
+        },
+        seedInputs: [
+          { label: "normal", value: { "{p0}": 100, "{p1}": 8 } },
+          { label: "boundary", value: { "{p0}": 0, "{p1}": 0 } },
+          { label: "extreme", value: { "{p0}": 9999, "{p1}": 99 } },
+        ],
+        evidence: "Pure math function must be deterministic",
+        confidence: 0.95,
       },
     ],
   },
@@ -463,8 +534,9 @@ function matchesDomain(
   const nameMatch = domain.namePatterns.some((p) => p.test(sig.name));
   if (!nameMatch) return false;
 
-  // Check min params
+  // Check param count
   if (domain.minParams !== undefined && sig.parameters.length < domain.minParams) return false;
+  if (domain.maxParams !== undefined && sig.parameters.length > domain.maxParams) return false;
 
   // Check return type pattern
   if (domain.returnTypePattern && sig.returnType) {

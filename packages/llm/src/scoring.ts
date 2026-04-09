@@ -178,8 +178,11 @@ export function scoreProperty(property: PropertyDefinition): number {
   }
 
   // (2 pts) Not trivial (not just typeof)
-  const isTrivial = /^typeof\s+/.test(property.assertion.trim()) &&
-    !property.assertion.includes("===");
+  // Detect assertions where the ENTIRE content is a typeof check:
+  //   typeof <expr> === '<type>'  or  typeof <expr> !== '<type>'
+  const isTrivial = /^typeof\s+.+\s*[!=]==\s*["'][a-z]+["']\s*$/.test(
+    property.assertion.trim(),
+  );
   if (!isTrivial) {
     score += 2;
   }

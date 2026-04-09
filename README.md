@@ -22,15 +22,24 @@ propcheck finds them.
 ## 30-Second Quick Start
 
 ```bash
+npx propcheck check examples/price-utils.ts              # One command — discover rules + test them
+```
+
+That's it. One command. No API key needed.
+
+> **Works with `.js` too** — just point at any JavaScript file: `npx propcheck check src/utils.js`
+> **Prerequisite:** `npm install typescript fast-check` (used for code analysis and test execution)
+
+<details>
+<summary><strong>▶ Step-by-step (equivalent to `check`)</strong></summary>
+
+```bash
 npx propcheck init                                    # Set up your project
 npx propcheck infer --mock examples/price-utils.ts    # AI discovers what should always be true
 npx propcheck run examples/price-utils.ts             # Test with 1,000 random inputs
 ```
 
-That's it. Three commands. No API key needed for `--mock` demo mode.
-
-> **Works with `.js` too** — just point at any JavaScript file: `npx propcheck infer --mock src/utils.js`
-> **Prerequisite:** `npm install typescript` (used for code analysis, even for .js files)
+</details>
 
 📖 **[Full Tutorial: Use propcheck on your own code →](docs/tutorial.md)**
 
@@ -111,6 +120,11 @@ jobs:
 <summary><strong>▶ All Commands</strong></summary>
 
 ```bash
+# Quick start
+propcheck check src/cart.ts                          # One command: discover + test
+propcheck check --quick src/cart.ts                  # Fast mode (100 inputs)
+propcheck check --thorough src/cart.ts               # Deep mode (10,000 inputs)
+
 # Test
 propcheck run                                     # 1,000 random inputs (default)
 propcheck run --quick                             # 100 inputs (fast feedback)

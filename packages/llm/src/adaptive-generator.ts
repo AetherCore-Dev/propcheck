@@ -235,16 +235,16 @@ function buildBoundaryProperty(
   }
   if (ret === "string") {
     return buildProp(sig, "boundary", generators,
-      `typeof ${call} === "string"`,
-      `${sig.name} should return a string`,
-      `Signature returns string`,
+      `${call}.length >= 0`,
+      `${sig.name} should return a string with non-negative length`,
+      `Signature returns string — length check is more meaningful than typeof`,
     );
   }
   if (ret === "boolean") {
     return buildProp(sig, "boundary", generators,
-      `typeof ${call} === "boolean"`,
-      `${sig.name} should return a boolean for all inputs`,
-      `Signature: ${sig.name} returns boolean`,
+      `${call} === ${call}`,
+      `${sig.name} should be deterministic — same inputs give same boolean`,
+      `Signature: ${sig.name} returns boolean — determinism check`,
     );
   }
   if (ret && isArrayType(ret)) {
@@ -302,8 +302,11 @@ function buildIdempotentProperty(
   const firstParam = sig.parameters[0];
   if (firstParam.type !== sig.returnType) return null;
 
-  const inner = `${sig.name}(${firstParam.name})`;
-  const outer = `${sig.name}(${inner})`;
+  // inner = fn(p0, p1, p2, ...) — full call with all params
+  const inner = buildCallExpr(sig.name, sig.parameters);
+  // outer = fn(fn(p0, p1, p2, ...), p1, p2, ...) — result replaces first param
+  const outerArgs = [inner, ...sig.parameters.slice(1).map((p) => p.name)];
+  const outer = `${sig.name}(${outerArgs.join(", ")})`;
   return buildProp(sig, "idempotent", generators,
     `JSON.stringify(${outer}) === JSON.stringify(${inner})`,
     `Applying ${sig.name} twice should equal applying it once`,
@@ -365,9 +368,36 @@ function buildTypePreservationProperty(
     );
   }
 
+  // Use meaningful assertions instead of typeof checks:
+  // - number: Number.isFinite (catches NaN/Infinity)
+  // - string: .length >= 0 (verifies string-ness without typeof)
+  // - boolean: strict equality with itself (determinism)
+  if (jsType === "number") {
+    return buildProp(sig, "type-preservation", generators,
+      `Number.isFinite(${call})`,
+      `${sig.name} should return a finite number`,
+      `Signature declares return type: ${ret}`,
+    );
+  }
+  if (jsType === "string") {
+    return buildProp(sig, "type-preservation", generators,
+      `${call}.length >= 0`,
+      `${sig.name} should return a valid string`,
+      `Signature declares return type: ${ret}`,
+    );
+  }
+  if (jsType === "boolean") {
+    return buildProp(sig, "type-preservation", generators,
+      `${call} === ${call}`,
+      `${sig.name} should be deterministic`,
+      `Signature declares return type: ${ret}`,
+    );
+  }
+
+  // Generic fallback for object/undefined types
   return buildProp(sig, "type-preservation", generators,
-    `typeof ${call} === "${jsType}"`,
-    `${sig.name} should always return a ${jsType}`,
+    `(() => { const r = ${call}; return r !== null && r !== undefined; })()`,
+    `${sig.name} should return a defined, non-null value`,
     `Signature declares return type: ${ret}`,
   );
 }

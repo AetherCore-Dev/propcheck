@@ -104,6 +104,44 @@ describe("scoreProperty — edge cases", () => {
     assert.ok(with3 > with1, `3 seeds should score higher: ${with3} vs ${with1}`);
   });
 
+  it("should score LOW for pure typeof assertion: typeof add(a, b) === 'number'", () => {
+    const trivialScore = scoreProperty(makeProp({
+      assertion: 'typeof add(a, b) === "number"',
+    }));
+    const normalScore = scoreProperty(makeProp({
+      assertion: "add(a, b) >= 0",
+    }));
+    assert.ok(trivialScore < normalScore, `Trivial typeof should score lower: ${trivialScore} vs ${normalScore}`);
+  });
+
+  it("should score LOW for pure typeof assertion: typeof isValid(x) === 'boolean'", () => {
+    const trivialScore = scoreProperty(makeProp({
+      assertion: 'typeof isValid(x) === "boolean"',
+    }));
+    const normalScore = scoreProperty(makeProp({
+      assertion: "add(a, b) >= 0",
+    }));
+    assert.ok(trivialScore < normalScore, `Trivial typeof should score lower: ${trivialScore} vs ${normalScore}`);
+  });
+
+  it("should score NORMAL when typeof is part of a larger expression", () => {
+    const score = scoreProperty(makeProp({
+      assertion: 'typeof add(a, b) === "number" && add(a, b) >= 0',
+    }));
+    const normalScore = scoreProperty(makeProp({
+      assertion: "add(a, b) >= 0",
+    }));
+    assert.equal(score, normalScore, `Compound typeof should score same as normal: ${score} vs ${normalScore}`);
+  });
+
+  it("should score NORMAL for non-typeof assertion", () => {
+    const score = scoreProperty(makeProp({
+      assertion: "add(a, b) >= 0",
+    }));
+    // Should get full 2 pts for not-trivial
+    assert.ok(score >= 10, `Normal assertion should score well, got ${score}`);
+  });
+
   it("should handle qualified function names (Class.method)", () => {
     const score = scoreProperty(makeProp({
       targetFunction: "Calculator.add",

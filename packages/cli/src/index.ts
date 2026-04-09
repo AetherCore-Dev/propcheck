@@ -11,7 +11,7 @@
  *   propcheck property <t> <id>      Inspect / update a property
  */
 
-// Check for required peer dependency before loading anything else
+// Check for required peer dependencies before loading anything else
 try {
   require.resolve("typescript");
 } catch {
@@ -26,6 +26,20 @@ try {
   process.exit(2);
 }
 
+try {
+  require.resolve("fast-check");
+} catch {
+  console.error(`
+  Error: propcheck requires fast-check to be installed.
+
+  Run: npm install fast-check
+  Or:  npm install -D fast-check
+
+  (fast-check is the property-based testing engine that runs your tests.)
+`);
+  process.exit(2);
+}
+
 import { Command } from "commander";
 import { initCommand } from "./commands/init";
 import { inferCommand } from "./commands/infer";
@@ -36,6 +50,7 @@ import { propsCommand } from "./commands/props";
 import { propertyCommand } from "./commands/property";
 import { fixCommand } from "./commands/fix";
 import { templatesCommand } from "./commands/templates";
+import { checkCommand } from "./commands/check";
 
 import chalk from "chalk";
 
@@ -50,13 +65,22 @@ program
     "  1  Test failure found (bug detected)\n" +
     "  2  Configuration or setup error"
   )
-  .version("0.4.3")
+  .version("0.5.0")
   .option("--no-color", "Disable colored output")
   .hook("preAction", () => {
     if (program.opts().color === false) {
       chalk.level = 0;
     }
   });
+
+program
+  .command("check <target>")
+  .description("One command: discover rules + test them (uses --mock mode, no API key needed)")
+  .option("--quick", "Fast mode: 100 random inputs per rule")
+  .option("--thorough", "Deep mode: 10,000 random inputs per rule")
+  .option("--json", "Output results as JSON")
+  .option("--function <names>", "Only analyze specific functions (comma-separated)")
+  .action(checkCommand);
 
 program
   .command("init")

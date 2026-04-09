@@ -48,9 +48,13 @@ describe("matchTemplates", () => {
   it("matches validator functions (isXxx)", () => {
     const sig = makeSig({ name: "isValidEmail", returnType: "boolean", parameters: [{ name: "email", type: "string", isOptional: false, isRest: false, defaultValue: null }] });
     const props = matchTemplates(sig);
-    assert.ok(props.length >= 1);
-    assert.ok(props.some((p) => p.category === "type-preservation"));
+    assert.ok(props.length >= 2, `Expected >= 2 props for validator, got ${props.length}`);
+    // Should have determinism and boundary properties, NOT a trivial typeof check
+    assert.ok(props.some((p) => p.category === "idempotent"));
+    assert.ok(props.some((p) => p.category === "boundary"));
     assert.ok(props.some((p) => p.assertion.includes("isValidEmail")));
+    // Should NOT contain typeof checks
+    assert.ok(!props.some((p) => p.assertion.includes("typeof")), "Validation templates should not contain typeof checks");
   });
 
   it("matches filter functions", () => {

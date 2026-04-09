@@ -59,14 +59,14 @@
           "status": "risky",
           "confidence": 0.88,
           "evidence": "Discount reduces price; @param discount - Discount percentage (0-100)",
-          "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
-          "inferredAt": "2026-04-07T07:05:50.255Z",
+          "sourceHash": "936c04407866e02839d9e6c53985e6858b4983577bf80786f2a7ebe6a2005a9e",
+          "inferredAt": "2026-04-09T12:08:56.317Z",
           "modelId": "claude-opus-4-20250514-mock",
           "validation": {
             "smokePasses": 100,
             "canaryPasses": 8,
             "seedsTested": [],
-            "lastValidatedAt": "2026-04-07T07:05:54.431Z"
+            "lastValidatedAt": "2026-04-09T12:09:00.852Z"
           }
         },
         {
@@ -112,14 +112,14 @@
           "status": "risky",
           "confidence": 0.98,
           "evidence": "Zero discount means no change to price",
-          "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
-          "inferredAt": "2026-04-07T07:05:50.255Z",
+          "sourceHash": "936c04407866e02839d9e6c53985e6858b4983577bf80786f2a7ebe6a2005a9e",
+          "inferredAt": "2026-04-09T12:08:56.317Z",
           "modelId": "claude-opus-4-20250514-mock",
           "validation": {
             "smokePasses": 100,
             "canaryPasses": 6,
             "seedsTested": [],
-            "lastValidatedAt": "2026-04-07T07:05:56.806Z"
+            "lastValidatedAt": "2026-04-09T12:09:03.799Z"
           }
         },
         {
@@ -165,14 +165,14 @@
           "status": "risky",
           "confidence": 0.95,
           "evidence": "100% discount = free; price * (1 - 100/100) = 0",
-          "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
-          "inferredAt": "2026-04-07T07:05:50.255Z",
+          "sourceHash": "936c04407866e02839d9e6c53985e6858b4983577bf80786f2a7ebe6a2005a9e",
+          "inferredAt": "2026-04-09T12:08:56.317Z",
           "modelId": "claude-opus-4-20250514-mock",
           "validation": {
             "smokePasses": 100,
             "canaryPasses": 6,
             "seedsTested": [],
-            "lastValidatedAt": "2026-04-07T07:05:59.279Z"
+            "lastValidatedAt": "2026-04-09T12:09:06.523Z"
           }
         },
         {
@@ -194,14 +194,14 @@
           "status": "accepted",
           "confidence": 0.95,
           "evidence": "@param prices - Array of item prices; empty cart costs nothing",
-          "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
-          "inferredAt": "2026-04-07T07:05:50.255Z",
+          "sourceHash": "936c04407866e02839d9e6c53985e6858b4983577bf80786f2a7ebe6a2005a9e",
+          "inferredAt": "2026-04-09T12:08:56.317Z",
           "modelId": "claude-opus-4-20250514-mock",
           "validation": {
             "smokePasses": 100,
             "canaryPasses": 0,
             "seedsTested": [],
-            "lastValidatedAt": "2026-04-07T07:05:59.279Z"
+            "lastValidatedAt": "2026-04-09T12:09:06.523Z"
           }
         },
         {
@@ -247,14 +247,14 @@
           "status": "risky",
           "confidence": 0.97,
           "evidence": "Single item total = the item itself",
-          "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
-          "inferredAt": "2026-04-07T07:05:50.255Z",
+          "sourceHash": "936c04407866e02839d9e6c53985e6858b4983577bf80786f2a7ebe6a2005a9e",
+          "inferredAt": "2026-04-09T12:08:56.317Z",
           "modelId": "claude-opus-4-20250514-mock",
           "validation": {
             "smokePasses": 100,
             "canaryPasses": 6,
             "seedsTested": [],
-            "lastValidatedAt": "2026-04-07T07:06:01.807Z"
+            "lastValidatedAt": "2026-04-09T12:09:09.296Z"
           }
         },
         {
@@ -307,14 +307,14 @@
           "status": "risky",
           "confidence": 0.85,
           "evidence": "@returns Total sum; sum of non-negative numbers is non-negative",
-          "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
-          "inferredAt": "2026-04-07T07:05:50.255Z",
+          "sourceHash": "936c04407866e02839d9e6c53985e6858b4983577bf80786f2a7ebe6a2005a9e",
+          "inferredAt": "2026-04-09T12:08:56.317Z",
           "modelId": "claude-opus-4-20250514-mock",
           "validation": {
             "smokePasses": 100,
             "canaryPasses": 4,
             "seedsTested": [],
-            "lastValidatedAt": "2026-04-07T07:06:03.468Z"
+            "lastValidatedAt": "2026-04-09T12:09:11.056Z"
           }
         },
         {
@@ -358,14 +358,14 @@
           "status": "accepted",
           "confidence": 0.93,
           "evidence": "@returns Formatted string like \"99.99\"; toFixed(2) always gives 2 decimals",
-          "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
-          "inferredAt": "2026-04-07T07:05:50.255Z",
+          "sourceHash": "936c04407866e02839d9e6c53985e6858b4983577bf80786f2a7ebe6a2005a9e",
+          "inferredAt": "2026-04-09T12:08:56.317Z",
           "modelId": "claude-opus-4-20250514-mock",
           "validation": {
             "smokePasses": 100,
             "canaryPasses": 0,
             "seedsTested": [],
-            "lastValidatedAt": "2026-04-07T07:06:03.468Z"
+            "lastValidatedAt": "2026-04-09T12:09:11.056Z"
           }
         },
         {
@@ -409,14 +409,282 @@
           "status": "accepted",
           "confidence": 0.8,
           "evidence": "Formatted price should round-trip within rounding tolerance",
-          "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
-          "inferredAt": "2026-04-07T07:05:50.255Z",
+          "sourceHash": "936c04407866e02839d9e6c53985e6858b4983577bf80786f2a7ebe6a2005a9e",
+          "inferredAt": "2026-04-09T12:08:56.317Z",
           "modelId": "claude-opus-4-20250514-mock",
           "validation": {
             "smokePasses": 100,
             "canaryPasses": 0,
             "seedsTested": [],
-            "lastValidatedAt": "2026-04-07T07:06:03.468Z"
+            "lastValidatedAt": "2026-04-09T12:09:11.056Z"
+          }
+        },
+        {
+          "id": "prop_010",
+          "targetFunction": "clamp",
+          "description": "clamp result is within bounds",
+          "category": "boundary",
+          "assertion": "clamp(value, min, max) >= min && clamp(value, min, max) <= max",
+          "generators": {
+            "value": {
+              "type": "float",
+              "constraints": {
+                "min": -1000,
+                "max": 1000
+              }
+            },
+            "min": {
+              "type": "float",
+              "constraints": {
+                "min": -100,
+                "max": 0
+              }
+            },
+            "max": {
+              "type": "float",
+              "constraints": {
+                "min": 0,
+                "max": 100
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "value": 50,
+                "min": 0,
+                "max": 100
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "value": 0,
+                "min": 0,
+                "max": 100
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "value": -999,
+                "min": -100,
+                "max": 100
+              }
+            }
+          ],
+          "score": 13,
+          "riskScore": 13,
+          "riskTags": [],
+          "status": "accepted",
+          "confidence": 0.95,
+          "evidence": "Clamped value must be within [min, max] bounds",
+          "sourceHash": "936c04407866e02839d9e6c53985e6858b4983577bf80786f2a7ebe6a2005a9e",
+          "inferredAt": "2026-04-09T12:08:56.317Z",
+          "modelId": "claude-opus-4-20250514-mock",
+          "validation": {
+            "smokePasses": 100,
+            "canaryPasses": 0,
+            "seedsTested": [],
+            "lastValidatedAt": "2026-04-09T12:09:11.056Z"
+          }
+        },
+        {
+          "id": "prop_011",
+          "targetFunction": "clamp",
+          "description": "clamp is idempotent — clamping a clamped value gives same result",
+          "category": "idempotent",
+          "assertion": "clamp(clamp(value, min, max), min, max) === clamp(value, min, max)",
+          "generators": {
+            "value": {
+              "type": "float",
+              "constraints": {
+                "min": -1000,
+                "max": 1000
+              }
+            },
+            "min": {
+              "type": "float",
+              "constraints": {
+                "min": -100,
+                "max": 0
+              }
+            },
+            "max": {
+              "type": "float",
+              "constraints": {
+                "min": 0,
+                "max": 100
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "value": 50,
+                "min": 0,
+                "max": 100
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "value": -100,
+                "min": -100,
+                "max": 100
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "value": 999,
+                "min": -100,
+                "max": 100
+              }
+            }
+          ],
+          "score": 11,
+          "riskScore": 8,
+          "riskTags": [
+            "float_exact_equality"
+          ],
+          "status": "risky",
+          "confidence": 0.93,
+          "evidence": "Clamping is idempotent by definition",
+          "sourceHash": "936c04407866e02839d9e6c53985e6858b4983577bf80786f2a7ebe6a2005a9e",
+          "inferredAt": "2026-04-09T12:08:56.317Z",
+          "modelId": "claude-opus-4-20250514-mock",
+          "validation": {
+            "smokePasses": 100,
+            "canaryPasses": 8,
+            "seedsTested": [],
+            "lastValidatedAt": "2026-04-09T12:09:14.563Z"
+          }
+        },
+        {
+          "id": "prop_012",
+          "targetFunction": "calculateTax",
+          "description": "calculateTax returns a finite number for valid inputs",
+          "category": "boundary",
+          "assertion": "Number.isFinite(calculateTax(price, rate))",
+          "generators": {
+            "price": {
+              "type": "float",
+              "constraints": {
+                "min": 0,
+                "max": 10000
+              }
+            },
+            "rate": {
+              "type": "float",
+              "constraints": {
+                "min": 0,
+                "max": 100
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "price": 100,
+                "rate": 10
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "price": 0,
+                "rate": 0
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "price": 9999,
+                "rate": 99
+              }
+            }
+          ],
+          "score": 13,
+          "riskScore": 13,
+          "riskTags": [],
+          "status": "accepted",
+          "confidence": 0.92,
+          "evidence": "Two-param numeric calculations should return finite values",
+          "sourceHash": "936c04407866e02839d9e6c53985e6858b4983577bf80786f2a7ebe6a2005a9e",
+          "inferredAt": "2026-04-09T12:08:56.317Z",
+          "modelId": "claude-opus-4-20250514-mock",
+          "validation": {
+            "smokePasses": 100,
+            "canaryPasses": 0,
+            "seedsTested": [],
+            "lastValidatedAt": "2026-04-09T12:09:14.563Z"
+          }
+        },
+        {
+          "id": "prop_013",
+          "targetFunction": "calculateTax",
+          "description": "calculateTax is deterministic — same inputs give same result",
+          "category": "idempotent",
+          "assertion": "calculateTax(price, rate) === calculateTax(price, rate)",
+          "generators": {
+            "price": {
+              "type": "float",
+              "constraints": {
+                "min": 0,
+                "max": 10000
+              }
+            },
+            "rate": {
+              "type": "float",
+              "constraints": {
+                "min": 0,
+                "max": 100
+              }
+            }
+          },
+          "seedInputs": [
+            {
+              "label": "normal",
+              "value": {
+                "price": 100,
+                "rate": 8
+              }
+            },
+            {
+              "label": "boundary",
+              "value": {
+                "price": 0,
+                "rate": 0
+              }
+            },
+            {
+              "label": "extreme",
+              "value": {
+                "price": 9999,
+                "rate": 99
+              }
+            }
+          ],
+          "score": 11,
+          "riskScore": 8,
+          "riskTags": [
+            "float_exact_equality"
+          ],
+          "status": "risky",
+          "confidence": 0.95,
+          "evidence": "Pure math function must be deterministic",
+          "sourceHash": "936c04407866e02839d9e6c53985e6858b4983577bf80786f2a7ebe6a2005a9e",
+          "inferredAt": "2026-04-09T12:08:56.317Z",
+          "modelId": "claude-opus-4-20250514-mock",
+          "validation": {
+            "smokePasses": 100,
+            "canaryPasses": 8,
+            "seedsTested": [],
+            "lastValidatedAt": "2026-04-09T12:09:17.761Z"
           }
         },
         {
@@ -473,19 +741,19 @@
           "status": "refined",
           "confidence": 0.92,
           "evidence": "@param discount - Discount percentage (0-100); prices should not go negative",
-          "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
-          "inferredAt": "2026-04-07T07:05:50.253Z",
+          "sourceHash": "936c04407866e02839d9e6c53985e6858b4983577bf80786f2a7ebe6a2005a9e",
+          "inferredAt": "2026-04-09T12:08:56.315Z",
           "modelId": "claude-opus-4-20250514-mock",
           "validation": {
             "smokePasses": 100,
             "canaryPasses": 8,
             "seedsTested": [],
-            "lastValidatedAt": "2026-04-07T07:06:06.811Z"
+            "lastValidatedAt": "2026-04-09T12:09:20.953Z"
           }
         }
       ],
-      "sourceHash": "57b4fc73fcf21d3c2a8663fa46d839ac7a014cdf7d0419534b036fc73f8efba2",
-      "inferredAt": "2026-04-07T07:06:06.811Z"
+      "sourceHash": "936c04407866e02839d9e6c53985e6858b4983577bf80786f2a7ebe6a2005a9e",
+      "inferredAt": "2026-04-09T12:09:20.954Z"
     },
     "test-fixtures/typescript/string-utils.ts": {
       "schemaVersion": 2,

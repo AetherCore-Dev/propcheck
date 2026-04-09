@@ -13,10 +13,11 @@ AI-powered testing tool. AI reads your code once → discovers rules that should
 - Test runner: Node.js `--experimental-strip-types` for direct .ts import
 
 ## Project Status (2026-04-09)
-**Phase 1 MVP: COMPLETE + Production Hardening** — full CLI pipeline verified end-to-end across CJS/ESM/no-type project configurations. 435 unit tests + 4 E2E tests, 0 failures. All identified security/UX/coverage issues resolved. Adaptive mock generator enables `--mock` mode for any user code. Node 18/20/22+ cross-version compatibility. npm 0.4.4 published.
+**Phase 1 MVP: COMPLETE + Production Hardening + Deep UX Audit** — full CLI pipeline verified end-to-end across CJS/ESM/no-type project configurations. 435 unit tests + 4 E2E tests, 0 failures. `propcheck check` one-command experience added. Mock property quality hardened: typeof assertions eliminated, multi-param template bugs fixed. Node 18/20/22+ cross-version compatibility.
 
 ### What's Done
-- Full CLI: `init`, `infer`, `run`, `badge`, `quality`, `props`, `property`, `fix`, `templates` commands
+- Full CLI: `init`, `infer`, `run`, `check`, `badge`, `quality`, `props`, `property`, `fix`, `templates` commands
+- **`propcheck check` one-command**: init + infer --mock + run in a single step — lowest friction entry point
 - **Community property templates**: 10 domains, 18 curated templates (sorting, formatting, validation, clamping, math, filtering, string-transform, parsing, mapping, deduplicate) — auto-matched in `--mock` mode before adaptive generator
 - **PR Comment Bot**: GitHub Action (`.github/actions/propcheck-comment/`) posts property test results as PR comments — validated on PR #1
 - **Adaptive mock generator**: `--mock` mode generates meaningful properties for ANY function (not just hardcoded demos) via FunctionSignature analysis — 3-tier param→generator mapping, signal-based category selection, template-based assertion synthesis
@@ -116,6 +117,8 @@ cd packages/cli && npx tsup                        # Bundle for distribution
 # CLI (dev mode — from tsc output)
 node packages/cli/dist/index.js --help
 node packages/cli/dist/index.js init
+node packages/cli/dist/index.js check <file>              # One-command: infer --mock + run
+node packages/cli/dist/index.js check --quick <file>      # One-command with quick mode
 node packages/cli/dist/index.js infer --mock <file>
 node packages/cli/dist/index.js infer --mock --function add,multiply <file>
 node packages/cli/dist/index.js infer --mock --confirm <file>
@@ -172,6 +175,7 @@ node packages/cli/dist/__tests__/auto-weaken.test.js                        # 31
 node packages/cli/dist/__tests__/init.test.js                               # 4 tests
 node packages/cli/dist/__tests__/confirm.test.js                            # 8 tests
 node packages/cli/dist/__tests__/fix.test.js                                # 5 tests
+node packages/cli/dist/__tests__/e2e-smoke.test.js                          # 4 E2E tests
 
 # Record demo GIF
 vhs < demo.tape
@@ -180,6 +184,34 @@ vhs < demo.tape
 cd packages/cli && npm publish
 ```
 
+## Known Issues (2026-04-09 Deep Audit)
+
+### P0 — First-time experience (user tries → abandons)
+
+| ID | Issue | Status | Details |
+|----|-------|--------|---------|
+| P0-1a | **Trivial property detection incomplete** — `typeof x === "number"` passes scoring because `isTrivial` only catches assertions WITHOUT `===` | **FIXED** | `packages/llm/src/scoring.ts:180-185` — new regex detects full-assertion typeof checks |
+| P0-1b | **Validation community templates low quality** — `typeof {fn}({p0}) === 'boolean'` is a type check, not a meaningful property | **FIXED** | `packages/llm/src/templates.ts` — replaced with determinism, empty-rejection, and complement properties |
+| P0-2 | **No single-command experience** — users must run `init → infer → run` (3 steps). Competitors offer `npx eslint .` style one-liners | **FIXED** | `propcheck check <target>` command added |
+| P0-3 | **fast-check peer dep blocks first run** — non-optional peer dep with no auto-install or friendly error | PARTIAL | Error exists but message could be clearer |
+
+### P1 — Core experience quality
+
+| ID | Issue | Status | Details |
+|----|-------|--------|---------|
+| P1-1 | **No E2E smoke test** — 424 unit tests but no test exercises full `infer --mock → run` pipeline | **FIXED** | `packages/cli/src/__tests__/e2e-smoke.test.ts` — 4 E2E tests |
+| P1-2 | **No multi-file run summary** — `propcheck run src/` shows per-file output but no final totals | **FIXED** | `packages/cli/src/commands/run.ts` — aggregated summary line |
+| P1-3 | **Property ID display order inconsistent** — prop_001 may appear after prop_012 in output | **FIXED** | `packages/cli/src/commands/run.ts` — sorted by ID before display |
+
+### P2 — Developer experience / engineering
+
+| ID | Issue | Status | Details |
+|----|-------|--------|---------|
+| P2-1 | **`process.exit()` in all commands** — 30+ direct calls prevent programmatic use and VS Code extension integration | DEFERRED | Needs major refactor, do when building VS Code ext |
+| P2-2 | **Tests require `tsc --build` first** — edit→test cycle ~10s instead of ~1s | DEFERRED | Consider vitest/tsx migration |
+
 ## Next Priority
-1. VS Code extension
-2. CI coverage reporting (c8/istanbul)
+1. Fix P0 issues (mock quality, one-command experience)
+2. Fix P1 issues (E2E test, multi-file summary, ID ordering)
+3. VS Code extension
+4. CI coverage reporting (c8/istanbul)

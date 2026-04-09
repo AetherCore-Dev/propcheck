@@ -18,6 +18,7 @@ import {
 } from "@propcheck/store";
 import { generateFastCheckTest, runFastCheckTest, generateHypothesisTest, runHypothesisTest } from "@propcheck/engines";
 import { reportRunSummary, reportAsJson } from "@propcheck/reporter";
+import chalk from "chalk";
 import {
   hashContent,
   toForwardSlash,
@@ -169,6 +170,11 @@ export async function runCommand(
   const hasOnlyFilter = onlyIds.size > 0;
   let exitCode = 0;
   let ranAnyProperties = false;
+  let totalFiles = 0;
+  let totalPassed = 0;
+  let totalFailed = 0;
+  let totalErrors = 0;
+  let totalSkipped = 0;
 
   for (const ps of propertySets) {
     const filePath = path.resolve(projectRoot, ps.filePath);
@@ -235,10 +241,14 @@ export async function runCommand(
           properties: [],
         }));
       }
+      totalSkipped += skipped.length;
       continue;
     }
 
     ranAnyProperties = true;
+
+    // Sort properties by ID for consistent display order
+    const sortedProperties = [...runnableProperties].sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }));
 
     // Generate test file — select engine based on file extension
     const testsDir = path.join(storeDir, "tests");
@@ -247,8 +257,8 @@ export async function runCommand(
     const isPython = ps.filePath.endsWith(".py");
 
     const generated = isPython
-      ? generateHypothesisTest(runnableProperties, filePath, testsDir, runConfig)
-      : generateFastCheckTest(runnableProperties, filePath, testsDir, runConfig);
+      ? generateHypothesisTest(sortedProperties, filePath, testsDir, runConfig)
+      : generateFastCheckTest(sortedProperties, filePath, testsDir, runConfig);
 
     const testFilePath = path.join(testsDir, generated.fileName);
     await fs.writeFile(testFilePath, generated.content, "utf8");
@@ -256,8 +266,8 @@ export async function runCommand(
     // Run tests
     const fcGenerated = !isPython ? generated as { needsMtsCopy?: boolean; copyExt?: string } : null;
     const result = isPython
-      ? await runHypothesisTest(testFilePath, runnableProperties, runConfig)
-      : await runFastCheckTest(testFilePath, runnableProperties, runConfig, {
+      ? await runHypothesisTest(testFilePath, sortedProperties, runConfig)
+      : await runFastCheckTest(testFilePath, sortedProperties, runConfig, {
           targetFile: filePath,
           needsMtsCopy: fcGenerated?.needsMtsCopy,
           copyExt: fcGenerated?.copyExt,
@@ -274,9 +284,30 @@ export async function runCommand(
       reportRunSummary(enrichedResult, ps.filePath);
     }
 
+    totalFiles++;
+    totalPassed += result.passed.length;
+    totalFailed += result.failed.length;
+    totalErrors += result.errors.length;
+    totalSkipped += skipped.length;
+
     if (result.failed.length > 0 || result.errors.length > 0) {
       exitCode = 1;
     }
+  }
+
+  // Multi-file summary line (only when testing more than one file)
+  if (totalFiles > 1 && !options.json) {
+    const totalProps = totalPassed + totalFailed + totalErrors;
+    const parts: string[] = [
+      `${totalFiles} files`,
+      `${totalProps} properties`,
+    ];
+    if (totalPassed > 0) parts.push(chalk.green(`${totalPassed} passed`));
+    if (totalFailed > 0) parts.push(chalk.red(`${totalFailed} failed`));
+    if (totalErrors > 0) parts.push(chalk.yellow(`${totalErrors} errors`));
+    if (totalSkipped > 0) parts.push(chalk.gray(`${totalSkipped} skipped`));
+    console.log(chalk.bold(`  Total: ${parts.join(" | ")}`));
+    console.log("");
   }
 
   if (!ranAnyProperties) {

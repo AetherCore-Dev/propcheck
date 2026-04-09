@@ -2,6 +2,24 @@
 
 All notable changes to propcheck are documented in this file.
 
+## [0.5.0] - 2026-04-09
+
+### Added
+- **`propcheck check` command**: one-command experience — auto init + infer --mock + run. Lowest-friction entry point for new users (`propcheck check src/file.ts`)
+- **Multi-file run summary**: when testing multiple files, a final `Total: X files | Y properties | Z passed | W failed` line is printed
+- **Property ID sorting**: properties now display in consistent ID order (prop_001, prop_002, ...) instead of arbitrary validation order
+- **E2E smoke tests**: 4 end-to-end tests verify full `infer --mock → run` pipeline, `run --json`, and `check` command
+- **fast-check startup detection**: CLI now checks for fast-check at startup with clear install instructions (matches existing TypeScript check)
+- **Two-param math templates**: new `math-2param` domain correctly handles functions like `calculateTax(price, rate)` with all parameters
+
+### Fixed
+- **False positive: multi-param math functions** — math template used `{fn}({p0})` dropping extra params; `calculateTax(price, rate)` was called as `calculateTax(price)` causing `rate=undefined → NaN → FAIL`. Fixed with `maxParams` constraint on single-param math domain and new 2-param domain
+- **Trivial `typeof` assertions pass scoring** — `typeof x === "number"` was not detected as trivial because the check required absence of `===`. New regex `^typeof\s+.+\s*[!=]==\s*["'][a-z]+["']\s*$` correctly catches pure typeof assertions while allowing compound expressions
+- **Adaptive generator `typeof` pollution** — `buildBoundaryProperty` and `buildTypePreservationProperty` generated `typeof fn(x) === "string"` / `"boolean"`. Replaced with meaningful assertions: `.length >= 0` for strings, `=== self` for booleans, `Number.isFinite()` for numbers
+- **Validation templates low quality** — replaced `typeof {fn}({p0}) === 'boolean'` with determinism, empty-string rejection, and complement-set distinguishability properties
+- **Idempotent assertion missing params** — `buildIdempotentProperty` generated `clamp(clamp(value))` instead of `clamp(clamp(value, min, max), min, max)`. Now passes all parameters via `buildCallExpr`
+- **`check` command init noise** — `check` printed full `initCommand()` output including "Next steps: propcheck infer..." hints. Now uses `initStore()` directly for silent initialization
+
 ## [0.4.3] - 2026-04-08
 
 ### Added
