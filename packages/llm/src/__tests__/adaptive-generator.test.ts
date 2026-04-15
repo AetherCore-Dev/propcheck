@@ -210,6 +210,26 @@ describe("generateAdaptiveProperties", () => {
     assert.equal(uniqueAssertions.size, assertions.length, "Found duplicate assertions");
   });
 
+  it("generates a cross-function property when an inverse sibling exists", () => {
+    const encode = makeSig({
+      name: "encode",
+      parameters: [makeParam("value", "string")],
+      returnType: "number",
+    });
+    const decode = makeSig({
+      name: "decode",
+      parameters: [makeParam("encoded", "number")],
+      returnType: "string",
+    });
+
+    const props = generateAdaptiveProperties(encode, [decode]);
+    const crossFunction = props.find((prop) => prop.category === "cross-function");
+
+    assert.ok(crossFunction, "Expected a cross-function property");
+    assert.deepEqual(crossFunction.relatedFunctions, ["decode"]);
+    assert.match(crossFunction.assertion, /decode\(encode\(value\)\)/);
+  });
+
   it("works for zero-param functions", () => {
     const sig = makeSig({ name: "getTimestamp", returnType: "number" });
     const props = generateAdaptiveProperties(sig);

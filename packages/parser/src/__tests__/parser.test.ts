@@ -1,6 +1,7 @@
 import { describe, it } from "node:test";
 import * as assert from "node:assert/strict";
 import { analyzeFile, detectLanguage } from "../languages/typescript";
+import { parseSpecText } from "../spec";
 
 describe("typescript parser", () => {
   it("should extract a simple function declaration", () => {
@@ -127,6 +128,37 @@ export function add(a, b) {
 
     assert.equal(ctx.functions.length, 1);
     assert.equal(ctx.functions[0].parameters[0].type, null);
+  });
+});
+
+describe("parseSpecText", () => {
+  it("should map matching requirement lines to functions and constraints", () => {
+    const spec = parseSpecText(
+      "requirements.md",
+      [
+        "- applyDiscount must keep discount percentage in the 0-100 range",
+        "- calculateTotal should never be negative",
+        "- cart totals should be auditable",
+      ].join("\n"),
+      ["applyDiscount", "calculateTotal"],
+    );
+
+    assert.equal(spec.sourcePath, "requirements.md");
+    assert.equal(spec.generalRequirements.length, 1);
+    assert.equal(spec.functions.length, 2);
+    assert.ok(spec.functions.some((fn) => fn.functionName === "applyDiscount" && fn.constraints.some((c) => c.kind === "range")));
+    assert.ok(spec.functions.some((fn) => fn.functionName === "calculateTotal" && fn.constraints.some((c) => c.kind === "non-negative")));
+  });
+
+  it("should match unqualified spec lines for qualified methods", () => {
+    const spec = parseSpecText(
+      "requirements.md",
+      "- add should never be negative",
+      ["Calculator.add", "add"],
+    );
+
+    assert.equal(spec.functions.length, 1);
+    assert.ok(spec.functions[0].constraints.some((constraint) => constraint.kind === "non-negative"));
   });
 });
 

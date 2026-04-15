@@ -35,15 +35,31 @@ export function mockGenerateFix(
 ): FixResult {
   let fixedSource = sourceCode;
   const changedFunctions: string[] = [];
+  const bugDiagnoses = diagnoses.filter((d) => d.isBug);
 
-  for (const d of diagnoses) {
-    if (!d.isBug) continue;
-    fixedSource = `// [propcheck fix] Applied mock fix for ${d.propertyId}\n${fixedSource}`;
+  if (bugDiagnoses.some((d) => d.suggestedFix?.includes("applyDiscount"))) {
+    const nextSource = fixedSource.replace(
+      /return price \* \(1 - discount \/ 100\);/,
+      [
+        "const normalizedDiscount = Math.max(0, Math.min(100, discount));",
+        "  return price * (1 - normalizedDiscount / 100);",
+      ].join("\n  "),
+    );
+    if (nextSource !== fixedSource) {
+      fixedSource = nextSource;
+      changedFunctions.push("applyDiscount");
+    }
+  }
+
+  if (changedFunctions.length === 0) {
+    for (const d of bugDiagnoses) {
+      fixedSource = `// [propcheck fix] Applied mock fix for ${d.propertyId}\n${fixedSource}`;
+    }
   }
 
   return {
     fixedSource,
-    explanation: `Mock fix: applied guards for ${diagnoses.filter((d) => d.isBug).length} diagnosed bug(s)`,
+    explanation: `Mock fix: applied guards for ${bugDiagnoses.length} diagnosed bug(s)`,
     changedFunctions,
     confidence: 0.7,
   };

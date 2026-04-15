@@ -29,6 +29,7 @@ function makeProp(overrides: Partial<PropertyDefinition> = {}): PropertyDefiniti
     sourceHash: "abc",
     inferredAt: "2026-01-01",
     modelId: "test",
+    evidenceSource: "code",
     ...overrides,
   };
 }
@@ -405,6 +406,94 @@ describe("applyRiskMetadata", () => {
     const ctx = makeContext([]);
     const result = applyRiskMetadata([prop], ctx);
     assert.notEqual(result[0], prop);
+  });
+
+  it("should add spec_code_conflict and upgrade evidence source when spec disagrees", () => {
+    const prop = makeProp({
+      targetFunction: "applyDiscount",
+      description: "discount may be negative",
+      assertion: "applyDiscount(price, discount) < 0",
+      generators: { discount: { type: "float", constraints: { min: 0, max: 1000 } } },
+    });
+    const ctx: AnalysisContext = {
+      ...makeContext([]),
+      spec: {
+        sourcePath: "requirements.md",
+        rawText: "applyDiscount must keep discount percentage in the 0-100 range",
+        generalRequirements: [],
+        functions: [{
+          functionName: "applyDiscount",
+          requirements: ["applyDiscount must keep discount percentage in the 0-100 range"],
+          constraints: [{ subject: "applyDiscount", kind: "range", detail: "discount percentage in the 0-100 range", min: 0, max: 100 }],
+        }],
+      },
+    };
+    const result = applyRiskMetadata([prop], ctx);
+    assert.equal(result[0].evidenceSource, "mixed");
+    assert.ok(result[0].riskTags.includes("spec_code_conflict"));
+  });
+
+  it("should keep code evidence when spec does not match the property function", () => {
+    const prop = makeProp({ targetFunction: "applyDiscount", evidenceSource: "code" });
+    const ctx: AnalysisContext = {
+      ...makeContext([]),
+      spec: {
+        sourcePath: "requirements.md",
+        rawText: "calculateTotal should never be negative",
+        generalRequirements: [],
+        functions: [{
+          functionName: "calculateTotal",
+          requirements: ["calculateTotal should never be negative"],
+          constraints: [{ subject: "calculateTotal", kind: "non-negative", detail: "calculateTotal should never be negative", min: 0 }],
+        }],
+      },
+    };
+    const result = applyRiskMetadata([prop], ctx);
+    assert.equal(result[0].evidenceSource, "code");
+  });
+
+  it("should add spec_code_conflict for negative lower bounds in 0-100 specs", () => {
+    const prop = makeProp({
+      targetFunction: "applyDiscount",
+      generators: { discount: { type: "float", constraints: { min: -10, max: 100 } } },
+    });
+    const ctx: AnalysisContext = {
+      ...makeContext([]),
+      spec: {
+        sourcePath: "requirements.md",
+        rawText: "applyDiscount must keep discount percentage in the 0-100 range",
+        generalRequirements: [],
+        functions: [{
+          functionName: "applyDiscount",
+          requirements: ["applyDiscount must keep discount percentage in the 0-100 range"],
+          constraints: [{ subject: "applyDiscount", kind: "range", detail: "discount percentage in the 0-100 range", min: 0, max: 100 }],
+        }],
+      },
+    };
+    const result = applyRiskMetadata([prop], ctx);
+    assert.ok(result[0].riskTags.includes("spec_code_conflict"));
+  });
+
+  it("should add spec_code_conflict for array element ranges outside 0-100 specs", () => {
+    const prop = makeProp({
+      targetFunction: "applyDiscount",
+      generators: { discounts: { type: "array", constraints: { element: "float", elementMin: 0, elementMax: 1000 } } },
+    });
+    const ctx: AnalysisContext = {
+      ...makeContext([]),
+      spec: {
+        sourcePath: "requirements.md",
+        rawText: "applyDiscount must keep discount percentage in the 0-100 range",
+        generalRequirements: [],
+        functions: [{
+          functionName: "applyDiscount",
+          requirements: ["applyDiscount must keep discount percentage in the 0-100 range"],
+          constraints: [{ subject: "applyDiscount", kind: "range", detail: "discount percentage in the 0-100 range", min: 0, max: 100 }],
+        }],
+      },
+    };
+    const result = applyRiskMetadata([prop], ctx);
+    assert.ok(result[0].riskTags.includes("spec_code_conflict"));
   });
 
   it("should merge doc risk tags with existing risk tags", () => {

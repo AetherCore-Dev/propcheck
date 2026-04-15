@@ -13,7 +13,7 @@ export async function badgeCommand(): Promise<void> {
 
   const allProps = await getAllProperties(storeDir);
   const totalProperties = allProps.reduce(
-    (sum, ps) => sum + ps.properties.length,
+    (sum, ps) => sum + ps.properties.filter((property) => property.status !== "quarantined" && property.status !== "dropped").length,
     0,
   );
 

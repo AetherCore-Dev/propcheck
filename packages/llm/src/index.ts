@@ -4,23 +4,29 @@
  * Orchestrates: build prompt → call API → parse response → score/filter → return
  */
 
-import type { AnalysisContext, PropertyDefinition } from "@propcheck/common";
+import type { AnalysisContext, FunctionSignature, PropertyDefinition } from "@propcheck/common";
 import { hashContent } from "@propcheck/common";
 import { createLlmClient } from "./client";
 import type { LlmClient, ApiResponse } from "./client";
 import { createOpenAIClient } from "./openai-client";
+import { createCliClient } from "./cli-client";
 import { createMockClient } from "./mock-client";
+import { LlmError } from "@propcheck/common";
 import { buildInferPrompt, getSystemPrompt, getInferTool } from "./prompts/infer-properties";
 import { buildRefinementPrompt } from "./prompts/refinement";
 import { parseInferResponse } from "./response-parser";
 import { scoreAndFilter } from "./scoring";
+import { matchTemplates } from "./templates";
 
 export interface InferOptions {
   readonly maxProperties: number;
   readonly minScore: number;
   readonly mock: boolean;
-  readonly provider?: "anthropic" | "openai-compatible";
+  readonly provider?: "anthropic" | "openai-compatible" | "cli";
   readonly baseURL?: string | null;
+  readonly cliCommand?: string | null;
+  readonly cliArgs?: readonly string[] | null;
+  readonly siblingFunctions?: readonly FunctionSignature[];
 }
 
 export interface InferResult {
@@ -59,11 +65,51 @@ function limitPropertiesPerFunction(
   }
 
   const limited: PropertyDefinition[] = [];
-  for (const [_fn, props] of functionGroups) {
+  for (const props of functionGroups.values()) {
     limited.push(...props.slice(0, maxProperties));
   }
 
   return limited;
+}
+
+export function buildTemplateProperties(
+  context: AnalysisContext,
+  options: { readonly sourceHash?: string; readonly startingIndex?: number } = {},
+): readonly PropertyDefinition[] {
+  if (context.spec) {
+    return [];
+  }
+
+  const sourceHash = options.sourceHash ?? hashContent(context.sourceCode);
+  let counter = options.startingIndex ?? 1;
+  const properties: PropertyDefinition[] = [];
+
+  for (const fn of context.functions) {
+    for (const template of matchTemplates(fn)) {
+      properties.push({
+        id: `prop_${String(counter).padStart(3, "0")}`,
+        targetFunction: template.targetFunction,
+        description: template.description,
+        category: template.category,
+        assertion: template.assertion,
+        generators: Object.freeze({ ...template.generators }),
+        seedInputs: Object.freeze(template.seedInputs.map((seed) => ({ ...seed }))),
+        score: 0,
+        riskScore: 0,
+        riskTags: Object.freeze([]),
+        status: "accepted",
+        confidence: template.confidence,
+        evidence: template.evidence,
+        evidenceSource: "domain",
+        sourceHash,
+        inferredAt: new Date().toISOString(),
+        modelId: "community-template",
+      });
+      counter++;
+    }
+  }
+
+  return properties;
 }
 
 function toInferResult(
@@ -77,8 +123,12 @@ function toInferResult(
     sourceHash,
     modelId: response.model,
   });
+  const templateProperties = buildTemplateProperties(context, {
+    sourceHash,
+    startingIndex: rawProperties.length + 1,
+  });
 
-  const filtered = scoreAndFilter(rawProperties, opts.minScore);
+  const filtered = scoreAndFilter([...rawProperties, ...templateProperties], opts.minScore);
   const limited = limitPropertiesPerFunction(filtered, opts.maxProperties);
 
   return {
@@ -93,15 +143,25 @@ function toInferResult(
  * Create the appropriate LLM client based on provider configuration.
  */
 export function createClient(
-  apiKey: string,
+  apiKey: string | null,
   model: string,
-  provider: "anthropic" | "openai-compatible" = "anthropic",
+  provider: "anthropic" | "openai-compatible" | "cli" = "anthropic",
   baseURL?: string | null,
+  cliOptions?: { command: string; args?: readonly string[] },
 ): LlmClient {
-  if (provider === "openai-compatible") {
-    return createOpenAIClient(apiKey, model, baseURL ?? undefined);
+  if (provider === "cli") {
+    if (!cliOptions?.command) {
+      throw new LlmError("CLI provider requires --cli-command to be set", {});
+    }
+    return createCliClient({
+      command: cliOptions.command,
+      args: cliOptions.args,
+    });
   }
-  return createLlmClient(apiKey, model, baseURL);
+  if (provider === "openai-compatible") {
+    return createOpenAIClient(apiKey!, model, baseURL ?? undefined);
+  }
+  return createLlmClient(apiKey!, model, baseURL);
 }
 
 /**
@@ -117,13 +177,16 @@ export async function inferProperties(
   const startTime = Date.now();
 
   // Create client (mock → real, dispatch by provider)
+  const cliOpts = opts.provider === "cli" && opts.cliCommand
+    ? { command: opts.cliCommand, args: opts.cliArgs ?? undefined }
+    : undefined;
   const client = opts.mock
     ? createMockClient()
-    : createClient(apiKey!, model, opts.provider, opts.baseURL);
+    : createClient(apiKey, model, opts.provider, opts.baseURL, cliOpts);
 
   // Build prompt
   const systemPrompt = getSystemPrompt();
-  const userPrompt = buildInferPrompt(context);
+  const userPrompt = buildInferPrompt(context, opts.siblingFunctions);
   const tool = getInferTool();
 
   // Call LLM
@@ -145,12 +208,15 @@ export async function refineProperties(
   const opts: InferOptions = { ...DEFAULT_OPTIONS, ...options };
   const startTime = Date.now();
 
+  const cliOpts = opts.provider === "cli" && opts.cliCommand
+    ? { command: opts.cliCommand, args: opts.cliArgs ?? undefined }
+    : undefined;
   const client = opts.mock
     ? createMockClient()
-    : createClient(apiKey!, model, opts.provider, opts.baseURL);
+    : createClient(apiKey, model, opts.provider, opts.baseURL, cliOpts);
 
   const systemPrompt = getSystemPrompt();
-  const originalPrompt = buildInferPrompt(context);
+  const originalPrompt = buildInferPrompt(context, opts.siblingFunctions);
   const userPrompt = buildRefinementPrompt(originalPrompt, feedbackSummary);
   const tool = getInferTool();
 
@@ -162,6 +228,7 @@ export async function refineProperties(
 // Re-exports
 export { createLlmClient } from "./client";
 export { createOpenAIClient } from "./openai-client";
+export { createCliClient } from "./cli-client";
 export type { LlmClient, ApiResponse, LlmToolSchema } from "./client";
 export { createMockClient } from "./mock-client";
 export { parseInferResponse } from "./response-parser";
@@ -169,8 +236,8 @@ export { scoreProperty, scoreAndFilter, isRedundant, detectRiskTags, computeRisk
 export { buildInferPrompt, getSystemPrompt, getInferTool } from "./prompts/infer-properties";
 export { repairProperty } from "./prompts/self-repair";
 export { mockRepairProperty } from "./mock-repair";
-export { classifyProperties, buildFeedbackSummary, buildRefinementPrompt } from "./prompts/refinement";
-export type { PropertyClassification } from "./prompts/refinement";
+export { classifyProperties, buildFeedbackSummary, buildRefinementPrompt, shouldAutoRefine } from "./prompts/refinement";
+export type { PropertyClassification, FeedbackOptions } from "./prompts/refinement";
 export { mockRefineProperties } from "./mock-refinement";
 export { diagnoseViolation, generateFix, DIAGNOSE_SYSTEM_PROMPT, DIAGNOSE_TOOL, FIX_SYSTEM_PROMPT, FIX_TOOL, buildDiagnosePrompt, buildFixPrompt } from "./prompts/fix";
 export type { FixResult } from "./prompts/fix";
@@ -179,3 +246,5 @@ export { generateAdaptiveProperties, mapParamGenerators, selectCategories, build
 export type { RawMockProperty } from "./adaptive-generator";
 export { extractSignaturesFromPrompt } from "./mock-client";
 export { matchTemplates, getAvailableDomains, getTemplateStats } from "./templates";
+export type { RawTemplateProperty } from "./templates";
+export { expandGeneratorRanges, hasExpandableRanges } from "./boundary-expansion";

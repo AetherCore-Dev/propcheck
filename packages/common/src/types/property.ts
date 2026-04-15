@@ -30,6 +30,7 @@ export type PropertyRiskTag =
   | "missing_precondition"
   | "wide_numeric_domain"
   | "doc_domain_mismatch"
+  | "spec_code_conflict"
   | "roundtrip_numeric_fragility"
   | "metamorphic_scale_risk";
 
@@ -39,6 +40,8 @@ export interface ValidationEvidence {
   readonly seedsTested: readonly number[];
   readonly lastValidatedAt: string;
 }
+
+export type PropertyEvidenceSource = "code" | "doc" | "spec" | "domain" | "mixed";
 
 /** Specifies how to generate random inputs for a parameter. */
 export interface GeneratorSpec {
@@ -72,6 +75,8 @@ export interface PropertyDefinition {
   readonly status: PropertyStatus;
   readonly validation?: ValidationEvidence;
   readonly humanVerified?: boolean;
+  readonly evidenceSource?: PropertyEvidenceSource;
+  readonly relatedFunctions?: readonly string[];
   readonly confidence: number;
   readonly evidence: string;
   readonly sourceHash: string;

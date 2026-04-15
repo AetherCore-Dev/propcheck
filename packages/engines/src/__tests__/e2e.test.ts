@@ -14,7 +14,7 @@ import { inferProperties } from "@propcheck/llm";
 import { initStore, setProperties, getProperties, getAllProperties } from "@propcheck/store";
 import { generateFastCheckTest, runFastCheckTest } from "../index";
 import { reportAsJson } from "@propcheck/reporter";
-import { hashContent, toForwardSlash } from "@propcheck/common";
+import { hashContent } from "@propcheck/common";
 import type { PropertySet, RunConfig } from "@propcheck/common";
 
 const CART_SOURCE = `

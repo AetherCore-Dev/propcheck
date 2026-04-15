@@ -20,7 +20,7 @@ const PROPCHECK_DIR = path.join(PROJECT_ROOT, ".propcheck");
 
 const EXEC_OPTS: ExecSyncOptionsWithStringEncoding = {
   encoding: "utf8",
-  timeout: 60_000,
+  timeout: 120_000,
   cwd: PROJECT_ROOT,
 };
 

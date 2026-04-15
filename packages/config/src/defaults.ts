@@ -10,6 +10,8 @@ export const DEFAULTS: PropcheckConfig = {
   model: "claude-sonnet-4-20250514",
   provider: "anthropic",
   baseURL: null,
+  cliCommand: null,
+  cliArgs: null,
   maxPropertiesPerFunction: 5,
   minScore: 10,
   defaultMode: "default",

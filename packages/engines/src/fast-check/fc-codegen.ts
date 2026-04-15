@@ -9,16 +9,6 @@ import { toForwardSlash, supportsStripTypes } from "@propcheck/common";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-const JS_BUILTINS = new Set([
-  "target", "true", "false", "null", "undefined",
-  "Math", "Number", "String", "Array", "JSON", "Object", "RegExp",
-  "Date", "Error", "TypeError", "RangeError", "Set", "Map",
-  "NaN", "Infinity",
-  "parseFloat", "parseInt", "isNaN", "isFinite",
-  "encodeURIComponent", "decodeURIComponent",
-  "console", "globalThis",
-]);
-
 /** Strip newlines, block-comment terminators, and limit length for safe embedding in code comments. */
 function toSafeComment(s: string): string {
   return s
@@ -325,8 +315,13 @@ export function generateFastCheckTest(
     importPathStr = noExt;
   }
 
-  // Collect unique function names for imports
-  const functionNames = [...new Set(properties.map((p) => p.targetFunction.split(".").pop()!))];
+  // Collect unique function names for imports (include relatedFunctions for cross-function props)
+  const functionNames = [...new Set(
+    properties.flatMap((p) => [
+      p.targetFunction.split(".").pop()!,
+      ...(p.relatedFunctions ?? []).map((fn) => fn.split(".").pop()!),
+    ]),
+  )];
 
   // Try to resolve fast-check absolute path for reliable loading
   let fcImport: string;
@@ -437,19 +432,27 @@ export function generateFastCheckTest(
       lines.push(`  console.log(JSON.stringify({ propertyId: "${prop.id}", status: "passed", iterations: numRuns }));`);
     }
     lines.push(`} catch (e) {`);
-    lines.push(`  // Parse counterexample from fast-check error message`);
+    lines.push(`  // Extract counterexample: try direct property access first (fast-check error objects),`);
+    lines.push(`  // then fall back to regex parsing of the error message.`);
     lines.push(`  let counterexample = null;`);
     lines.push(`  let shrinkSteps = 0;`);
-    lines.push(`  const msg = e.message ?? String(e);`);
-    lines.push(`  const ceMatch = msg.match(/Counterexample: (\\[.*?\\])/);`);
-    lines.push(`  if (ceMatch) { try { counterexample = JSON.parse(ceMatch[1]); } catch {} }`);
+    lines.push(`  if (e && e.counterexample) { counterexample = e.counterexample; }`);
+    lines.push(`  const msg = e && e.message ? e.message : String(e);`);
+    lines.push(`  if (!counterexample) {`);
+    lines.push(`    const ceMatch = msg.match(/Counterexample:\\s*(\\[.*\\])/s);`);
+    lines.push(`    if (ceMatch) { try { counterexample = JSON.parse(ceMatch[1]); } catch {} }`);
+    lines.push(`  }`);
+    lines.push(`  if (!counterexample) {`);
+    lines.push(`    const ceAlt = msg.match(/Counterexample:\\s*([^\\n]+)/);`);
+    lines.push(`    if (ceAlt) { try { counterexample = JSON.parse(ceAlt[1]); } catch { counterexample = [ceAlt[1].trim()]; } }`);
+    lines.push(`  }`);
     lines.push(`  const shrinkMatch = msg.match(/Shrunk (\\d+) time/);`);
     lines.push(`  if (shrinkMatch) { shrinkSteps = parseInt(shrinkMatch[1], 10); }`);
     lines.push(`  console.log(JSON.stringify({`);
     lines.push(`    propertyId: "${prop.id}",`);
     lines.push(`    status: "failed",`);
     lines.push(`    counterexample,`);
-    lines.push(`    errorMessage: msg,`);
+    lines.push(`    errorMessage: msg.split("\\n")[0],`);
     lines.push(`    shrinkSteps`);
     lines.push(`  }));`);
     lines.push(`}`);

@@ -80,6 +80,27 @@ export interface DocSignal {
   readonly examples: readonly string[];
 }
 
+export interface SpecConstraint {
+  readonly subject: string;
+  readonly kind: "non-negative" | "positive" | "range";
+  readonly detail: string;
+  readonly min?: number;
+  readonly max?: number;
+}
+
+export interface SpecSignal {
+  readonly functionName: string;
+  readonly requirements: readonly string[];
+  readonly constraints: readonly SpecConstraint[];
+}
+
+export interface SpecContext {
+  readonly sourcePath: string;
+  readonly rawText: string;
+  readonly generalRequirements: readonly string[];
+  readonly functions: readonly SpecSignal[];
+}
+
 /**
  * Complete analysis context sent to the LLM.
  * Combines all signals from parser + analyzer.
@@ -91,6 +112,7 @@ export interface AnalysisContext {
   readonly functions: readonly FunctionSignature[];
   readonly types: readonly TypeDefinition[];
   readonly imports: readonly ImportInfo[];
+  readonly spec?: SpecContext;
   readonly signals: {
     readonly ast: readonly AstSignal[];
     readonly type: readonly TypeSignal[];

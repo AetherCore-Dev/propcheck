@@ -20,13 +20,10 @@ import {
   runFastCheckTest,
 } from "@propcheck/engines";
 import {
-  hashContent,
   toForwardSlash,
   RUN_MODE_ITERATIONS,
 } from "@propcheck/common";
 import type {
-  PropertyDefinition,
-  PropertyFailure,
   Diagnosis,
   RunConfig,
   ExecutionResult,
@@ -45,6 +42,8 @@ interface FixOptions {
   model?: string;
   provider?: string;
   baseUrl?: string;
+  cliCommand?: string;
+  cliArgs?: string;
   apply?: boolean;
   property?: string;
   maxAttempts?: string;
@@ -144,7 +143,7 @@ function formatDiff(diff: DiffLine[], filePath: string): string {
     if (start <= lastEnd) continue; // Already covered in previous hunk
 
     // Find hunk boundaries
-    let hunkStart = start;
+    const hunkStart = start;
     let hunkEnd = end;
     for (const other of changed) {
       if (other >= start && other <= end + CONTEXT) {
@@ -186,11 +185,25 @@ export async function fixCommand(
   options: FixOptions,
 ): Promise<void> {
   const projectRoot = process.cwd();
+  const log = (message = ""): void => {
+    if (options.json) {
+      console.error(message);
+      return;
+    }
+    console.log(message);
+  };
+  const exitWithJson = (payload: unknown, exitCode: number): never => {
+    console.log(JSON.stringify(payload, null, 2));
+    process.exit(exitCode);
+  };
+
   const config = loadConfig(projectRoot, {
     mock: options.mock ?? false,
     model: options.model,
-    provider: options.provider as "anthropic" | "openai-compatible" | undefined,
+    provider: options.provider as "anthropic" | "openai-compatible" | "cli" | undefined,
     baseURL: options.baseUrl,
+    cliCommand: options.cliCommand,
+    cliArgs: options.cliArgs ? options.cliArgs.split(",").map(s => s.trim()) : undefined,
   });
 
   // Resolve target — BEFORE config validation so "file not found" is shown first
@@ -220,11 +233,11 @@ export async function fixCommand(
 
   // Validate numeric options early (before expensive work)
   const maxAttemptsRaw = Number(options.maxAttempts ?? "3");
-  if (options.maxAttempts !== undefined && (!Number.isInteger(maxAttemptsRaw) || maxAttemptsRaw < 1)) {
+  if (options.maxAttempts !== undefined && (!Number.isInteger(maxAttemptsRaw) || maxAttemptsRaw < 1 || maxAttemptsRaw > 5)) {
     console.error(`\n  Error: --max-attempts must be an integer (1-5), got "${options.maxAttempts}"\n`);
     process.exit(2);
   }
-  const maxAttempts = Math.min(Math.max(1, maxAttemptsRaw), 5);
+  const maxAttempts = options.maxAttempts === undefined ? 3 : maxAttemptsRaw;
 
   const moduleKey = toForwardSlash(path.relative(projectRoot, targetPath));
   const storeDir = path.join(projectRoot, config.storeDir);
@@ -252,7 +265,7 @@ export async function fixCommand(
   }
 
   // Step 1: Run properties to find failures
-  console.log(`\n  Running ${activeProperties.length} properties for ${target}...`);
+  log(`\n  Running ${activeProperties.length} properties for ${target}...`);
 
   const runConfig: RunConfig = {
     mode: "default",
@@ -287,27 +300,36 @@ export async function fixCommand(
 
     failures = failures.filter((f) => f.propertyId === options.property);
     if (failures.length === 0) {
-      console.log(`\n  Property ${options.property} is passing — nothing to fix.\n`);
+      if (options.json) {
+        exitWithJson({ status: "nothing_to_fix", propertyId: options.property, failureCount: 0 }, 0);
+      }
+      log(`\n  Property ${options.property} is passing — nothing to fix.\n`);
       process.exit(0);
     }
   }
 
   if (failures.length === 0) {
-    console.log(`\n  All ${activeProperties.length} properties pass — nothing to fix.\n`);
+    if (options.json) {
+      exitWithJson({ status: "nothing_to_fix", failureCount: 0 }, 0);
+    }
+    log(`\n  All ${activeProperties.length} properties pass — nothing to fix.\n`);
     process.exit(0);
   }
 
-  console.log(`  Found ${failures.length} violation(s).\n`);
+  log(`  Found ${failures.length} violation(s).\n`);
 
   // Step 2: Create LLM client
   const llmClient: LlmClient | null = config.mock
     ? null
-    : config.apiKey
-      ? createClient(config.apiKey, config.model, config.provider, config.baseURL)
+    : config.apiKey || config.provider === "cli"
+      ? createClient(config.apiKey, config.model, config.provider, config.baseURL,
+          config.provider === "cli" && config.cliCommand
+            ? { command: config.cliCommand, args: config.cliArgs ?? undefined }
+            : undefined)
       : null;
 
   // Step 3: Diagnose each violation
-  console.log("  Diagnosing violations...");
+  log("  Diagnosing violations...");
 
   const diagnoses: Diagnosis[] = [];
   for (const failure of failures) {
@@ -324,28 +346,28 @@ export async function fixCommand(
     if (diagnosis) {
       diagnoses.push(diagnosis);
       const icon = diagnosis.isBug ? "BUG" : "OK";
-      console.log(`    [${icon}] ${failure.propertyId}: ${diagnosis.explanation.slice(0, 80)}`);
+      log(`    [${icon}] ${failure.propertyId}: ${diagnosis.explanation.slice(0, 80)}`);
     } else {
-      console.log(`    [???] ${failure.propertyId}: diagnosis failed`);
+      log(`    [???] ${failure.propertyId}: diagnosis failed`);
     }
   }
 
   const confirmedBugs = diagnoses.filter((d) => d.isBug);
   if (confirmedBugs.length === 0) {
-    console.log(`\n  No real bugs found — all violations appear to be false positives.`);
-    console.log("  Consider reviewing the property definitions.\n");
+    log(`\n  No real bugs found — all violations appear to be false positives.`);
+    log("  Consider reviewing the property definitions.\n");
 
     if (options.json) {
-      console.log(JSON.stringify({
+      exitWithJson({
         status: "no_bugs",
         diagnoses,
         failureCount: failures.length,
-      }, null, 2));
+      }, 0);
     }
     process.exit(0);
   }
 
-  console.log(`\n  ${confirmedBugs.length} confirmed bug(s). Generating fix...`);
+  log(`\n  ${confirmedBugs.length} confirmed bug(s). Generating fix...`);
 
   // Step 4 & 5: Generate fix with verification loop
   let bestFix: FixResult | null = null;
@@ -354,7 +376,7 @@ export async function fixCommand(
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     if (attempt > 1) {
-      console.log(`  Retry attempt ${attempt}/${maxAttempts}...`);
+      log(`  Retry attempt ${attempt}/${maxAttempts}...`);
     }
 
     // Generate fix
@@ -374,7 +396,7 @@ export async function fixCommand(
     }
 
     if (!fix) {
-      console.log(`  Fix generation failed (attempt ${attempt}/${maxAttempts})`);
+      log(`  Fix generation failed (attempt ${attempt}/${maxAttempts})`);
       continue;
     }
 
@@ -386,6 +408,7 @@ export async function fixCommand(
     }
 
     bestFix = fix;
+    verificationResult = null;
 
     // Verify: write to temp, run all properties
     // Preserve original extension so codegen import paths resolve correctly
@@ -393,6 +416,8 @@ export async function fixCommand(
     const base = path.basename(targetPath, ext);             // e.g. "cart-buggy"
     const dir = path.dirname(targetPath);
     const tmpPath = path.join(dir, `${base}.fix.tmp.${crypto.randomBytes(4).toString("hex")}${ext}`);
+    let verifyTestPath: string | null = null;
+    let verificationFailureMessage: string | null = null;
     try {
       await fsPromises.writeFile(tmpPath, fix.fixedSource, "utf8");
 
@@ -402,7 +427,7 @@ export async function fixCommand(
         testsDir,
         runConfig,
       );
-      const verifyTestPath = path.join(testsDir, verifyGenerated.fileName);
+      verifyTestPath = path.join(testsDir, verifyGenerated.fileName);
       await fsPromises.writeFile(verifyTestPath, verifyGenerated.content, "utf8");
 
       verificationResult = await runFastCheckTest(
@@ -411,14 +436,16 @@ export async function fixCommand(
         runConfig,
         { targetFile: tmpPath, needsMtsCopy: verifyGenerated.needsMtsCopy, copyExt: verifyGenerated.copyExt },
       );
-
-      // Clean up verify test file
-      try { await fsPromises.unlink(verifyTestPath); } catch (e) {
-        if (e instanceof Error && (e as NodeJS.ErrnoException).code !== "ENOENT") {
-          console.warn(`  Warning: Failed to clean up ${verifyTestPath}: ${e.message}`);
+    } catch (error: unknown) {
+      verificationFailureMessage = error instanceof Error ? error.message : String(error);
+    } finally {
+      if (verifyTestPath) {
+        try { await fsPromises.unlink(verifyTestPath); } catch (e) {
+          if (e instanceof Error && (e as NodeJS.ErrnoException).code !== "ENOENT") {
+            console.warn(`  Warning: Failed to clean up ${verifyTestPath}: ${e.message}`);
+          }
         }
       }
-    } finally {
       // Clean up temp source
       try { await fsPromises.unlink(tmpPath); } catch (e) {
         if (e instanceof Error && (e as NodeJS.ErrnoException).code !== "ENOENT") {
@@ -428,13 +455,19 @@ export async function fixCommand(
     }
 
     if (verificationResult && verificationResult.failed.length === 0 && verificationResult.errors.length === 0) {
-      console.log(`  Fix verified — all ${activeProperties.length} properties pass.\n`);
+      log(`  Fix verified — all ${activeProperties.length} properties pass.\n`);
       break;
+    }
+
+    if (verificationFailureMessage) {
+      log(`  Verification did not complete (attempt ${attempt}/${maxAttempts})`);
+      retryFeedback = `Verification crashed on the proposed fix: ${verificationFailureMessage}`;
+      continue;
     }
 
     // Null guard: verification may have failed entirely
     if (!verificationResult) {
-      console.log(`  Verification did not complete (attempt ${attempt}/${maxAttempts})`);
+      log(`  Verification did not complete (attempt ${attempt}/${maxAttempts})`);
       retryFeedback = "Verification could not run — the fixed source may have syntax errors.";
       continue;
     }
@@ -456,7 +489,7 @@ export async function fixCommand(
     if (newFailures) retryFeedback += `Failures:\n${newFailures}\n\n`;
     if (newErrors) retryFeedback += `Errors:\n${newErrors}\n`;
 
-    console.log(`  Verification failed: ${failCount} failure(s), ${errCount} error(s)`);
+    log(`  Verification failed: ${failCount} failure(s), ${errCount} error(s)`);
   }
 
   if (!bestFix) {
@@ -467,15 +500,32 @@ export async function fixCommand(
   // Step 6: Present results
   const diff = computeDiff(sourceCode, bestFix.fixedSource);
   const hasChanges = diff.some((d) => d.type !== "context");
-
-  if (!hasChanges) {
-    console.log("  Generated fix is identical to the original — no changes needed.\n");
-    process.exit(0);
-  }
-
   const allPassed = verificationResult
     ? verificationResult.failed.length === 0 && verificationResult.errors.length === 0
     : false;
+  const verificationSummary = verificationResult
+    ? {
+        passed: verificationResult.passed.length,
+        failed: verificationResult.failed.length,
+        errors: verificationResult.errors.length,
+      }
+    : null;
+
+  if (!hasChanges) {
+    if (options.json) {
+      exitWithJson({
+        status: allPassed ? "fixed" : "partial",
+        explanation: bestFix.explanation,
+        changedFunctions: bestFix.changedFunctions,
+        confidence: bestFix.confidence,
+        diagnoses,
+        verification: verificationSummary,
+        diff: formatDiff(diff, moduleKey),
+      }, allPassed ? 0 : 1);
+    }
+    log("  Generated fix is identical to the original — no changes needed.\n");
+    process.exit(allPassed ? 0 : 1);
+  }
 
   if (options.json) {
     console.log(JSON.stringify({
@@ -484,47 +534,41 @@ export async function fixCommand(
       changedFunctions: bestFix.changedFunctions,
       confidence: bestFix.confidence,
       diagnoses,
-      verification: verificationResult
-        ? {
-            passed: verificationResult.passed.length,
-            failed: verificationResult.failed.length,
-            errors: verificationResult.errors.length,
-          }
-        : null,
+      verification: verificationSummary,
       diff: formatDiff(diff, moduleKey),
     }, null, 2));
   } else {
     // Display diagnoses
-    console.log("  Diagnoses:");
+    log("  Diagnoses:");
     for (const d of confirmedBugs) {
       const prop = activeProperties.find((p) => p.id === d.propertyId);
-      console.log(`    [BUG] ${prop?.targetFunction ?? "?"}: ${d.explanation}`);
+      log(`    [BUG] ${prop?.targetFunction ?? "?"}: ${d.explanation}`);
       if (d.suggestedFix) {
-        console.log(`          Fix: ${d.suggestedFix}`);
+        log(`          Fix: ${d.suggestedFix}`);
       }
     }
 
     // Display diff
-    console.log(`\n  Fix (${bestFix.changedFunctions.join(", ") || "source"}):\n`);
-    console.log(formatDiff(diff, moduleKey));
+    log(`\n  Fix (${bestFix.changedFunctions.join(", ") || "source"}):\n`);
+    log(formatDiff(diff, moduleKey));
 
     // Display explanation
-    console.log(`\n  Explanation: ${bestFix.explanation}`);
-    console.log(`  Confidence: ${(bestFix.confidence * 100).toFixed(0)}%`);
+    log(`\n  Explanation: ${bestFix.explanation}`);
+    log(`  Confidence: ${(bestFix.confidence * 100).toFixed(0)}%`);
 
     // Verification status
     if (verificationResult) {
       const total = activeProperties.length;
       const passed = verificationResult.passed.length;
       if (allPassed) {
-        console.log(`  Verification: ${passed}/${total} properties PASS`);
+        log(`  Verification: ${passed}/${total} properties PASS`);
       } else {
-        console.log(`  Verification: ${passed}/${total} pass, ${verificationResult.failed.length} fail, ${verificationResult.errors.length} error(s)`);
-        console.log("  Warning: fix is partial — not all properties pass.");
+        log(`  Verification: ${passed}/${total} pass, ${verificationResult.failed.length} fail, ${verificationResult.errors.length} error(s)`);
+        log("  Warning: fix is partial — not all properties pass.");
       }
     }
 
-    console.log();
+    log();
   }
 
   // Apply if requested
@@ -537,10 +581,10 @@ export async function fixCommand(
     await fsPromises.writeFile(backupPath, sourceCode, "utf8");
     await fsPromises.writeFile(targetPath, bestFix.fixedSource, "utf8");
     if (!options.json) {
-      console.log(`  Applied fix to ${target} (backup: ${path.basename(backupPath)})\n`);
+      log(`  Applied fix to ${target} (backup: ${path.basename(backupPath)})\n`);
     }
   } else if (!options.apply && allPassed && !options.json) {
-    console.log(`  Run: propcheck fix ${target} --apply  to apply this fix\n`);
+    log(`  Run: propcheck fix ${target} --apply  to apply this fix\n`);
   }
 
   process.exit(allPassed ? 0 : 1);

@@ -11,11 +11,8 @@
 import type {
   FunctionSignature,
   ParameterInfo,
-  TypeDefinition,
   ImportInfo,
-  SourceLocation,
   AnalysisContext,
-  AstSignal,
   TypeSignal,
   DocSignal,
 } from "@propcheck/common";
@@ -25,9 +22,6 @@ const FUNC_REGEX_SOURCE = /^(\s*)(async\s+)?def\s+(\w+)\s*\(([^)]*)\)\s*(?:->\s*
 
 /** Regex for Python type hints in parameters. */
 const PARAM_REGEX = /(\*{0,2})(\w+)\s*(?::\s*([^=,]+?))?\s*(?:=\s*([^,]+))?\s*$/;
-
-/** Regex for docstrings (triple-quoted strings). */
-const DOCSTRING_REGEX = /^\s*(?:"""([\s\S]*?)"""|'''([\s\S]*?)''')/;
 
 function parseParameter(raw: string): ParameterInfo | null {
   const trimmed = raw.trim();
@@ -68,7 +62,7 @@ function extractDocstring(source: string, funcEndIndex: number): string | null {
 
   // Find closing triple quotes
   const quote = lines[docStart].trim().startsWith('"""') ? '"""' : "'''";
-  let docLines: string[] = [];
+  const docLines: string[] = [];
   let found = false;
 
   for (let i = docStart; i < lines.length; i++) {
@@ -145,7 +139,6 @@ export function analyzePythonFile(
   source: string,
 ): AnalysisContext {
   const functions: FunctionSignature[] = [];
-  const lines = source.split("\n");
 
   // Create fresh regex per call to avoid lastIndex global state issues
   const funcRegex = new RegExp(FUNC_REGEX_SOURCE.source, "gm");
@@ -153,7 +146,6 @@ export function analyzePythonFile(
 
   while ((match = funcRegex.exec(source)) !== null) {
     const [fullMatch, indent, asyncKw, name, rawParams, returnType] = match;
-    const isTopLevel = indent.length === 0;
     const isAsync = !!asyncKw;
 
     // Parse parameters

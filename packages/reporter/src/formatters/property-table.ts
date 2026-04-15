@@ -16,6 +16,7 @@ const RISK_LABELS: Readonly<Record<PropertyRiskTag, string>> = {
   missing_precondition: "no precondition",
   wide_numeric_domain: "wide range",
   doc_domain_mismatch: "doc mismatch",
+  spec_code_conflict: "spec conflict",
   roundtrip_numeric_fragility: "roundtrip fragile",
   metamorphic_scale_risk: "scale risk",
 };

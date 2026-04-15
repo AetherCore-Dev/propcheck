@@ -22,6 +22,7 @@ import type {
   PropertyStatus,
   PropertyRiskTag,
   ValidationEvidence,
+  PropertyEvidenceSource,
 } from "@propcheck/common";
 
 /** On-disk format of properties.json */
@@ -30,12 +31,13 @@ interface PropertiesFile {
   readonly modules: Readonly<Record<string, PropertySet>>;
 }
 
-interface LegacyPropertyDefinition extends Omit<PropertyDefinition, "riskScore" | "riskTags" | "status" | "validation" | "humanVerified"> {
+interface LegacyPropertyDefinition extends Omit<PropertyDefinition, "riskScore" | "riskTags" | "status" | "validation" | "humanVerified" | "evidenceSource"> {
   readonly riskScore?: number;
   readonly riskTags?: readonly PropertyRiskTag[];
   readonly status?: PropertyStatus;
   readonly validation?: ValidationEvidence;
   readonly humanVerified?: boolean;
+  readonly evidenceSource?: PropertyEvidenceSource;
 }
 
 interface LegacyPropertySet extends Omit<PropertySet, "schemaVersion" | "properties"> {
@@ -51,6 +53,7 @@ const LEGACY_RISK_PENALTIES: Readonly<Record<PropertyRiskTag, number>> = {
   missing_precondition: 1,
   wide_numeric_domain: 2,
   doc_domain_mismatch: 2,
+  spec_code_conflict: 3,
   roundtrip_numeric_fragility: 3,
   metamorphic_scale_risk: 1,
 };
@@ -70,7 +73,8 @@ function normalizeProperty(property: LegacyPropertyDefinition): PropertyDefiniti
     ...property,
     riskScore: property.riskScore ?? computeLegacyRiskScore(property.score, riskTags),
     riskTags,
-    status: property.status ?? "accepted",
+    status: property.status ?? (riskTags.length > 0 ? "risky" : "accepted"),
+    evidenceSource: property.evidenceSource ?? "code",
     ...(property.validation ? { validation: property.validation } : {}),
     ...(property.humanVerified !== undefined ? { humanVerified: property.humanVerified } : {}),
   };
@@ -174,7 +178,8 @@ export async function removeProperties(
   module: string,
 ): Promise<void> {
   const file = await readPropertiesFile(storeDir);
-  const { [module]: _removed, ...remaining } = file.modules;
+  const remaining = { ...file.modules };
+  delete remaining[module];
   const updated: PropertiesFile = {
     ...file,
     modules: remaining,

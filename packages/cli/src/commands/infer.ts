@@ -13,12 +13,13 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { loadConfig, validateConfig } from "@propcheck/config";
-import { analyzeFile, detectLanguage, analyzePythonFile } from "@propcheck/parser";
+import { analyzeFile, detectLanguage, analyzePythonFile, parseSpecText } from "@propcheck/parser";
 import {
   inferProperties,
   createClient,
   classifyProperties,
   buildFeedbackSummary,
+  shouldAutoRefine,
   mockRefineProperties,
   refineProperties,
 } from "@propcheck/llm";
@@ -35,6 +36,7 @@ import {
 } from "./infer/validation";
 import type { TrialRunLanguage } from "./infer/validation";
 import { confirmProperties } from "./infer/confirm";
+import { expandGeneratorRanges, hasExpandableRanges } from "@propcheck/llm";
 // Re-export for external consumers (tests, other commands)
 export { autoWeakenProperty } from "./infer/weakening";
 export { canaryValidateProperties } from "./infer/validation";
@@ -53,11 +55,14 @@ interface InferOptions {
   model?: string;
   provider?: string;
   baseUrl?: string;
+  cliCommand?: string;
+  cliArgs?: string;
   maxProperties?: string;
   minScore?: string;
   skipValidation?: boolean;
   refine?: boolean;
   function?: string;
+  spec?: string;
   confirm?: boolean;
 }
 
@@ -174,6 +179,16 @@ function filterContextByFunctions(
     functions: matchedFunctions,
     types: matchedTypes,
     imports: context.imports,
+    ...(context.spec
+      ? {
+          spec: {
+            ...context.spec,
+            functions: context.spec.functions.filter(
+              (signal) => matchedQualNames.has(signal.functionName) || matchedNames.has(signal.functionName),
+            ),
+          },
+        }
+      : {}),
     signals: {
       ast: context.signals.ast,
       type: context.signals.type.filter(
@@ -184,6 +199,14 @@ function filterContextByFunctions(
       ),
     },
   };
+}
+
+function findSiblingFunctions(
+  context: AnalysisContext,
+  inferContext: AnalysisContext,
+): readonly FunctionSignature[] {
+  const inferredFunctions = new Set(inferContext.functions.map((fn) => fn.qualifiedName));
+  return context.functions.filter((fn) => !inferredFunctions.has(fn.qualifiedName));
 }
 
 // ---------------------------------------------------------------------------
@@ -240,6 +263,36 @@ async function resolveTarget(
   return { targetPath, language };
 }
 
+async function loadSpecContext(
+  projectRoot: string,
+  options: InferOptions,
+  context: AnalysisContext,
+): Promise<AnalysisContext> {
+  if (!options.spec) {
+    return context;
+  }
+
+  const specPath = path.resolve(projectRoot, options.spec);
+  let rawText: string;
+  try {
+    rawText = await fs.readFile(specPath, "utf8");
+  } catch {
+    console.error(`\n  Error: Spec file not found: ${options.spec}\n`);
+    process.exit(2);
+  }
+
+  const spec = parseSpecText(
+    specPath,
+    rawText,
+    [...new Set(context.functions.flatMap((fn) => [fn.qualifiedName, fn.name]))],
+  );
+
+  return {
+    ...context,
+    spec,
+  };
+}
+
 /** Parse numeric CLI options with validation. */
 function parseNumericOptions(options: InferOptions): ParsedNumericOptions {
   const maxPropsRaw = Number(options.maxProperties ?? "5");
@@ -265,6 +318,7 @@ async function runLlmInference(
   config: ReturnType<typeof loadConfig>,
   inferContext: AnalysisContext,
   numericOpts: ParsedNumericOptions,
+  siblingFunctions: readonly FunctionSignature[],
 ): Promise<InferResult> {
   try {
     return await inferProperties(config.apiKey, config.model, inferContext, {
@@ -273,6 +327,9 @@ async function runLlmInference(
       mock: config.mock,
       provider: config.provider,
       baseURL: config.baseURL,
+      cliCommand: config.cliCommand,
+      cliArgs: config.cliArgs,
+      siblingFunctions,
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -296,6 +353,7 @@ async function runValidationPipeline(
   inferContext: AnalysisContext,
   numericOpts: ParsedNumericOptions,
   options: InferOptions,
+  siblingFunctions: readonly FunctionSignature[],
 ): Promise<readonly PropertyDefinition[]> {
   const testsDir = await ensureTestsDir(storeDir);
 
@@ -303,8 +361,11 @@ async function runValidationPipeline(
 
   const llmClient = config.mock
     ? null
-    : config.apiKey
-      ? createClient(config.apiKey, config.model, config.provider, config.baseURL)
+    : config.apiKey || config.provider === "cli"
+      ? createClient(config.apiKey, config.model, config.provider, config.baseURL,
+          config.provider === "cli" && config.cliCommand
+            ? { command: config.cliCommand, args: config.cliArgs ?? undefined }
+            : undefined)
       : null;
 
   const { validated, dropped, repaired } = await trialRunValidation(
@@ -336,11 +397,59 @@ async function runValidationPipeline(
 
   if (finalProperties.length === 0) return finalProperties;
 
-  // Refinement loop (Round 2)
-  if (options.refine) {
+  // Boundary expansion: test properties with wider generator ranges to find boundary-sensitive bugs
+  const expandable = finalProperties.filter((p) => p.status !== "quarantined" && hasExpandableRanges(p));
+  let boundaryBugs = 0;
+  if (expandable.length > 0) {
+    const expansionConfig: RunConfig = { mode: "quick", iterations: 100, timeout: 15_000, verbose: false };
+    for (const prop of expandable) {
+      const expanded = expandGeneratorRanges(prop);
+      try {
+        const result = await executeTrialRun([expanded], targetPath, testsDir, expansionConfig, language);
+        if (result.failed.length > 0) {
+          // Property fails with wider range — this is a boundary-sensitive finding!
+          // Mark the property with expanded generators so `run` will use the wider range
+          const idx = finalProperties.indexOf(prop);
+          if (idx >= 0) {
+            finalProperties[idx] = expanded;
+            boundaryBugs++;
+          }
+        }
+      } catch {
+        // Engine error during expansion test — skip, keep original range
+      }
+    }
+    if (boundaryBugs > 0) {
+      console.log(`  Expanded generator ranges for ${boundaryBugs} propert${boundaryBugs === 1 ? "y" : "ies"} to test beyond documented boundaries.`);
+    }
+  }
+
+  // Refinement Round 2 — auto-triggered when quality issues detected, or via --refine
+  const shouldRefineAuto = !config.mock && llmClient && (() => {
+    const active = finalProperties.filter((p) => p.status !== "quarantined");
+    const weak = active.filter((p) => p.score < 12 || p.confidence < 0.7);
+    const strong = active.filter((p) => !weak.includes(p));
+    // Build classifications that match shouldAutoRefine's expected shape
+    const classifications = [
+      ...weak.map((p) => ({ kind: "weak" as const, property: p, reason: "low score or confidence" })),
+      ...strong.map((p) => ({ kind: "strong" as const, property: p })),
+    ];
+    return shouldAutoRefine(classifications, dropped.length);
+  })();
+  const shouldRefine = options.refine || shouldRefineAuto;
+
+  if (shouldRefine && llmClient) {
+    console.log(`  Auto-triggering Round 2 refinement (quality issues detected)...`);
     finalProperties = [...await runRefinementLoop(
       finalProperties, targetPath, storeDir, testsDir, source,
-      language, config, inferContext, numericOpts, llmClient,
+      language, config, inferContext, numericOpts, llmClient, siblingFunctions,
+      { filteredCount: dropped.length, boundaryFailures: boundaryBugs },
+    )];
+  } else if (options.refine) {
+    finalProperties = [...await runRefinementLoop(
+      finalProperties, targetPath, storeDir, testsDir, source,
+      language, config, inferContext, numericOpts, llmClient, siblingFunctions,
+      { filteredCount: dropped.length, boundaryFailures: boundaryBugs },
     )];
   }
 
@@ -359,6 +468,8 @@ async function runRefinementLoop(
   inferContext: AnalysisContext,
   numericOpts: ParsedNumericOptions,
   llmClient: LlmClient | null,
+  siblingFunctions: readonly FunctionSignature[],
+  feedbackOpts: { filteredCount?: number; boundaryFailures?: number } = {},
 ): Promise<readonly PropertyDefinition[]> {
   const activeProperties = finalProperties.filter((p) => p.status !== "quarantined");
   if (activeProperties.length === 0) return finalProperties;
@@ -370,7 +481,7 @@ async function runRefinementLoop(
 
   const classifications = classifyProperties(activeProperties, execResult);
   const functionNames = inferContext.functions.map((f) => f.qualifiedName);
-  const feedback = buildFeedbackSummary(classifications, functionNames);
+  const feedback = buildFeedbackSummary(classifications, functionNames, feedbackOpts);
 
   const strong = classifications.filter((c) => c.kind === "strong");
   const weak = classifications.filter((c) => c.kind === "weak");
@@ -384,7 +495,7 @@ async function runRefinementLoop(
   }
 
   const improvedProperties = await generateImprovedProperties(
-    classifications, config, inferContext, numericOpts, feedback, llmClient,
+    classifications, config, inferContext, numericOpts, feedback, llmClient, siblingFunctions,
   );
 
   if (improvedProperties.length === 0) return finalProperties;
@@ -422,6 +533,7 @@ async function generateImprovedProperties(
   numericOpts: ParsedNumericOptions,
   feedback: string,
   llmClient: LlmClient | null,
+  siblingFunctions: readonly FunctionSignature[],
 ): Promise<readonly PropertyDefinition[]> {
   if (config.mock) {
     return applyRiskMetadata(mockRefineProperties(classifications), inferContext);
@@ -433,6 +545,9 @@ async function generateImprovedProperties(
       mock: false,
       provider: config.provider,
       baseURL: config.baseURL,
+      cliCommand: config.cliCommand,
+      cliArgs: config.cliArgs,
+      siblingFunctions,
     });
     return applyRiskMetadata(refineResult.properties, inferContext);
   }
@@ -499,8 +614,10 @@ export async function inferCommand(
   const config = loadConfig(projectRoot, {
     mock: options.mock,
     model: options.model,
-    provider: options.provider as "anthropic" | "openai-compatible" | undefined,
+    provider: options.provider as "anthropic" | "openai-compatible" | "cli" | undefined,
     baseURL: options.baseUrl,
+    cliCommand: options.cliCommand,
+    cliArgs: options.cliArgs ? options.cliArgs.split(",").map(s => s.trim()) : undefined,
   });
 
   // Resolve target (handles directory recursion)
@@ -526,13 +643,15 @@ export async function inferCommand(
 
   // Read and parse source
   const source = await fs.readFile(targetPath, "utf8");
-  const context: AnalysisContext = language === "python"
+  const parsedContext: AnalysisContext = language === "python"
     ? analyzePythonFile(targetPath, source)
     : analyzeFile(targetPath, source, language);
+  const context = await loadSpecContext(projectRoot, options, parsedContext);
 
   // Filter to specific functions if --function provided
   const inferContext = applyFunctionFilter(context, options);
   if (!inferContext) return;
+  const siblingFunctions = findSiblingFunctions(context, inferContext);
 
   console.log(`\n  Analyzing ${inferContext.functions.length} function${inferContext.functions.length === 1 ? "" : "s"} in ${target}...`);
 
@@ -540,7 +659,7 @@ export async function inferCommand(
   const numericOpts = parseNumericOptions(options);
 
   // Infer properties via LLM
-  let result = await runLlmInference(config, inferContext, numericOpts);
+  let result = await runLlmInference(config, inferContext, numericOpts, siblingFunctions);
   result = { ...result, properties: applyRiskMetadata(result.properties, inferContext) };
 
   if (result.properties.length === 0) {
@@ -553,7 +672,7 @@ export async function inferCommand(
     ? result.properties
     : await runValidationPipeline(
         result.properties, targetPath, storeDir, source, language,
-        config, inferContext, numericOpts, options,
+        config, inferContext, numericOpts, options, siblingFunctions,
       );
 
   if (finalProperties.length === 0) {

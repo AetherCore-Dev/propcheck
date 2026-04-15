@@ -12,11 +12,17 @@ export interface PropcheckConfig {
   /** LLM model to use for property inference. */
   readonly model: string;
 
-  /** LLM provider: "anthropic" for native Anthropic API, "openai-compatible" for OpenRouter/one-api/etc. */
-  readonly provider: "anthropic" | "openai-compatible";
+  /** LLM provider: "anthropic" for native API, "openai-compatible" for OpenRouter/one-api, "cli" for external CLI tool. */
+  readonly provider: "anthropic" | "openai-compatible" | "cli";
 
   /** Base URL for the LLM API. null = use provider default. */
   readonly baseURL: string | null;
+
+  /** CLI command for provider="cli" (e.g. "codebuddy"). */
+  readonly cliCommand: string | null;
+
+  /** CLI arguments for provider="cli". */
+  readonly cliArgs: readonly string[] | null;
 
   /** Maximum properties to infer per function. */
   readonly maxPropertiesPerFunction: number;
@@ -46,6 +52,8 @@ export const DEFAULT_CONFIG: PropcheckConfig = {
   model: "claude-sonnet-4-20250514",
   provider: "anthropic",
   baseURL: null,
+  cliCommand: null,
+  cliArgs: null,
   maxPropertiesPerFunction: 5,
   minScore: 10,
   defaultMode: "default",

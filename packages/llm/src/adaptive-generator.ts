@@ -15,6 +15,8 @@ import type {
   SeedInput,
   PropertyCategory,
 } from "@propcheck/common";
+import { analyzeFunction, isCategorySafe } from "./source-analyzer";
+import type { SemanticSignals } from "./source-analyzer";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -29,6 +31,7 @@ export interface RawMockProperty {
   readonly seedInputs: readonly SeedInput[];
   readonly evidence: string;
   readonly confidence: number;
+  readonly relatedFunctions?: readonly string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -50,15 +53,21 @@ const NAME_HEURISTICS: readonly { pattern: RegExp; spec: GeneratorSpec }[] = [
 const DEFAULT_GENERATOR: GeneratorSpec = { type: "integer", constraints: { min: -100, max: 100 } };
 
 function isArrayType(type: string): boolean {
-  return /\[\]$/.test(type) || /^Array</.test(type) || /^readonly\s+\w+\[\]$/.test(type);
+  return /\[\]$/.test(type) || /^Array</.test(type) || /^ReadonlyArray</.test(type) || /^readonly\s+\w+\[\]$/.test(type);
 }
 
 function extractArrayElementType(type: string): string | null {
   const bracketMatch = type.match(/^(readonly\s+)?(\w+)\[\]$/);
   if (bracketMatch) return bracketMatch[2];
-  const genericMatch = type.match(/^(?:readonly\s+)?Array<(\w+)>/);
+  const genericMatch = type.match(/^(?:readonly\s+)?(?:Readonly)?Array<(\w+)>/);
   if (genericMatch) return genericMatch[1];
   return null;
+}
+
+/** Check if a type is a known primitive or array thereof. */
+function isKnownType(type: string): boolean {
+  const t = type.trim();
+  return t === "number" || t === "string" || t === "boolean" || t === "void" || t === "undefined" || t === "null" || t === "any" || t === "unknown" || isArrayType(t);
 }
 
 function typeToGenerator(type: string): GeneratorSpec {
@@ -66,11 +75,15 @@ function typeToGenerator(type: string): GeneratorSpec {
   if (t === "number") return { type: "float", constraints: { min: -1000, max: 1000 } };
   if (t === "string") return { type: "string", constraints: { maxLength: 100 } };
   if (t === "boolean") return { type: "boolean" };
+  if (t === "unknown" || t === "any") return { type: "string", constraints: { maxLength: 50 } };
   if (isArrayType(t)) {
     const elem = extractArrayElementType(t);
     const elemGen = elem ? typeToGenerator(elem) : { type: "integer", constraints: { min: -100, max: 100 } };
     return { type: "array", constraints: { element: elemGen.type, maxLength: 20, ...(elemGen.constraints ?? {}) } };
   }
+  // Complex/interface/union types — use string as safest default
+  // (integers cause type errors on most non-numeric functions)
+  if (!isKnownType(t)) return { type: "string", constraints: { maxLength: 50 } };
   return DEFAULT_GENERATOR;
 }
 
@@ -197,6 +210,48 @@ function selectTopCategories(scores: Map<PropertyCategory, number>): readonly Pr
 export function selectCategories(sig: FunctionSignature): readonly PropertyCategory[] {
   const scores = scoreCategoriesFromSignature(sig);
   return selectTopCategories(scores);
+}
+
+const INVERSE_NAME_PAIRS: readonly (readonly [RegExp, RegExp])[] = [
+  [/encode/i, /decode/i],
+  [/decode/i, /encode/i],
+  [/serialize/i, /deserialize/i],
+  [/deserialize/i, /serialize/i],
+  [/stringify/i, /parse/i],
+  [/parse/i, /stringify/i],
+];
+
+function haveSameType(left: string | null, right: string | null): boolean {
+  return left !== null && right !== null && left.trim() === right.trim();
+}
+
+function findInverseSibling(
+  sig: FunctionSignature,
+  siblingFunctions: readonly FunctionSignature[],
+): FunctionSignature | null {
+  if (sig.parameters.length !== 1 || !sig.returnType) {
+    return null;
+  }
+
+  for (const sibling of siblingFunctions) {
+    if (sibling.qualifiedName === sig.qualifiedName || sibling.parameters.length !== 1 || !sibling.returnType) {
+      continue;
+    }
+
+    const isInversePair = INVERSE_NAME_PAIRS.some(([left, right]) => left.test(sig.name) && right.test(sibling.name));
+    if (!isInversePair) {
+      continue;
+    }
+
+    if (
+      haveSameType(sig.parameters[0].type, sibling.returnType)
+      && haveSameType(sig.returnType, sibling.parameters[0].type)
+    ) {
+      return sibling;
+    }
+  }
+
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -433,6 +488,29 @@ function buildMetamorphicProperty(
   );
 }
 
+function buildCrossFunctionProperty(
+  sig: FunctionSignature,
+  generators: Readonly<Record<string, GeneratorSpec>>,
+  sibling: FunctionSignature,
+): RawMockProperty | null {
+  if (sig.parameters.length !== 1) {
+    return null;
+  }
+
+  const input = sig.parameters[0].name;
+  const forward = `${sig.name}(${input})`;
+  const roundtrip = `${sibling.name}(${forward})`;
+  return buildProp(
+    sig,
+    "cross-function",
+    generators,
+    `${roundtrip} === ${input} || JSON.stringify(${roundtrip}) === JSON.stringify(${input})`,
+    `${sibling.name}(${sig.name}(x)) should recover the original input`,
+    `Sibling functions ${sig.name}/${sibling.name} have inverse-looking names and compatible types`,
+    { relatedFunctions: [sibling.qualifiedName] },
+  );
+}
+
 const CATEGORY_BUILDERS: Readonly<Record<PropertyCategory, (sig: FunctionSignature, gens: Readonly<Record<string, GeneratorSpec>>) => RawMockProperty | null>> = {
   "boundary": buildBoundaryProperty,
   "conservation": buildConservationProperty,
@@ -516,6 +594,7 @@ function buildProp(
   assertion: string,
   description: string,
   evidence: string,
+  options?: { readonly relatedFunctions?: readonly string[] },
 ): RawMockProperty {
   return {
     targetFunction: sig.qualifiedName,
@@ -526,47 +605,80 @@ function buildProp(
     seedInputs: buildSeedInputs(generators),
     evidence,
     confidence: 0.85,
+    ...(options?.relatedFunctions && options.relatedFunctions.length > 0
+      ? { relatedFunctions: options.relatedFunctions }
+      : {}),
   };
 }
 
 /**
  * Generate 3-5 adaptive properties for any function based on its signature.
  * Every generated property is designed to score ≥ 10/13 on the rubric.
+ *
+ * When sourceCode is provided, semantic analysis filters out unsafe
+ * property categories (e.g., no "idempotent" for hash functions).
  */
 export function generateAdaptiveProperties(
   sig: FunctionSignature,
+  siblingFunctions: readonly FunctionSignature[] = [],
+  sourceCode?: string,
 ): readonly RawMockProperty[] {
   const generators = mapParamGenerators(sig.parameters);
-  const categories = selectCategories(sig);
+  const inverseSibling = findInverseSibling(sig, siblingFunctions);
+
+  // Analyze source code for semantic signals (if available)
+  const signals: SemanticSignals | null = sourceCode
+    ? analyzeFunction(sig.name, sourceCode)
+    : null;
+
+  // Skip property generation entirely for I/O or async functions
+  if (signals && (signals.hasIO || signals.isAsync)) {
+    // Only generate a determinism check for I/O functions
+    const deterProp = buildMetamorphicProperty(sig, generators);
+    return deterProp ? [deterProp] : [];
+  }
+
+  let categories: readonly PropertyCategory[] = [
+    ...(inverseSibling ? (["cross-function"] as const) : []),
+    ...selectCategories(sig),
+  ].slice(0, 5);
+
+  // Filter unsafe categories based on source code analysis
+  if (signals) {
+    categories = categories.filter(
+      (cat) => isCategorySafe(cat, sig.name, signals),
+    );
+  }
 
   const properties: RawMockProperty[] = [];
   const usedAssertions = new Set<string>();
 
   for (const category of categories) {
-    const builder = CATEGORY_BUILDERS[category];
-    if (!builder) continue;
-
-    const prop = builder(sig, generators);
+    const prop = category === "cross-function"
+      ? inverseSibling
+        ? buildCrossFunctionProperty(sig, generators, inverseSibling)
+        : null
+      : CATEGORY_BUILDERS[category]?.(sig, generators) ?? null;
     if (prop && !usedAssertions.has(prop.assertion)) {
       usedAssertions.add(prop.assertion);
       properties.push(prop);
     }
   }
 
-  // Pad to minimum 3 with fallback properties
+  // Pad to minimum 2 with fallback properties (reduced from 3 — quality > quantity)
   const padded = padToMinimumProperties(properties, usedAssertions, sig, generators);
 
   return padded;
 }
 
-/** Ensure at least 3 properties by adding fallback boundary/type checks. */
+/** Ensure at least 2 properties by adding fallback boundary/type checks. */
 function padToMinimumProperties(
   properties: readonly RawMockProperty[],
   usedAssertions: ReadonlySet<string>,
   sig: FunctionSignature,
   generators: Readonly<Record<string, GeneratorSpec>>,
 ): readonly RawMockProperty[] {
-  if (properties.length >= 3) return properties;
+  if (properties.length >= 2) return properties;
 
   const result = [...properties];
   const seen = new Set(usedAssertions);
@@ -577,7 +689,7 @@ function padToMinimumProperties(
     result.push(boundary);
   }
 
-  if (result.length >= 3) return result;
+  if (result.length >= 2) return result;
 
   const typeCheck = buildTypePreservationProperty(sig, generators);
   if (typeCheck && !seen.has(typeCheck.assertion)) {
@@ -585,7 +697,7 @@ function padToMinimumProperties(
     result.push(typeCheck);
   }
 
-  if (result.length >= 3) return result;
+  if (result.length >= 2) return result;
 
   const call = buildCallExpr(sig.name, sig.parameters);
   const genericProp = buildProp(sig, "boundary", generators,

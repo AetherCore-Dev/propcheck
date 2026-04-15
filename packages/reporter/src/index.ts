@@ -4,8 +4,14 @@ export {
 } from "./cli-reporter";
 export type { InferResult } from "./cli-reporter";
 
-export { reportAsJson } from "./json-reporter";
+export { reportAsJson, reportAsGitHubComment } from "./json-reporter";
 export type { JsonReport } from "./json-reporter";
+
+export {
+  reportConfidence,
+  reportConfidenceAsJson,
+} from "./confidence-reporter";
+export type { ConfidenceReport } from "./confidence-reporter";
 
 export { formatSummary, formatCost } from "./formatters/summary";
 export { formatCounterexample } from "./formatters/counterexample";

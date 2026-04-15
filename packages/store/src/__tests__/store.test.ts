@@ -121,7 +121,7 @@ describe("property-store", () => {
     const read = await getProperties(storeDir, "src/legacy.ts");
     assert.notEqual(read, null);
     assert.equal(read!.schemaVersion, 2);
-    assert.equal(read!.properties[0].status, "accepted");
+    assert.equal(read!.properties[0].status, "risky");
     assert.equal(read!.properties[0].riskScore, 8);
     assert.deepEqual(read!.properties[0].riskTags, ["float_exact_equality"]);
   });

@@ -4,6 +4,7 @@ export type {
   PropertyStatus,
   PropertyRiskTag,
   ValidationEvidence,
+  PropertyEvidenceSource,
   GeneratorSpec,
   SeedInput,
   PropertyDefinition,
@@ -21,6 +22,9 @@ export type {
   AstSignal,
   TypeSignal,
   DocSignal,
+  SpecConstraint,
+  SpecSignal,
+  SpecContext,
   AnalysisContext,
 } from "./types/analysis";
 

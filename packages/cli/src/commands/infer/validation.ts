@@ -208,7 +208,14 @@ export async function canaryValidateProperties(
 
     for (const input of canaryCases) {
       const canaryProperty: PropertyDefinition = { ...property, generators: buildConstantGenerators(input) };
-      const result = await executeTrialRun([canaryProperty], targetPath, testsDir, canaryConfig, language);
+      let result;
+      try {
+        result = await executeTrialRun([canaryProperty], targetPath, testsDir, canaryConfig, language);
+      } catch {
+        // Engine failure (timeout, spawn error) — treat as canary failure
+        failureReason = "canary validation engine error";
+        break;
+      }
       const failed = result.failed[0];
       const error = result.errors[0];
       if (failed || error) {

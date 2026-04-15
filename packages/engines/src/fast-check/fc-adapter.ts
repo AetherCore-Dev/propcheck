@@ -11,7 +11,6 @@ import type {
   GeneratedTest,
   PrerequisiteCheck,
   ExecutionResult,
-  RUN_MODE_ITERATIONS,
 } from "@propcheck/common";
 import { generateFastCheckTest } from "./fc-codegen";
 import { runFastCheckTest } from "./fc-runner";

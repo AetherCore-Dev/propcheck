@@ -11,7 +11,7 @@
  *   // Returns 0-5 RawMockProperty[] ready for scoring
  */
 
-import type { FunctionSignature, ParameterInfo } from "@propcheck/common";
+import type { FunctionSignature } from "@propcheck/common";
 import type { GeneratorSpec, SeedInput, PropertyCategory } from "@propcheck/common";
 
 // ---------------------------------------------------------------------------
@@ -49,7 +49,7 @@ interface DomainTemplate {
   readonly properties: readonly PropertyTemplate[];
 }
 
-interface RawTemplateProperty {
+export interface RawTemplateProperty {
   readonly targetFunction: string;
   readonly description: string;
   readonly category: PropertyCategory;
@@ -248,6 +248,104 @@ const DOMAIN_TEMPLATES: readonly DomainTemplate[] = [
         ],
         evidence: "Applying filter twice should yield same result as once",
         confidence: 0.88,
+      },
+    ],
+  },
+
+  // === Discounting / Financial reductions ===
+  {
+    domain: "discounting",
+    namePatterns: [/discount/i, /markdown/i, /rebate/i],
+    minParams: 2,
+    returnTypePattern: /number/i,
+    properties: [
+      {
+        description: "{fn} with a zero discount returns the original amount",
+        category: "boundary",
+        assertion: "{p0} >= 0 ? approxEqual({fn}({p0}, 0), {p0}) : true",
+        generators: {
+          "{p0}": { type: "float", constraints: { min: 0, max: 10000 } },
+        },
+        seedInputs: [
+          { label: "normal", value: { "{p0}": 100 } },
+          { label: "boundary", value: { "{p0}": 0 } },
+          { label: "extreme", value: { "{p0}": 9999.99 } },
+        ],
+        evidence: "A 0% discount should preserve the original amount",
+        confidence: 0.96,
+      },
+      {
+        description: "{fn} does not increase the original amount for valid discount inputs",
+        category: "monotonic",
+        assertion: "{p0} >= 0 && {p1} >= 0 && {p1} <= 100 ? {fn}({p0}, {p1}) <= {p0} : true",
+        generators: {
+          "{p0}": { type: "float", constraints: { min: 0, max: 10000 } },
+          "{p1}": { type: "float", constraints: { min: 0, max: 100 } },
+        },
+        seedInputs: [
+          { label: "normal", value: { "{p0}": 100, "{p1}": 25 } },
+          { label: "boundary", value: { "{p0}": 100, "{p1}": 0 } },
+          { label: "extreme", value: { "{p0}": 9999.99, "{p1}": 100 } },
+        ],
+        evidence: "Valid discounts should not raise the original amount",
+        confidence: 0.95,
+      },
+      {
+        description: "{fn} keeps discounted results non-negative for valid discount inputs",
+        category: "boundary",
+        assertion: "{p0} >= 0 && {p1} >= 0 && {p1} <= 100 ? {fn}({p0}, {p1}) >= 0 : true",
+        generators: {
+          "{p0}": { type: "float", constraints: { min: 0, max: 10000 } },
+          "{p1}": { type: "float", constraints: { min: 0, max: 100 } },
+        },
+        seedInputs: [
+          { label: "normal", value: { "{p0}": 100, "{p1}": 25 } },
+          { label: "boundary", value: { "{p0}": 0, "{p1}": 100 } },
+          { label: "extreme", value: { "{p0}": 0.01, "{p1}": 100 } },
+        ],
+        evidence: "A valid percentage discount should not drive a non-negative amount below zero",
+        confidence: 0.95,
+      },
+    ],
+  },
+
+  // === Tax / Fee / surcharge math ===
+  {
+    domain: "surcharge",
+    namePatterns: [/tax/i, /fee/i, /surcharge/i, /interest/i],
+    minParams: 2,
+    returnTypePattern: /number/i,
+    properties: [
+      {
+        description: "{fn} with a zero rate returns the original amount",
+        category: "boundary",
+        assertion: "{p0} >= 0 ? approxEqual({fn}({p0}, 0), {p0}) : true",
+        generators: {
+          "{p0}": { type: "float", constraints: { min: 0, max: 10000 } },
+        },
+        seedInputs: [
+          { label: "normal", value: { "{p0}": 100 } },
+          { label: "boundary", value: { "{p0}": 0 } },
+          { label: "extreme", value: { "{p0}": 9999.99 } },
+        ],
+        evidence: "A 0% rate should preserve the original amount",
+        confidence: 0.96,
+      },
+      {
+        description: "{fn} does not reduce the original amount for non-negative rates",
+        category: "monotonic",
+        assertion: "{p0} >= 0 && {p1} >= 0 ? {fn}({p0}, {p1}) >= {p0} : true",
+        generators: {
+          "{p0}": { type: "float", constraints: { min: 0, max: 10000 } },
+          "{p1}": { type: "float", constraints: { min: 0, max: 100 } },
+        },
+        seedInputs: [
+          { label: "normal", value: { "{p0}": 100, "{p1}": 8 } },
+          { label: "boundary", value: { "{p0}": 100, "{p1}": 0 } },
+          { label: "extreme", value: { "{p0}": 9999.99, "{p1}": 100 } },
+        ],
+        evidence: "Adding tax, fees, or interest should not lower a non-negative base amount",
+        confidence: 0.94,
       },
     ],
   },
@@ -576,7 +674,7 @@ export function matchTemplates(sig: FunctionSignature): readonly RawTemplateProp
       if (maxParamIdx >= paramNames.length) continue;
 
       results.push({
-        targetFunction: sig.name,
+        targetFunction: sig.qualifiedName,
         description: instantiate(template.description, sig.name, paramNames),
         category: template.category,
         assertion: instantiate(template.assertion, sig.name, paramNames),

@@ -88,6 +88,34 @@ describe("matchTemplates", () => {
     assert.ok(props.some((p) => p.category === "boundary"));
   });
 
+  it("matches discounting functions with stronger financial templates", () => {
+    const sig = makeSig({
+      name: "applyDiscount",
+      returnType: "number",
+      parameters: [
+        { name: "price", type: "number", isOptional: false, isRest: false, defaultValue: null },
+        { name: "discount", type: "number", isOptional: false, isRest: false, defaultValue: null },
+      ],
+    });
+    const props = matchTemplates(sig);
+    assert.ok(props.some((p) => p.assertion.includes("approxEqual(applyDiscount(price, 0), price)")));
+    assert.ok(props.some((p) => p.assertion.includes("applyDiscount(price, discount) <= price")));
+  });
+
+  it("matches surcharge functions with rate-aware templates", () => {
+    const sig = makeSig({
+      name: "calculateTax",
+      returnType: "number",
+      parameters: [
+        { name: "amount", type: "number", isOptional: false, isRest: false, defaultValue: null },
+        { name: "rate", type: "number", isOptional: false, isRest: false, defaultValue: null },
+      ],
+    });
+    const props = matchTemplates(sig);
+    assert.ok(props.some((p) => p.assertion.includes("approxEqual(calculateTax(amount, 0), amount)")));
+    assert.ok(props.some((p) => p.assertion.includes("calculateTax(amount, rate) >= amount")));
+  });
+
   it("matches string-transform functions", () => {
     const sig = makeSig({ name: "trimWhitespace", returnType: "string", parameters: [{ name: "input", type: "string", isOptional: false, isRest: false, defaultValue: null }] });
     const props = matchTemplates(sig);
@@ -100,6 +128,21 @@ describe("matchTemplates", () => {
     const props = matchTemplates(sig);
     assert.ok(props.length >= 1);
     assert.ok(props.some((p) => p.assertion.includes("Set")));
+  });
+
+  it("uses the qualified function name as targetFunction", () => {
+    const sig = makeSig({
+      name: "applyDiscount",
+      qualifiedName: "Cart.applyDiscount",
+      returnType: "number",
+      parameters: [
+        { name: "price", type: "number", isOptional: false, isRest: false, defaultValue: null },
+        { name: "discount", type: "number", isOptional: false, isRest: false, defaultValue: null },
+      ],
+    });
+    const props = matchTemplates(sig);
+    assert.ok(props.length >= 1);
+    assert.ok(props.every((p) => p.targetFunction === "Cart.applyDiscount"));
   });
 
   it("returns empty for unmatched functions", () => {
@@ -162,6 +205,8 @@ describe("getAvailableDomains", () => {
     assert.ok(domains.includes("sorting"));
     assert.ok(domains.includes("formatting"));
     assert.ok(domains.includes("validation"));
+    assert.ok(domains.includes("discounting"));
+    assert.ok(domains.includes("surcharge"));
   });
 });
 

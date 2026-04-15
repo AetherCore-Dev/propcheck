@@ -1,10 +1,12 @@
 import { describe, it } from "node:test";
 import * as assert from "node:assert/strict";
+import { buildTemplateProperties } from "../index";
 import { parseInferResponse } from "../response-parser";
 import { scoreProperty, scoreAndFilter, isRedundant, detectRiskTags, computeRiskScore } from "../scoring";
 import { createMockClient } from "../mock-client";
+import { buildInferPrompt } from "../prompts/infer-properties";
 import { classifyProperties, buildFeedbackSummary, buildRefinementPrompt } from "../prompts/refinement";
-import type { PropertyDefinition, ExecutionResult } from "@propcheck/common";
+import type { AnalysisContext, ExecutionResult, FunctionSignature, PropertyDefinition } from "@propcheck/common";
 
 function makeTestProp(overrides: Partial<PropertyDefinition> = {}): PropertyDefinition {
   return {
@@ -28,7 +30,22 @@ function makeTestProp(overrides: Partial<PropertyDefinition> = {}): PropertyDefi
     sourceHash: "abc",
     inferredAt: "2026-01-01",
     modelId: "test",
+    evidenceSource: "code",
     ...overrides,
+  };
+}
+
+function makeFunctionSignature(overrides: Partial<FunctionSignature> & { name: string }): FunctionSignature {
+  return {
+    name: overrides.name,
+    qualifiedName: overrides.qualifiedName ?? overrides.name,
+    parameters: overrides.parameters ?? [],
+    returnType: overrides.returnType ?? null,
+    docstring: overrides.docstring ?? null,
+    visibility: overrides.visibility ?? "public",
+    isAsync: overrides.isAsync ?? false,
+    isGenerator: overrides.isGenerator ?? false,
+    loc: overrides.loc ?? { startLine: 1, endLine: 1, startColumn: 0, endColumn: 0 },
   };
 }
 
@@ -47,6 +64,8 @@ describe("response-parser", () => {
           seedInputs: [{ label: "normal", value: { a: 1, b: 2 } }],
           evidence: "addition is commutative",
           confidence: 0.9,
+          evidenceSource: "spec",
+          relatedFunctions: ["subtract"],
         },
       ],
     };
@@ -56,6 +75,8 @@ describe("response-parser", () => {
     assert.equal(result[0].targetFunction, "add");
     assert.equal(result[0].id, "prop_001");
     assert.equal(result[0].sourceHash, "abc123");
+    assert.equal(result[0].evidenceSource, "spec");
+    assert.deepEqual(result[0].relatedFunctions, ["subtract"]);
   });
 
   it("should skip malformed entries", () => {
@@ -208,6 +229,90 @@ describe("response-parser", () => {
         },
       },
     });
+  });
+});
+
+describe("template-backed inference", () => {
+  it("should build domain-backed template properties for matching functions", () => {
+    const context: AnalysisContext = {
+      filePath: "pricing.ts",
+      language: "typescript",
+      sourceCode: "export function applyDiscount(price: number, discount: number): number { return price * (1 - discount / 100); }",
+      functions: [
+        makeFunctionSignature({
+          name: "applyDiscount",
+          parameters: [
+            { name: "price", type: "number", defaultValue: null, isOptional: false, isRest: false },
+            { name: "discount", type: "number", defaultValue: null, isOptional: false, isRest: false },
+          ],
+          returnType: "number",
+        }),
+      ],
+      types: [],
+      imports: [],
+      signals: { ast: [], type: [], doc: [] },
+    };
+
+    const properties = buildTemplateProperties(context);
+    assert.ok(properties.length >= 2);
+    assert.ok(properties.every((property) => property.evidenceSource === "domain"));
+    assert.ok(properties.some((property) => property.assertion.includes("approxEqual(applyDiscount(price, 0), price)")));
+  });
+
+  it("should preserve qualified names in template-backed properties", () => {
+    const context: AnalysisContext = {
+      filePath: "pricing.ts",
+      language: "typescript",
+      sourceCode: "export class Cart { applyDiscount(price: number, discount: number): number { return price * (1 - discount / 100); } }",
+      functions: [
+        makeFunctionSignature({
+          name: "applyDiscount",
+          qualifiedName: "Cart.applyDiscount",
+          parameters: [
+            { name: "price", type: "number", defaultValue: null, isOptional: false, isRest: false },
+            { name: "discount", type: "number", defaultValue: null, isOptional: false, isRest: false },
+          ],
+          returnType: "number",
+        }),
+      ],
+      types: [],
+      imports: [],
+      signals: { ast: [], type: [], doc: [] },
+    };
+
+    const properties = buildTemplateProperties(context);
+    assert.ok(properties.length >= 1);
+    assert.ok(properties.every((property) => property.targetFunction === "Cart.applyDiscount"));
+  });
+});
+
+describe("prompt builder", () => {
+  it("should include sibling functions when provided", () => {
+    const context: AnalysisContext = {
+      filePath: "codec.ts",
+      language: "typescript",
+      sourceCode: "export function encode(value: string): number { return value.length; }",
+      functions: [
+        makeFunctionSignature({
+          name: "encode",
+          parameters: [{ name: "value", type: "string", defaultValue: null, isOptional: false, isRest: false }],
+          returnType: "number",
+        }),
+      ],
+      types: [],
+      imports: [],
+      signals: { ast: [], type: [], doc: [] },
+    };
+
+    const sibling = makeFunctionSignature({
+      name: "decode",
+      parameters: [{ name: "encoded", type: "number", defaultValue: null, isOptional: false, isRest: false }],
+      returnType: "string",
+    });
+
+    const prompt = buildInferPrompt(context, [sibling]);
+    assert.match(prompt, /Look for cross-function properties between the analyzed functions and these sibling functions:/);
+    assert.match(prompt, /function decode\(encoded: number\): string/);
   });
 });
 

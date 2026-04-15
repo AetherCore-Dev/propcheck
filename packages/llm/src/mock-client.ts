@@ -13,6 +13,7 @@ import type { LlmClient, ApiResponse, LlmToolSchema, LlmCallOptions } from "./cl
 import type { FunctionSignature, ParameterInfo } from "@propcheck/common";
 import { generateAdaptiveProperties } from "./adaptive-generator";
 import { matchTemplates } from "./templates";
+import { derivePropertiesFromSource } from "./code-derived-inference";
 
 /**
  * Mock responses keyed by function name.
@@ -609,17 +610,17 @@ function parseParameter(part: string): ParameterInfo | null {
   };
 }
 
-/** Parse a signature line into parameters, return type, and async flag. */
-function parseSignatureLine(afterHeading: string): {
+/** Parse a function signature into parameters, return type, and async flag. */
+function parseFunctionSignature(signatureText: string): {
   parameters: ParameterInfo[];
   returnType: string | null;
   isAsync: boolean;
 } {
-  const sigMatch = afterHeading.match(/^Signature:\s*(?:async\s+)?function\s+\S+\(([^)]*)\)(?:\s*:\s*(.+))?/m);
+  const trimmed = signatureText.trim().replace(/^Signature:\s*/, "");
+  const sigMatch = trimmed.match(/^(?:async\s+)?function\s+\S+\(([^)]*)\)(?:\s*:\s*(.+))?$/);
   if (!sigMatch) return { parameters: [], returnType: null, isAsync: false };
 
-  const sigLine = afterHeading.match(/^Signature:\s*(.*)/m);
-  const isAsync = !!sigLine && /^async\s+/.test(sigLine[1].trim());
+  const isAsync = /^async\s+/.test(trimmed);
   const returnType = sigMatch[2]?.trim() ?? null;
 
   const parameters: ParameterInfo[] = [];
@@ -632,6 +633,17 @@ function parseSignatureLine(afterHeading: string): {
   }
 
   return { parameters, returnType, isAsync };
+}
+
+/** Parse a signature line into parameters, return type, and async flag. */
+function parseSignatureLine(afterHeading: string): {
+  parameters: ParameterInfo[];
+  returnType: string | null;
+  isAsync: boolean;
+} {
+  const sigLine = afterHeading.match(/^Signature:\s*(.*)/m);
+  if (!sigLine) return { parameters: [], returnType: null, isAsync: false };
+  return parseFunctionSignature(sigLine[0]);
 }
 
 /**
@@ -664,6 +676,40 @@ export function extractSignaturesFromPrompt(prompt: string): readonly FunctionSi
   return signatures;
 }
 
+function extractSiblingSignaturesFromPrompt(prompt: string): readonly FunctionSignature[] {
+  const signatures: FunctionSignature[] = [];
+  const siblingRegex = /^\s*-\s+((?:async\s+)?function\s+\S+\([^\n]*\)(?:\s*:\s*.+)?)$/gm;
+  let match: RegExpExecArray | null;
+
+  while ((match = siblingRegex.exec(prompt)) !== null) {
+    const signatureText = match[1].trim();
+    const nameMatch = signatureText.match(/^(?:async\s+)?function\s+(\S+)\(/);
+    if (!nameMatch) {
+      continue;
+    }
+
+    const qualifiedName = nameMatch[1];
+    const name = qualifiedName.includes(".")
+      ? qualifiedName.split(".").pop()!
+      : qualifiedName;
+    const { parameters, returnType, isAsync } = parseFunctionSignature(signatureText);
+
+    signatures.push({
+      name,
+      qualifiedName,
+      parameters,
+      returnType,
+      docstring: null,
+      visibility: "public",
+      isAsync,
+      isGenerator: false,
+      loc: { startLine: 0, endLine: 0, startColumn: 0, endColumn: 0 },
+    });
+  }
+
+  return signatures;
+}
+
 /** Split parameter string respecting nested angle brackets and parens. */
 function splitParams(paramsStr: string): string[] {
   const parts: string[] = [];
@@ -684,6 +730,15 @@ function splitParams(paramsStr: string): string[] {
   return parts;
 }
 
+/**
+ * Extract source code from the inference prompt.
+ * The prompt includes source code in a fenced code block after "## Source Code:".
+ */
+function extractSourceCodeFromPrompt(prompt: string): string | null {
+  const match = prompt.match(/## Source Code:\n```\w*\n([\s\S]*?)\n```/);
+  return match ? match[1] : null;
+}
+
 /** Create a mock LLM client that returns canned responses. */
 export function createMockClient(): LlmClient {
   return {
@@ -693,6 +748,9 @@ export function createMockClient(): LlmClient {
       _tools: readonly LlmToolSchema[],
       _options?: LlmCallOptions,
     ): Promise<ApiResponse> {
+      void _tools;
+      void _options;
+
       // Extract function names from prompt (look for "### functionName" headings)
       const funcNameRegex = /^### (\w+)/gm;
       const promptFuncNames: string[] = [];
@@ -716,25 +774,51 @@ export function createMockClient(): LlmClient {
         }
       }
 
-      // Adaptive generation for unmatched functions:
-      // 1. Try community templates first (domain-specific, high quality)
-      // 2. Fall back to adaptive generator (signature-based, generic)
+      // Property generation for unmatched functions.
+      // Pipeline (each function tries sources in order, stops when enough properties found):
+      //   0. Cross-function detection — always runs (encode/decode, serialize/parse pairs)
+      //   1. Code-Derived Property Inference (CDPI) — extracts provable properties from source code
+      //   2. Community templates — domain-specific patterns (sorting, validation, etc.)
+      //   3. Adaptive generator — signature-based heuristics with semantic guards (last resort)
       if (unmatchedFunctions.length > 0) {
         const signatures = extractSignaturesFromPrompt(userPrompt);
+        const siblingSignatures = extractSiblingSignaturesFromPrompt(userPrompt);
+        const sourceCode = extractSourceCodeFromPrompt(userPrompt);
         for (const sig of signatures) {
           // Skip functions already matched by hardcoded map
           if (matchedFunctions.includes(sig.name) || matchedFunctions.includes(sig.qualifiedName)) {
             continue;
           }
-          // Try community templates first
-          const templateProps = matchTemplates(sig);
-          if (templateProps.length > 0) {
-            allProperties.push(...templateProps);
-          } else {
-            // Fall back to adaptive generator
-            const adaptiveProps = generateAdaptiveProperties(sig);
-            allProperties.push(...adaptiveProps);
+
+          const funcProps: unknown[] = [];
+
+          // Layer 0: Cross-function detection (always runs — independent of single-function analysis)
+          // Uses adaptive generator's cross-function detection which checks for
+          // inverse sibling patterns (encode/decode, serialize/parse, etc.)
+          const crossFuncProps = generateAdaptiveProperties(sig, siblingSignatures, sourceCode ?? undefined)
+            .filter((p) => p.category === "cross-function");
+          funcProps.push(...crossFuncProps);
+
+          // Layer 1: Code-Derived Property Inference (primary — highest reliability)
+          if (sourceCode) {
+            const cdpiProps = derivePropertiesFromSource(sig, sourceCode);
+            funcProps.push(...cdpiProps);
           }
+
+          // Layer 2: Community templates (supplement CDPI with domain patterns)
+          if (funcProps.length < 3) {
+            const templateProps = matchTemplates(sig);
+            funcProps.push(...templateProps);
+          }
+
+          // Layer 3: Adaptive generator (fallback — only if CDPI + templates < 2)
+          if (funcProps.length < 2) {
+            const adaptiveProps = generateAdaptiveProperties(sig, siblingSignatures, sourceCode ?? undefined)
+              .filter((p) => p.category !== "cross-function"); // avoid duplicating cross-function
+            funcProps.push(...adaptiveProps);
+          }
+
+          allProperties.push(...funcProps);
         }
       }
 

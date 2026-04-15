@@ -3,7 +3,7 @@ import * as assert from "node:assert/strict";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { loadConfig, validateConfig } from "../loader";
+import { inspectConfig, loadConfig, validateConfig } from "../loader";
 import { DEFAULTS } from "../defaults";
 
 function makeTmpDir(): string {
@@ -190,6 +190,30 @@ describe("loadConfig — environment variables", () => {
     );
     const config = loadConfig(tmpDir);
     assert.equal(config.provider, "openai-compatible");
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it("should warn for invalid PROPCHECK_PROVIDER values", () => {
+    const tmpDir = makeTmpDir();
+    process.env["PROPCHECK_PROVIDER"] = "openai";
+    const inspection = inspectConfig(tmpDir);
+    assert.equal(inspection.config.provider, DEFAULTS.provider);
+    assert.match(inspection.warnings.join("\n"), /PROPCHECK_PROVIDER has invalid value/);
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it("should track config sources during inspection", () => {
+    const tmpDir = makeTmpDir();
+    process.env["PROPCHECK_API_KEY"] = "sk-test-123";
+    fs.writeFileSync(
+      path.join(tmpDir, ".propcheckrc"),
+      JSON.stringify({ model: "gpt-4.1-mini" }),
+    );
+
+    const inspection = inspectConfig(tmpDir);
+    assert.equal(inspection.fields.apiKey.source, "env");
+    assert.equal(inspection.fields.model.source, "rc");
+    assert.equal(inspection.fields.provider.source, "default");
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 });

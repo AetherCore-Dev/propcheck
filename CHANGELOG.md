@@ -2,6 +2,41 @@
 
 All notable changes to propcheck are documented in this file.
 
+## [0.6.0] - 2026-04-15
+
+### Added
+- **CLI provider mode**: `--provider cli --cli-command codebuddy` invokes any external CLI tool as the LLM backend via stdin pipe — no API key needed. Supports any tool that accepts `-p --output-format text -` arguments.
+- **Adversarial prompt engineering**: SYSTEM_PROMPT rewritten to instruct LLM to "find where the code BREAKS" — includes adversarial thinking steps, anti-patterns list (typeof, identity tautology, implementation mirroring), and boundary-pushing generator requirements.
+- **Auto-refinement (Round 2)**: Automatically triggers a second LLM inference round when quality issues are detected (>30% weak properties, many filtered, or bugs found with other quality issues). Includes execution feedback summary to guide improvements.
+- **Boundary expansion**: Automatically widens numeric generator ranges by 50% (minimum ±10) to discover boundary-sensitive bugs. Also expands array element constraints. Properties that fail with wider ranges are preserved as high-value findings.
+- **Source-code semantic analyzer** (`source-analyzer.ts`): Lightweight regex-based function body scanner that detects 18 semantic signals (hasSort, hasHash, hasPathOps, hasSubtraction, hasDivision, etc.). Used by `isCategorySafe()` to prevent false positives from algebraic property categories.
+- **Code-Derived Property Inference (CDPI)** (`code-derived-inference.ts`): Extracts provable properties directly from source code — guard clauses, return type analysis, sort/filter/reduce/clamp/toFixed patterns, and purity detection. Used as primary engine in mock mode.
+- **Quality gate enhancements**: New `isIdentityTautology()` detects `f(x) === f(x)` patterns (direct and IIFE-wrapped). New `isTypeofTrivial()` detects typeof-only assertions while allowing compound expressions.
+- **SeedInput label normalization**: LLM-generated labels like "empty string", "unicode", "max_value" are now automatically normalized to the `normal`/`boundary`/`extreme` enum.
+
+### Fixed
+- **CDPI boolean identity tautology**: CDPI was generating `f(x) === f(x)` for boolean pure functions — exactly the pattern the scoring penalizes. Changed to variable-based determinism check: `const r1 = f(x); const r2 = f(x); return r1 === r2`.
+- **`extractFunctionBody` brace matching**: Brace depth counting now skips `{}`/`}` inside string literals, template literals, single-line comments (`//`), and block comments (`/* */`). Previously, a string like `"hello { world }"` would cause premature body truncation.
+- **`extractGuards` nested parentheses**: Guard condition extraction now uses depth-aware parenthesis matching instead of `[^)]+` regex. Previously, conditions like `if (x > 0 && fn(y))` were truncated at the inner `)`.
+- **`shouldAutoRefine` over-trigger**: Previously triggered Round 2 on ANY bug found, even when all other properties were strong. Now only triggers when bugs co-occur with weak/failed properties.
+- **Auto-refinement classification mismatch**: The inline IIFE in `infer.ts` now builds classifications that properly match `shouldAutoRefine`'s expected shape (was producing only "weak"/"strong" kinds, missing "bug_found"/"failed").
+- **`buildFeedbackSummary` missing options**: `FeedbackOptions` (filteredCount, boundaryFailures) are now passed through from `runValidationPipeline` to `runRefinementLoop`, improving Round 2 prompt quality.
+- **CLI prompt discarding system prompt**: `buildTextPrompt` in cli-client.ts now includes the full SYSTEM_PROMPT (adversarial framing, categories, anti-patterns, rules) instead of a simplified 4-line substitute.
+- **SeedInput label "max" conflict**: "max" was matched by both "boundary" and "extreme" conditions. Fixed by checking extreme patterns first.
+- **`hasConservativeRanges` too narrow**: Now detects more common documented-range patterns including `[0,255]`, `[0,360]`, `[-100,100]`, `[1,N]`, and symmetric ranges.
+- **Boundary expansion misses array elements**: `expandGeneratorRanges` now also expands numeric constraints inside `array` generator `elementConstraints`.
+- **Dead code**: Removed unused `runCliProcess` function from cli-client.ts.
+- **Mock false positive rate (43%)**: Root cause was adaptive generator blindly generating idempotent/commutative/monotonic properties. Fixed with source-analyzer semantic guards + CDPI as primary engine.
+- **EngineError crash**: Added try-catch in `run.ts` and `validation.ts` for graceful EngineError handling.
+- **Counterexample display showing `(...)`**: Fixed regex and added direct `e.counterexample` access.
+- **"Dropped unsafe property" noise**: Consolidated individual warnings into single summary count.
+
+### Changed
+- Mock client pipeline: 4-layer architecture — (0) cross-function detection always runs, (1) CDPI primary, (2) templates supplement if < 3, (3) adaptive generator fallback if < 2.
+- Scoring rubric: max score remains 13 points, but tautology detection now covers identity patterns and typeof-only trivial detection is more precise.
+- Config: `PropcheckConfig.provider` union extended with `"cli"`; added `cliCommand` and `cliArgs` fields.
+- E2E smoke test timeout increased from 60s to 120s (CDPI generates more properties).
+
 ## [0.5.0] - 2026-04-09
 
 ### Added

@@ -13,6 +13,48 @@ const TAUTOLOGY_PATTERNS = [
   /^typeof\s+\w+\s*(!==?|===?)\s*['"]undefined['"]\s*$/,
 ];
 
+/**
+ * Detect identity tautologies: f(x) === f(x) where both sides are the same call.
+ * JavaScript always evaluates the same expression to the same value within
+ * a single execution, so this tests nothing.
+ */
+function isIdentityTautology(assertion: string): boolean {
+  const trimmed = assertion.trim();
+
+  // Direct pattern: expr === expr
+  const eqMatch = trimmed.match(/^(.+?)\s*===\s*(.+?)$/);
+  if (eqMatch) {
+    const lhs = eqMatch[1].trim();
+    const rhs = eqMatch[2].trim();
+    if (lhs === rhs) return true;
+  }
+
+  // IIFE wrapped: (() => { return expr === expr; })()
+  const iifeMatch = trimmed.match(/return\s+(.+?)\s*===\s*(.+?)\s*;?\s*\}\s*\)\s*\(\s*\)$/);
+  if (iifeMatch) {
+    const lhs = iifeMatch[1].trim();
+    const rhs = iifeMatch[2].trim();
+    if (lhs === rhs) return true;
+  }
+
+  return false;
+}
+
+/**
+ * Detect typeof assertions for TypeScript-declared return types.
+ * These are trivial because the type system already guarantees them.
+ * Only matches when typeof check is the SOLE content of the assertion
+ * (not part of a larger expression with && or ||).
+ */
+function isTypeofTrivial(assertion: string): boolean {
+  const trimmed = assertion.trim();
+  // Unwrap IIFE: (() => { return EXPR; })()
+  const iifeMatch = trimmed.match(/^\(\(\)\s*=>\s*\{\s*return\s+(.*?);?\s*\}\s*\)\s*\(\s*\)$/s);
+  const inner = iifeMatch ? iifeMatch[1].trim() : trimmed;
+  // Check if the entire (unwrapped) assertion is just a typeof check
+  return /^typeof\s+.+\s*===?\s*["'][a-z]+["']\s*$/.test(inner);
+}
+
 function hasFloatLikeGenerator(property: PropertyDefinition): boolean {
   return Object.values(property.generators).some((spec) => {
     if (spec.type === "float" || spec.type === "number") {
@@ -32,6 +74,7 @@ const FRAGILITY_PENALTIES: Readonly<Record<PropertyRiskTag, number>> = {
   missing_precondition: 0,
   wide_numeric_domain: 0,
   doc_domain_mismatch: 0,
+  spec_code_conflict: 0,
   roundtrip_numeric_fragility: 2,
   metamorphic_scale_risk: 0,
 };
@@ -42,6 +85,7 @@ const RISK_PENALTIES: Readonly<Record<PropertyRiskTag, number>> = {
   missing_precondition: 1,
   wide_numeric_domain: 2,
   doc_domain_mismatch: 2,
+  spec_code_conflict: 3,
   roundtrip_numeric_fragility: 3,
   metamorphic_scale_risk: 1,
 };
@@ -169,20 +213,20 @@ export function scoreProperty(property: PropertyDefinition): number {
     score += 2;
   }
 
+  if (property.evidenceSource === "spec" || property.evidenceSource === "mixed") {
+    score += 1;
+  }
+
   // (2 pts) Not a tautology
   const isTautology = TAUTOLOGY_PATTERNS.some((pat) =>
     pat.test(property.assertion.trim()),
-  );
+  ) || isIdentityTautology(property.assertion);
   if (!isTautology) {
     score += 2;
   }
 
-  // (2 pts) Not trivial (not just typeof)
-  // Detect assertions where the ENTIRE content is a typeof check:
-  //   typeof <expr> === '<type>'  or  typeof <expr> !== '<type>'
-  const isTrivial = /^typeof\s+.+\s*[!=]==\s*["'][a-z]+["']\s*$/.test(
-    property.assertion.trim(),
-  );
+  // (2 pts) Not trivial (not just typeof or other zero-value assertion)
+  const isTrivial = isTypeofTrivial(property.assertion);
   if (!isTrivial) {
     score += 2;
   }

@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import * as assert from "node:assert/strict";
-import { reportAsJson } from "../json-reporter";
+import { reportAsGitHubComment, reportAsJson } from "../json-reporter";
 import {
   reportPropertiesOverviewAsJson,
   reportPropertyDetailAsJson,
@@ -122,6 +122,44 @@ describe("reportAsJson", () => {
 });
 
 // ── formatSummary ──────────────────────────────────
+
+describe("reportAsGitHubComment", () => {
+  it("should render GitHub-friendly markdown with summary and failures", () => {
+    const prop = makeProp();
+    const failingProp = makeProp({
+      id: "prop_002",
+      targetFunction: "subtract",
+      description: "Subtract should stay non-negative",
+      assertion: "subtract(a, b) >= 0",
+    });
+    const result = makeResult({
+      properties: [prop, failingProp],
+      passed: [{ propertyId: "prop_001", status: "passed", iterations: 1000, duration: 100, seed: 42 }],
+      failed: [{
+        propertyId: "prop_002",
+        status: "failed",
+        counterexample: [1, 2],
+        shrinkSteps: 1,
+        originalInput: [1, 2],
+        errorMessage: "violated",
+        seed: 99,
+        duration: 0,
+      }],
+      skipped: [{ propertyId: "prop_003", reason: "quarantined", propertyStatus: "quarantined" }],
+      duration: 500,
+    });
+
+    const markdown = reportAsGitHubComment(result, "src/math.ts");
+    assert.match(markdown, /## propcheck results for `src\/math.ts`/);
+    assert.match(markdown, /\*\*Summary:\*\* 2 properties · 1 passed · 1 failed · 0 errors · 1 skipped · 0\.5s/);
+    assert.match(markdown, /\| Property \| Status \| Details \|/);
+    assert.match(markdown, /add: Addition is commutative/);
+    assert.match(markdown, /❌ FAIL/);
+    assert.match(markdown, /Counterexample: `subtract\(1, 2\)`/);
+    assert.match(markdown, /### Failures/);
+    assert.match(markdown, /Seed: `99`/);
+  });
+});
 
 describe("formatSummary", () => {
   it("should include pass count", () => {
@@ -327,12 +365,16 @@ describe("reportPropertyDetailAsJson", () => {
       id: "prop_007",
       targetFunction: "formatPrice",
       riskTags: ["float_exact_equality"],
+      evidenceSource: "mixed",
+      humanVerified: true,
     });
     const json = JSON.parse(reportPropertyDetailAsJson(prop, "src/utils.ts"));
     assert.equal(json.filePath, "src/utils.ts");
     assert.equal(json.property.id, "prop_007");
     assert.equal(json.property.targetFunction, "formatPrice");
     assert.deepEqual(json.property.riskTags, ["float_exact_equality"]);
+    assert.equal(json.property.evidenceSource, "mixed");
+    assert.equal(json.property.humanVerified, true);
     assert.equal(json.property.score, 13);
   });
 });

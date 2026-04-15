@@ -23,8 +23,13 @@ import type { MutationReport } from "@propcheck/engines";
 import { toForwardSlash } from "@propcheck/common";
 import chalk from "chalk";
 
+interface QualityOptions {
+  json?: boolean;
+}
+
 export async function qualityCommand(
   target: string,
+  options: QualityOptions,
 ): Promise<void> {
   const projectRoot = process.cwd();
   const config = loadConfig(projectRoot);
@@ -54,12 +59,28 @@ export async function qualityCommand(
 
   // Show mutant preview
   const mutants = generateMutants(source, targetPath);
-  console.log(`\n  ${chalk.bold("Mutation Testing")}: ${target}`);
-  console.log(`  Generated ${chalk.cyan(String(mutants.length))} mutants from ${mutants.length > 0 ? new Set(mutants.map(m => m.operator)).size : 0} operators`);
-  console.log(`  Testing against ${chalk.cyan(String(ps.properties.length))} properties...\n`);
+  if (!options.json) {
+    console.log(`\n  ${chalk.bold("Mutation Testing")}: ${target}`);
+    console.log(`  Generated ${chalk.cyan(String(mutants.length))} mutants from ${mutants.length > 0 ? new Set(mutants.map((m) => m.operator)).size : 0} operators`);
+    console.log(`  Testing against ${chalk.cyan(String(ps.properties.length))} properties...\n`);
+  }
 
   if (mutants.length === 0) {
-    console.log("  No mutants generated (file may be too simple).\n");
+    if (options.json) {
+      console.log(JSON.stringify({
+        target,
+        totalMutants: 0,
+        killed: 0,
+        survived: 0,
+        errors: 0,
+        mutationScore: 1,
+        results: [],
+        survivingMutants: [],
+        duration: 0,
+      }, null, 2));
+    } else {
+      console.log("  No mutants generated (file may be too simple).\n");
+    }
     return;
   }
 
@@ -67,13 +88,17 @@ export async function qualityCommand(
   const report = await runMutationTesting(targetPath, source, ps.properties, storeDir);
 
   // Report results
-  printReport(report, target);
+  if (options.json) {
+    console.log(JSON.stringify({ target, ...report }, null, 2));
+  } else {
+    printReport(report);
+  }
 
   // Exit code: 0 if score >= 80%, 1 otherwise
   process.exit(report.mutationScore >= 0.8 ? 0 : 1);
 }
 
-function printReport(report: MutationReport, target: string): void {
+function printReport(report: MutationReport): void {
   const scoreColor = report.mutationScore >= 0.8
     ? chalk.green
     : report.mutationScore >= 0.6

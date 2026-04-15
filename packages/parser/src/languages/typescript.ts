@@ -34,12 +34,6 @@ function getLocation(node: ts.Node, sourceFile: ts.SourceFile): SourceLocation {
   };
 }
 
-function getJsDoc(node: ts.Node, sourceFile: ts.SourceFile): string | null {
-  const jsDocs = (node as { jsDoc?: ts.JSDoc[] }).jsDoc;
-  if (!jsDocs || jsDocs.length === 0) return null;
-  return jsDocs.map((doc) => doc.getText(sourceFile)).join("\n");
-}
-
 function getJsDocComment(node: ts.Node, sourceFile: ts.SourceFile): string | null {
   const jsDocs = (node as { jsDoc?: ts.JSDoc[] }).jsDoc;
   if (!jsDocs || jsDocs.length === 0) return null;

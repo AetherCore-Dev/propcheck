@@ -11,7 +11,6 @@ import * as assert from "node:assert/strict";
 // a mocked stdin via Readable.
 
 import { Readable, Writable } from "node:stream";
-import * as readline from "node:readline";
 
 // Import the module to test parseUserInput-like logic
 // Since parseUserInput is not exported, we test via confirmProperties
@@ -49,7 +48,12 @@ function makeProperty(id: string, overrides: Partial<PropertyDefinition> = {}): 
 async function runConfirmWithInputs(
   properties: readonly PropertyDefinition[],
   inputs: string[],
-): Promise<{ accepted: readonly PropertyDefinition[]; quarantined: readonly PropertyDefinition[]; dropped: readonly PropertyDefinition[] }> {
+): Promise<{
+  accepted: readonly PropertyDefinition[];
+  quarantined: readonly PropertyDefinition[];
+  dropped: readonly PropertyDefinition[];
+  logs: readonly string[];
+}> {
   const { confirmProperties } = await import("../commands/infer/confirm");
 
   // Create a readable stream that pushes answers one at a time on demand
@@ -75,16 +79,20 @@ async function runConfirmWithInputs(
   const origStdin = process.stdin;
   const origStdout = process.stdout;
   const origLog = console.log;
+  const logs: string[] = [];
 
   // Override at module level
   Object.defineProperty(process, "stdin", { value: inputStream, writable: true, configurable: true });
   Object.defineProperty(process, "stdout", { value: nullOutput, writable: true, configurable: true });
-  console.log = () => {};
+  console.log = (...args: unknown[]) => {
+    logs.push(args.map((arg) => String(arg)).join(" "));
+  };
 
   try {
     // isTTY check would fail with our mock, so we call confirmProperties directly
     // It creates its own readline from process.stdin
-    return await confirmProperties(properties);
+    const result = await confirmProperties(properties);
+    return { ...result, logs };
   } finally {
     Object.defineProperty(process, "stdin", { value: origStdin, writable: true, configurable: true });
     Object.defineProperty(process, "stdout", { value: origStdout, writable: true, configurable: true });
@@ -112,6 +120,7 @@ describe("confirmProperties", () => {
     const props = [makeProperty("prop_001")];
     const result = await runConfirmWithInputs(props, [""]);
     assert.equal(result.accepted.length, 1);
+    assert.equal(result.accepted[0].humanVerified, true);
   });
 
   it("should quarantine with 'q' input", async () => {
@@ -119,6 +128,7 @@ describe("confirmProperties", () => {
     const result = await runConfirmWithInputs(props, ["q"]);
     assert.equal(result.quarantined.length, 1);
     assert.equal(result.quarantined[0].status, "quarantined");
+    assert.equal(result.quarantined[0].humanVerified, true);
   });
 
   it("should drop with 'd' input", async () => {
@@ -126,12 +136,14 @@ describe("confirmProperties", () => {
     const result = await runConfirmWithInputs(props, ["d"]);
     assert.equal(result.dropped.length, 1);
     assert.equal(result.dropped[0].status, "dropped");
+    assert.equal(result.dropped[0].humanVerified, undefined);
   });
 
   it("should accept-all remaining with 'A' input", async () => {
     const props = [makeProperty("prop_001"), makeProperty("prop_002"), makeProperty("prop_003")];
     const result = await runConfirmWithInputs(props, ["A"]);
     assert.equal(result.accepted.length, 3, "All 3 should be accepted");
+    assert.ok(result.accepted.every((prop) => prop.humanVerified === true));
   });
 
   it("should handle mixed decisions", async () => {
@@ -147,5 +159,45 @@ describe("confirmProperties", () => {
     // "xyz" is unrecognized → re-prompt, then "a" accepts
     const result = await runConfirmWithInputs(props, ["xyz", "a"]);
     assert.equal(result.accepted.length, 1);
+  });
+
+  it("should show friendly conflict labels and evidence source during review", async () => {
+    const props = [makeProperty("prop_001", {
+      riskTags: ["spec_code_conflict"],
+      status: "risky",
+      evidenceSource: "mixed",
+    })];
+    const result = await runConfirmWithInputs(props, ["i"]);
+    const output = result.logs.join("\n");
+    assert.match(output, /spec conflict/);
+    assert.match(output, /Evidence source: mixed/);
+    assert.match(output, /Conflict rules require explicit \(i\)ntentional confirmation/i);
+    assert.match(output, /confirm the behavior is intentional before accepting/i);
+    assert.match(output, /Accepted as intentional/);
+    assert.equal(result.accepted[0].humanVerified, true);
+  });
+
+  it("should require explicit intentional confirmation for conflict properties", async () => {
+    const props = [makeProperty("prop_001", {
+      riskTags: ["doc_domain_mismatch"],
+      status: "risky",
+    })];
+    const result = await runConfirmWithInputs(props, ["", "i"]);
+    const output = result.logs.join("\n");
+    assert.equal(result.accepted.length, 1);
+    assert.match(output, /Unrecognized: ""\. Use \(i\)ntentional/i);
+    assert.match(output, /Accepted as intentional/);
+  });
+
+  it("accept-all should still stop for conflict properties", async () => {
+    const props = [
+      makeProperty("prop_001"),
+      makeProperty("prop_002", { riskTags: ["spec_code_conflict"], status: "risky" }),
+      makeProperty("prop_003"),
+    ];
+    const result = await runConfirmWithInputs(props, ["A", "i"]);
+    const output = result.logs.join("\n");
+    assert.equal(result.accepted.length, 3);
+    assert.match(output, /Accepted as intentional/);
   });
 });

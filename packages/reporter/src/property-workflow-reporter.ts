@@ -21,6 +21,7 @@ const RISK_LABELS: Readonly<Record<PropertyRiskTag, string>> = {
   missing_precondition: "no precondition",
   wide_numeric_domain: "wide range",
   doc_domain_mismatch: "doc mismatch",
+  spec_code_conflict: "spec conflict",
   roundtrip_numeric_fragility: "roundtrip fragile",
   metamorphic_scale_risk: "scale risk",
 };
@@ -63,6 +64,23 @@ function statusBadge(status: PropertyStatus): string {
 
 function summarize(text: string, maxLen: number): string {
   return text.length > maxLen ? text.slice(0, maxLen - 1) + "…" : text;
+}
+
+function formatEvidenceSource(evidenceSource: PropertyDefinition["evidenceSource"]): string | null {
+  if (!evidenceSource) return null;
+  switch (evidenceSource) {
+    case "code": return "code";
+    case "doc": return "documentation";
+    case "spec": return "spec";
+    case "domain": return "domain";
+    case "mixed": return "mixed";
+  }
+}
+
+function formatIntentReviewNote(property: PropertyDefinition): string | null {
+  const conflicts = property.riskTags.filter((tag) => tag === "spec_code_conflict" || tag === "doc_domain_mismatch");
+  if (conflicts.length === 0) return null;
+  return `${conflicts.map((tag) => RISK_LABELS[tag] ?? tag).join(", ")} detected — human confirmation is recommended.`;
 }
 
 /* ── overview (propcheck props) ─────────────────── */
@@ -173,6 +191,7 @@ export interface PropertyDetailJson {
     readonly assertion: string;
     readonly status: PropertyStatus;
     readonly humanVerified: boolean;
+    readonly evidenceSource?: PropertyDefinition["evidenceSource"];
     readonly score: number;
     readonly riskScore: number;
     readonly riskTags: readonly string[];
@@ -199,7 +218,15 @@ export function reportPropertyDetail(
     console.log(`  Risk tags  : ${chalk.yellow(property.riskTags.map((t) => RISK_LABELS[t] ?? t).join(", "))}`);
   }
   console.log(`  Confidence : ${(property.confidence * 100).toFixed(0)}%`);
+  const evidenceSource = formatEvidenceSource(property.evidenceSource);
+  if (evidenceSource) {
+    console.log(`  Source     : ${evidenceSource}`);
+  }
   console.log(`  Evidence   : ${property.evidence}`);
+  const intentReviewNote = formatIntentReviewNote(property);
+  if (intentReviewNote) {
+    console.log(`  Review note: ${chalk.yellow(intentReviewNote)}`);
+  }
   console.log("");
   console.log(chalk.dim("  Assertion:"));
   console.log(`    ${property.assertion}`);
@@ -226,6 +253,7 @@ export function reportPropertyDetailAsJson(
       assertion: property.assertion,
       status: property.status,
       humanVerified: property.humanVerified ?? false,
+      evidenceSource: property.evidenceSource,
       score: property.score,
       riskScore: property.riskScore,
       riskTags: property.riskTags,

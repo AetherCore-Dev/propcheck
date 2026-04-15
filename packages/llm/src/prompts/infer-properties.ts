@@ -5,40 +5,58 @@
 import type { AnalysisContext, FunctionSignature } from "@propcheck/common";
 import type { LlmToolSchema } from "../client";
 
-const SYSTEM_PROMPT = `You are propcheck, an expert AI that discovers testable properties (invariants) of code.
+const SYSTEM_PROMPT = `You are propcheck, a security-minded AI that discovers testable properties (invariants) of code.
 
-Given a function's signature, types, and documentation, you infer properties that should ALWAYS hold true for ANY valid input.
+Your goal is NOT to prove the code works — it is to find where the code BREAKS.
 
-Property categories:
-- roundtrip: encode then decode returns original (decode(encode(x)) === x)
-- idempotent: applying twice is same as once (f(f(x)) === f(x))
-- conservation: a quantity is preserved (sum before === sum after)
-- monotonic: output preserves ordering (if a <= b then f(a) <= f(b))
-- equivalence: two implementations agree (f(x) === g(x))
-- type-preservation: output type matches expectation
-- cross-function: relationship between two functions
-- boundary: edge case behavior (result >= 0, handles empty input)
-- metamorphic: transformed input relates to transformed output
+## Thinking Process (follow this order)
 
-Rules:
-1. Every property MUST be testable with random inputs
-2. Every property MUST cite evidence from the code or docs
-3. Prefer specific properties over generic ones
-4. Include seed inputs: one normal case, one boundary, one extreme
-5. Generators must cover the function's parameter types
-6. Assertions must reference the target function's return value
-7. Do NOT generate tautologies (always-true) or trivial type checks
-8. Avoid fragile assertions:
-   - Do NOT use exact equality (===) for floating-point comparisons; use tolerance-based checks
-   - Do NOT use tiny absolute tolerances (< 1e-9) for sums or scaled values
-   - If a property depends on business constraints (e.g. price >= 0), make the precondition explicit
-   - Prefer metamorphic or relation-style properties over arbitrary free-form assertions
-9. For parameters that are custom types/interfaces, use type "object" with a "fields" constraint:
-   - Each field maps to a generator spec: { type: "string", constraints: { maxLength: 100 } }
-   - For optional fields, use type "optional" with an "inner" constraint: { type: "optional", constraints: { inner: { type: "string" } } }
-   - For enum types, use type "enum" with a "values" constraint: { type: "enum", constraints: { values: ["a", "b"] } }
-   - Nest "object" types for fields that are themselves custom interfaces
-   - Example: { type: "object", constraints: { fields: { name: { type: "string" }, price: { type: "float", constraints: { min: 0 } } } } }`;
+Step 1: Read the implementation carefully. Understand what it actually does, not just what docs claim.
+Step 2: Think adversarially — what inputs would a malicious or careless caller provide?
+  - Values OUTSIDE documented ranges (if docs say 0-100, test -50 and 200)
+  - Type boundary values: NaN, Infinity, -0, Number.MAX_SAFE_INTEGER, empty string "", empty array []
+  - Null/undefined if the type system allows widening
+  - Inputs that violate documented preconditions — the function may not validate them
+Step 3: For each risk area, generate a property that TESTS the boundary.
+Step 4: Also generate standard invariant properties (idempotent, conservation, roundtrip, etc.) where the code structure genuinely supports them.
+
+## Property Categories
+- boundary: edge case behavior, input validation gaps, result constraints
+- metamorphic: transformed input relates to transformed output (e.g. f(2*x) = 2*f(x))
+- conservation: a quantity is preserved (array length, total sum, element membership)
+- idempotent: applying twice equals applying once (f(f(x)) === f(x)) — ONLY when code genuinely normalizes
+- roundtrip: encode/decode, format/parse returns original within tolerance
+- monotonic: output preserves ordering
+- equivalence: commutativity, associativity, or two implementations agree
+- cross-function: relationship between two functions (decode(encode(x)) === x)
+- type-preservation: output structure/type matches contract
+
+## CRITICAL: Generator Ranges Must Push Boundaries
+Generator ranges MUST extend BEYOND documented input ranges. This is the whole point of property-based testing.
+- If docs say "discount 0-100", set generator to {min: -50, max: 200}
+- If docs say "price (non-negative)", set generator to {min: -1000, max: 100000}
+- If docs say "array of prices", include empty arrays and large arrays
+The goal is to discover what happens when callers don't follow the documentation.
+
+## Anti-Patterns (DO NOT generate these — they waste test cycles)
+1. typeof checks: "typeof f(x) === 'string'" — TypeScript already guarantees this. NEVER generate typeof properties.
+2. Identity tautologies: "f(x) === f(x)" — JavaScript always evaluates the same expression to the same value in the same execution. This tests nothing. For determinism, store result in a variable first: "(() => { const r1 = f(x); const r2 = f(x); return r1 === r2; })()"
+3. Implementation mirroring: restating the function body as the assertion.
+   BAD: "applyDiscount(p, d) ≈ p * (1 - d/100)" — this IS the implementation, you're testing nothing
+   BAD: "calculateTax(p, r) ≈ p * r" — this IS the implementation
+   GOOD: "applyDiscount(p, d) >= 0" — this is an invariant the implementation should maintain but doesn't validate
+4. Overly conservative generators: ranges that match documented "valid" input ranges test only the happy path.
+
+## Rules
+1. Every property MUST be testable with random inputs via fast-check/Hypothesis
+2. Prefer adversarial properties that find real bugs over gentle properties that always pass
+3. Include seed inputs: one normal case, one boundary, one extreme (beyond documented range)
+4. Assertions must be valid JavaScript expressions — not natural language
+5. For floating-point: use Math.abs(a - b) < tolerance instead of ===
+6. When a spec/plan is present, treat it as higher-priority intent than implementation
+7. Look for cross-function relationships in sibling functions
+8. For custom types/interfaces, use type "object" with "fields" constraint
+9. Set evidenceSource to: code, doc, spec, domain, or mixed`;
 
 function formatFunction(fn: FunctionSignature): string {
   const params = fn.parameters
@@ -57,7 +75,10 @@ function formatFunction(fn: FunctionSignature): string {
   return `${prefix}function ${fn.qualifiedName}(${params})${ret}`;
 }
 
-export function buildInferPrompt(context: AnalysisContext): string {
+export function buildInferPrompt(
+  context: AnalysisContext,
+  siblingFunctions?: readonly FunctionSignature[],
+): string {
   const lines: string[] = [];
 
   lines.push(`File: ${context.filePath}`);
@@ -72,6 +93,27 @@ export function buildInferPrompt(context: AnalysisContext): string {
   lines.push("");
 
   // Functions
+  if (context.spec) {
+    lines.push("## External spec / plan:");
+    lines.push(`Source: ${context.spec.sourcePath}`);
+    if (context.spec.generalRequirements.length > 0) {
+      lines.push("General requirements:");
+      for (const requirement of context.spec.generalRequirements) {
+        lines.push(`- ${requirement}`);
+      }
+    }
+    for (const specFn of context.spec.functions) {
+      lines.push(`Spec for ${specFn.functionName}:`);
+      for (const requirement of specFn.requirements) {
+        lines.push(`- ${requirement}`);
+      }
+      for (const constraint of specFn.constraints) {
+        lines.push(`  Constraint: ${constraint.kind} (${constraint.detail})`);
+      }
+    }
+    lines.push("");
+  }
+
   lines.push("## Functions to analyze:");
   for (const fn of context.functions) {
     lines.push(`\n### ${fn.qualifiedName}`);
@@ -125,6 +167,12 @@ export function buildInferPrompt(context: AnalysisContext): string {
 
   lines.push("\n## Instructions:");
   lines.push("Infer 3-5 testable properties per function.");
+  if (siblingFunctions && siblingFunctions.length > 0) {
+    lines.push("Look for cross-function properties between the analyzed functions and these sibling functions:");
+    for (const fn of siblingFunctions) {
+      lines.push(`  - ${formatFunction(fn)}`);
+    }
+  }
   lines.push("Use the infer_properties tool to return structured results.");
 
   return lines.join("\n");
@@ -187,10 +235,19 @@ export function getInferTool(): LlmToolSchema {
               },
               evidence: { type: "string", description: "Code/doc evidence for this property" },
               confidence: { type: "number", minimum: 0, maximum: 1 },
+              evidenceSource: {
+                type: "string",
+                enum: ["code", "doc", "spec", "domain", "mixed"],
+              },
+              relatedFunctions: {
+                type: "array",
+                items: { type: "string" },
+                description: "Other function names involved in cross-function properties (optional)",
+              },
             },
             required: [
               "targetFunction", "description", "category", "assertion",
-              "generators", "seedInputs", "evidence", "confidence",
+              "generators", "seedInputs", "evidence", "confidence", "evidenceSource",
             ],
           },
         },

@@ -2,12 +2,12 @@
  * Tests for propcheck fix command — mock mode E2E.
  */
 
-import { describe, it, beforeEach, afterEach } from "node:test";
+import { describe, it, afterEach } from "node:test";
 import * as assert from "node:assert/strict";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
-import { execFileSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 
 const CLI = path.resolve(__dirname, "../index.js");
 
@@ -22,19 +22,22 @@ function makeTmpProject(): string {
   return dir;
 }
 
-function run(args: string[], cwd: string): { stdout: string; exitCode: number } {
-  try {
-    const stdout = execFileSync(process.execPath, [CLI, ...args], {
-      cwd,
-      encoding: "utf-8",
-      timeout: 30_000,
-      env: { ...process.env, NO_COLOR: "1" },
-    });
-    return { stdout, exitCode: 0 };
-  } catch (err: unknown) {
-    const e = err as { status?: number; stdout?: string; stderr?: string };
-    return { stdout: (e.stdout ?? "") + (e.stderr ?? ""), exitCode: e.status ?? 1 };
-  }
+function run(args: string[], cwd: string): { stdout: string; stdoutRaw: string; stderr: string; exitCode: number } {
+  const result = spawnSync(process.execPath, [CLI, ...args], {
+    cwd,
+    encoding: "utf-8",
+    timeout: 30_000,
+    env: { ...process.env, NO_COLOR: "1" },
+  });
+
+  const stdoutRaw = result.stdout ?? "";
+  const stderr = `${result.stderr ?? ""}${result.error ? result.error.message : ""}`;
+  return {
+    stdout: `${stdoutRaw}${stderr}`,
+    stdoutRaw,
+    stderr,
+    exitCode: result.status ?? 1,
+  };
 }
 
 describe("fix command", () => {
@@ -86,7 +89,7 @@ describe("fix command", () => {
     assert.ok(stdout.includes("pass") || stdout.includes("nothing to fix"), stdout);
   });
 
-  it("should create .bak backup when --apply is used", () => {
+  it("should apply a verified mock fix and create a backup when --apply is used", () => {
     const dir = makeTmpProject();
     tmpDirs.push(dir);
 
@@ -101,16 +104,74 @@ describe("fix command", () => {
     fs.writeFileSync(path.join(dir, "cart.js"), buggySource);
 
     // Infer and run fix with --apply
-    run(["infer", "--mock", "cart.js"], dir);
-    run(["fix", "--mock", "--apply", "cart.js"], dir);
+    const inferResult = run(["infer", "--mock", "cart.js"], dir);
+    assert.equal(inferResult.exitCode, 0, inferResult.stdout);
 
-    // Check that .bak file was created
+    const fixResult = run(["fix", "--mock", "--apply", "cart.js"], dir);
+    assert.equal(fixResult.exitCode, 0, fixResult.stdout);
+
+    // Check that .bak file was created and the source was updated
     const bakPath = path.join(dir, "cart.js.bak");
-    if (fs.existsSync(bakPath)) {
-      const bakContent = fs.readFileSync(bakPath, "utf-8");
-      assert.equal(bakContent, buggySource, "Backup should contain original source");
-    }
-    // Note: if all properties pass, --apply won't trigger, which is also valid
+    assert.ok(fs.existsSync(bakPath), "Backup should be created for applied fixes");
+    const bakContent = fs.readFileSync(bakPath, "utf-8");
+    assert.equal(bakContent, buggySource, "Backup should contain original source");
+
+    const fixedSource = fs.readFileSync(path.join(dir, "cart.js"), "utf-8");
+    assert.notEqual(fixedSource, buggySource, "Applied fix should update the target file");
+    assert.match(fixedSource, /normalizedDiscount/);
+  });
+
+  it("should emit machine-readable JSON when nothing needs fixing", () => {
+    const dir = makeTmpProject();
+    tmpDirs.push(dir);
+
+    const source = `function add(a, b) { return a + b; }\nmodule.exports = { add };\n`;
+    fs.writeFileSync(path.join(dir, "math.js"), source);
+    const inferResult = run(["infer", "--mock", "math.js"], dir);
+    assert.equal(inferResult.exitCode, 0, inferResult.stdout);
+
+    const result = run(["fix", "--mock", "--json", "math.js"], dir);
+    assert.equal(result.exitCode, 0, result.stdout);
+    const payload = JSON.parse(result.stdoutRaw) as { status: string; failureCount: number };
+    assert.equal(payload.status, "nothing_to_fix");
+    assert.equal(payload.failureCount, 0);
+  });
+
+  it("should emit machine-readable JSON for a verified fix", () => {
+    const dir = makeTmpProject();
+    tmpDirs.push(dir);
+
+    const buggySource = [
+      "function applyDiscount(price, discount) {",
+      "  return price * (1 - discount / 100);",
+      "}",
+      "module.exports = { applyDiscount };",
+    ].join("\n");
+    fs.writeFileSync(path.join(dir, "cart.js"), buggySource);
+    const inferResult = run(["infer", "--mock", "cart.js"], dir);
+    assert.equal(inferResult.exitCode, 0, inferResult.stdout);
+
+    const result = run(["fix", "--mock", "--json", "cart.js"], dir);
+    assert.equal(result.exitCode, 0, result.stdout);
+    const payload = JSON.parse(result.stdoutRaw) as {
+      status: string;
+      verification: { failed: number; errors: number } | null;
+    };
+    assert.equal(payload.status, "fixed");
+    assert.notEqual(payload.verification, null);
+    assert.equal(payload.verification!.failed, 0);
+    assert.equal(payload.verification!.errors, 0);
+  });
+
+  it("should exit 2 for out-of-range --max-attempts", () => {
+    const dir = makeTmpProject();
+    tmpDirs.push(dir);
+
+    fs.writeFileSync(path.join(dir, "test.js"), "function add(a, b) { return a + b; }\nmodule.exports = { add };\n");
+
+    const { exitCode, stdout } = run(["fix", "--mock", "--max-attempts", "6", "test.js"], dir);
+    assert.equal(exitCode, 2);
+    assert.ok(stdout.includes("--max-attempts"), stdout);
   });
 
   it("should exit 2 for --property with nonexistent ID", () => {

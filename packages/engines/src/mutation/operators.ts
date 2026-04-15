@@ -88,6 +88,7 @@ const MUTATION_OPERATORS: readonly MutationPattern[] = [
  * Only mutates function bodies, skips comments and imports.
  */
 export function generateMutants(source: string, filePath: string): readonly Mutant[] {
+  void filePath;
   const mutants: Mutant[] = [];
   const lines = source.split("\n");
   let mutantId = 0;

@@ -3,8 +3,8 @@
  */
 
 import { z } from "zod";
-import type { PropertyDefinition, PropertyCategory, GeneratorSpec, SeedInput } from "@propcheck/common";
-import { hashContent, validateAssertion, validateGeneratorKey } from "@propcheck/common";
+import type { PropertyDefinition, PropertyCategory, GeneratorSpec, SeedInput, PropertyEvidenceSource } from "@propcheck/common";
+import { validateAssertion, validateGeneratorKey } from "@propcheck/common";
 
 const VALID_CATEGORIES: PropertyCategory[] = [
   "roundtrip", "idempotent", "conservation", "monotonic",
@@ -13,7 +13,15 @@ const VALID_CATEGORIES: PropertyCategory[] = [
 ];
 
 const SeedInputSchema = z.object({
-  label: z.enum(["normal", "boundary", "extreme"]),
+  label: z.string().transform((val) => {
+    // Normalize LLM-generated labels to the expected enum values
+    const lower = val.toLowerCase();
+    // Check extreme first — "max_value", "very large", "special unicode" → extreme
+    if (lower.includes("extreme") || lower.includes("large") || lower.includes("long") || lower.includes("special") || lower.includes("unicode") || lower.includes("huge") || lower.includes("overflow")) return "extreme" as const;
+    // Then boundary — "edge", "empty", "zero", "min", "max" → boundary
+    if (lower.includes("boundary") || lower.includes("edge") || lower.includes("empty") || lower.includes("zero") || lower === "min" || lower === "max") return "boundary" as const;
+    return "normal" as const;
+  }),
   value: z.unknown(),
 });
 
@@ -41,6 +49,8 @@ const RawPropertySchema = z.object({
   seedInputs: z.array(SeedInputSchema).min(1).max(20),
   evidence: z.string().max(500),
   confidence: z.number().min(0).max(1),
+  evidenceSource: z.enum(["code", "doc", "spec", "domain", "mixed"]).optional(),
+  relatedFunctions: z.array(z.string().max(200)).max(10).optional(),
 });
 
 const ResponseSchema = z.object({
@@ -272,6 +282,7 @@ function parsePropertyArray(
 ): readonly PropertyDefinition[] {
   const results: PropertyDefinition[] = [];
   let counter = 1;
+  let droppedUnsafeCount = 0;
 
   for (const item of items) {
     const normalized = normalizeRawProperty(item);
@@ -285,7 +296,7 @@ function parsePropertyArray(
     // Validate assertion safety
     const assertionCheck = validateAssertion(raw.assertion);
     if (!assertionCheck.valid) {
-      console.warn(`[propcheck] Dropped unsafe property "${raw.targetFunction}": ${assertionCheck.reason}`);
+      droppedUnsafeCount++;
       continue;
     }
 
@@ -340,10 +351,18 @@ function parsePropertyArray(
       status: "accepted",
       confidence: raw.confidence,
       evidence: raw.evidence,
+      evidenceSource: (raw.evidenceSource ?? "code") as PropertyEvidenceSource,
+      ...(raw.relatedFunctions && raw.relatedFunctions.length > 0
+        ? { relatedFunctions: Object.freeze(raw.relatedFunctions) }
+        : {}),
       sourceHash: options.sourceHash,
       inferredAt: new Date().toISOString(),
       modelId: options.modelId,
     });
+  }
+
+  if (droppedUnsafeCount > 0) {
+    console.warn(`[propcheck] Filtered ${droppedUnsafeCount} candidate${droppedUnsafeCount === 1 ? "" : "s"} with unsafe assertion patterns`);
   }
 
   return results;

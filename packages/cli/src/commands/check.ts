@@ -7,7 +7,6 @@
  * Usage: propcheck check <target>
  */
 
-import * as path from "node:path";
 import { initStore } from "@propcheck/store";
 import { inferCommand } from "./infer";
 import { runCommand } from "./run";
@@ -40,9 +39,22 @@ export async function checkCommand(
   });
 
   // Step 3: Run the properties
-  await runCommand(target, {
+  const exitCode = await runCommand(target, {
     quick: options.quick,
     thorough: options.thorough,
     json: options.json,
+    function: options.function,
+    suppressExit: true,
   });
+
+  if (exitCode === 0 && !options.json) {
+    console.log("  Next steps:");
+    console.log(`    propcheck props ${target}     # inspect saved properties and statuses`);
+    console.log(`    propcheck infer ${target}     # switch from mock inference to real AI`);
+    console.log(`    propcheck run ${target}       # re-run stored properties later\n`);
+  }
+
+  if (exitCode !== 0) {
+    process.exit(exitCode);
+  }
 }

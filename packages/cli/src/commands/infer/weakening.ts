@@ -127,7 +127,7 @@ function tightenWideNumericGenerators(generators: Readonly<Record<string, Genera
 }
 
 function refreshRiskMetadata(property: PropertyDefinition): PropertyDefinition {
-  const preservedTags = property.riskTags.filter((tag) => tag === "doc_domain_mismatch" || tag === "missing_precondition");
+  const preservedTags = property.riskTags.filter((tag) => tag === "doc_domain_mismatch" || tag === "missing_precondition" || tag === "spec_code_conflict");
   const riskTags = [...new Set([...detectRiskTags(property), ...preservedTags])];
   return { ...property, riskTags, riskScore: computeRiskScore(property, property.score, riskTags) };
 }
@@ -175,9 +175,66 @@ export function detectDocDomainRiskTags(property: PropertyDefinition, context: A
   return [];
 }
 
+function findMatchingSpecSignal(property: PropertyDefinition, context: AnalysisContext) {
+  const functionName = property.targetFunction.split(".").pop() ?? property.targetFunction;
+  return context.spec?.functions.find(
+    (entry) => entry.functionName === property.targetFunction || entry.functionName === functionName,
+  );
+}
+
+function violatesSpecRange(spec: GeneratorSpec, minValue: number, maxValue: number): boolean {
+  if (isNumericSpec(spec)) {
+    const { min, max } = getNumericBounds(spec);
+    return min === undefined || max === undefined || min < minValue || max > maxValue;
+  }
+
+  if (spec.type === "array") {
+    const c = spec.constraints ?? {};
+    const elementType = c.element ?? c.elementType;
+    if (elementType === "float" || elementType === "number" || elementType === "integer" || elementType === "int") {
+      const min = typeof (c.elementMin ?? c.min) === "number" ? Number(c.elementMin ?? c.min) : undefined;
+      const max = typeof (c.elementMax ?? c.max) === "number" ? Number(c.elementMax ?? c.max) : undefined;
+      return min === undefined || max === undefined || min < minValue || max > maxValue;
+    }
+  }
+
+  return false;
+}
+
+function detectSpecRiskTags(property: PropertyDefinition, context: AnalysisContext): readonly PropertyRiskTag[] {
+  const specSignal = findMatchingSpecSignal(property, context);
+  if (!specSignal) return [];
+
+  const hasConstraintConflict = specSignal.constraints.some((constraint) => {
+    if (constraint.kind === "non-negative" || constraint.kind === "positive") {
+      return property.assertion.includes("< 0") || property.assertion.includes("<= -") || /negative/i.test(property.description);
+    }
+    if (constraint.kind === "range" && constraint.min !== undefined && constraint.max !== undefined) {
+      return Object.values(property.generators).some((spec) => violatesSpecRange(spec, constraint.min!, constraint.max!));
+    }
+    return false;
+  });
+
+  return hasConstraintConflict ? ["spec_code_conflict"] : [];
+}
+
 export function applyRiskMetadata(properties: readonly PropertyDefinition[], context: AnalysisContext): readonly PropertyDefinition[] {
   return properties.map((property) => {
-    const riskTags = [...new Set([...property.riskTags, ...detectDocDomainRiskTags(property, context)])];
-    return { ...property, riskTags, riskScore: computeRiskScore(property, property.score, riskTags), status: riskTags.length > 0 ? "risky" as const : "accepted" as const };
+    const specSignal = findMatchingSpecSignal(property, context);
+    const evidenceSource = specSignal && property.evidenceSource === "code"
+      ? "mixed"
+      : property.evidenceSource;
+    const riskTags = [...new Set([
+      ...property.riskTags,
+      ...detectDocDomainRiskTags(property, context),
+      ...detectSpecRiskTags(property, context),
+    ])];
+    return {
+      ...property,
+      evidenceSource,
+      riskTags,
+      riskScore: computeRiskScore(property, property.score, riskTags),
+      status: riskTags.length > 0 ? "risky" as const : "accepted" as const,
+    };
   });
 }

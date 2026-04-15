@@ -3,10 +3,24 @@
  */
 
 import chalk from "chalk";
-import { getAvailableDomains, getTemplateStats } from "@propcheck/llm";
+import { getTemplateStats } from "@propcheck/llm";
 
-export async function templatesCommand(options: { json?: boolean }): Promise<void> {
-  const stats = getTemplateStats();
+interface TemplatesOptions {
+  json?: boolean;
+  domain?: string;
+}
+
+export async function templatesCommand(options: TemplatesOptions): Promise<void> {
+  const allStats = getTemplateStats();
+  const stats = options.domain
+    ? allStats.filter((entry) => entry.domain === options.domain)
+    : allStats;
+
+  if (stats.length === 0) {
+    console.error(`\n  Unknown template domain: ${options.domain}`);
+    console.error("  Run: propcheck templates\n");
+    process.exit(2);
+  }
 
   if (options.json) {
     console.log(JSON.stringify(stats, null, 2));
@@ -15,7 +29,7 @@ export async function templatesCommand(options: { json?: boolean }): Promise<voi
 
   console.log(chalk.bold("\n  Community Property Templates\n"));
   console.log(chalk.dim("  Templates provide curated property patterns for common function types."));
-  console.log(chalk.dim("  They are used automatically in --mock mode when a function name matches.\n"));
+  console.log(chalk.dim("  They are used automatically to seed inference, and in --mock mode when a function name matches.\n"));
 
   const maxDomainLen = Math.max(...stats.map((s) => s.domain.length));
 

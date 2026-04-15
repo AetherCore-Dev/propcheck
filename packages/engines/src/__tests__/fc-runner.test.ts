@@ -76,7 +76,9 @@ describe("fc-runner .mts lifecycle", () => {
       assert.equal(fs.existsSync(mtsFile), false, ".mts file should be cleaned up after run");
     } finally {
       // Cleanup
-      try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+      try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {
+      // Ignore cleanup errors in temp directories.
+    }
     }
   });
 
@@ -101,7 +103,9 @@ describe("fc-runner .mts lifecycle", () => {
       // .mts should never have been created
       assert.equal(fs.existsSync(mtsFile), false, ".mts file should not exist");
     } finally {
-      try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+      try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {
+      // Ignore cleanup errors in temp directories.
+    }
     }
   });
 
@@ -127,7 +131,9 @@ describe("fc-runner .mts lifecycle", () => {
       // .mts should still be cleaned up
       assert.equal(fs.existsSync(mtsFile), false, ".mts file should be cleaned up after failed run");
     } finally {
-      try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+      try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {
+      // Ignore cleanup errors in temp directories.
+    }
     }
   });
 });
@@ -152,7 +158,9 @@ describe("generateFastCheckTest test generation", () => {
       assert.ok(generated.content.includes("prop_002"));
       assert.ok(generated.fileName);
     } finally {
-      try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+      try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {
+      // Ignore cleanup errors in temp directories.
+    }
     }
   });
 
@@ -170,7 +178,9 @@ describe("generateFastCheckTest test generation", () => {
       assert.ok(generated.content.length > 0, "Should produce non-empty test content");
       assert.ok(generated.content.includes("prop_001"), "Should include property ID");
     } finally {
-      try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+      try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {
+      // Ignore cleanup errors in temp directories.
+    }
     }
   });
 });

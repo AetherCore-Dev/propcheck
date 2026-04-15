@@ -34,6 +34,7 @@ function makeProp(overrides: Partial<PropertyDefinition> = {}): PropertyDefiniti
     sourceHash: "abc",
     inferredAt: "2026-01-01",
     modelId: "test",
+    evidenceSource: "code",
     ...overrides,
   };
 }
@@ -153,6 +154,12 @@ describe("scoreProperty — edge cases", () => {
 });
 
 describe("detectRiskTags — edge cases", () => {
+  it("should give a bonus to spec-backed properties", () => {
+    const codeScore = scoreProperty(makeProp({ evidenceSource: "code", confidence: 0.4 }));
+    const specScore = scoreProperty(makeProp({ evidenceSource: "spec", confidence: 0.4 }));
+    assert.ok(specScore > codeScore, `Spec-backed property should score higher: ${specScore} vs ${codeScore}`);
+  });
+
   it("should detect float_exact_equality with number type", () => {
     const tags = detectRiskTags(makeProp({
       assertion: "fn(x) === fn(y)",
